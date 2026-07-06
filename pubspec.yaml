@@ -1,0 +1,23 @@
+name: streamer_aurora
+description: "Minimal media_kit iOS smoke-test app (delete once it passes)."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Verified current stable on pub.dev at time of writing.
+  media_kit: ^1.2.6            # core player (libmpv backend)
+  media_kit_video: ^2.0.1      # Video widget + VideoController
+  media_kit_libs_video: ^1.0.7 # universal native libs; pulls media_kit_libs_ios_video for iOS
+
+dev_dependencies:
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

@@ -14,31 +14,24 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          # Pin for reproducibility. Bump deliberately; README records the version.
-          flutter-version: '3.24.5'
+          # Pin = the locally installed version; bump both together.
+          flutter-version: '3.44.8'
           cache: true
 
       - run: flutter --version
 
-      # The repo commits only the iOS files that are actual edits (Info.plist ATS,
-      # Podfile). Generate the rest of the iOS scaffold (pbxproj, storyboards,
-      # xcworkspace, xcconfigs). `--platforms=ios` touches only ios/, never lib/.
-      - name: Generate iOS scaffold
-        run: flutter create --platforms=ios --project-name streamer_aurora --org com.example .
-
-      # Re-assert ATS + iOS 13.0 deployment target in case the generator
-      # overwrote our committed Info.plist / Podfile. Idempotent.
-      - name: Apply iOS config (ATS + deployment target)
+      # The ios/ scaffold is committed. Re-assert ATS + the 13.0 deployment
+      # target anyway — idempotent insurance against scaffold regeneration.
+      - name: Assert iOS config (ATS + deployment target)
         run: bash tool/patch_ios.sh
 
       - run: flutter pub get
 
       # Compile without code signing. `pod install` runs automatically.
-      # NOTE: `flutter build ipa --no-codesign` does NOT emit an .ipa (it needs a
-      # team id), so we build the .app and package the IPA manually below.
+      # NOTE: `flutter build ipa --no-codesign` does NOT emit an .ipa (it needs
+      # a team id), so we build the .app and package the IPA manually below.
       - run: flutter build ios --release --no-codesign
 
-      # Package the .app into an unsigned .ipa via the Payload/ zip trick.
       - name: Package unsigned IPA
         run: |
           cd build/ios/iphoneos

@@ -19,11 +19,20 @@ PBXPROJ="$ROOT/ios/Runner.xcodeproj/project.pbxproj"
 
 echo "==> Patching Info.plist ATS: $PLIST"
 if [ -f "$PLIST" ]; then
-  # Remove any existing ATS block, then add the permissive one. PlistBuddy is
-  # present on macOS runners; Delete is tolerant of a missing key.
-  /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
-  /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$PLIST"
-  /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$PLIST"
+  if [ -x /usr/libexec/PlistBuddy ]; then
+    # Remove any existing ATS block, then add the permissive one. PlistBuddy is
+    # present on macOS runners; Delete is tolerant of a missing key.
+    /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$PLIST"
+  elif grep -q "NSAllowsArbitraryLoads" "$PLIST"; then
+    # Off-macOS (Windows dev box): can't rewrite the plist, but the committed
+    # one already carries the ATS block — nothing to do.
+    echo "    PlistBuddy unavailable; ATS block already present, skipping."
+  else
+    echo "!! PlistBuddy unavailable and $PLIST has no ATS block — fix it manually" >&2
+    exit 1
+  fi
 else
   echo "!! $PLIST not found (run 'flutter create --platforms=ios .' first)" >&2
   exit 1

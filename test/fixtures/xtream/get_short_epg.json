@@ -1,0 +1,29 @@
+{
+  "epg_listings": [
+    {
+      "id": "9001",
+      "epg_id": "12",
+      "title": "TmV3cw==",
+      "lang": "",
+      "start": "2026-07-24 20:00:00",
+      "end": "2026-07-24 21:00:00",
+      "description": "RXZlbmluZyBuZXdz",
+      "channel_id": "npo1.nl",
+      "start_timestamp": "1753380000",
+      "stop_timestamp": "1753383600"
+    },
+    {
+      "id": "9002",
+      "title": "Plain text title",
+      "description": null,
+      "channel_id": "npo1.nl",
+      "start_timestamp": 1753383600,
+      "stop_timestamp": 1753387200
+    },
+    {
+      "id": "9003",
+      "title": "U3BvcnRz",
+      "channel_id": "npo1.nl"
+    }
+  ]
+}

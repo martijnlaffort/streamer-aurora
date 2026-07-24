@@ -14,6 +14,8 @@ class Movie extends Equatable {
     this.rating,
     this.year,
     this.plot,
+    this.genre,
+    this.cast,
     this.durationSeconds,
     this.containerExt,
     this.addedAt,
@@ -28,6 +30,12 @@ class Movie extends Equatable {
   final double? rating;
   final int? year;
   final String? plot;
+
+  /// Freeform, as panels provide it ("Action / Drama").
+  final String? genre;
+
+  /// Freeform comma-separated names.
+  final String? cast;
   final int? durationSeconds;
 
   /// Xtream `container_extension` — needed to build the stream URL (PRD §6.1).
@@ -50,6 +58,8 @@ class Movie extends Equatable {
         rating,
         year,
         plot,
+        genre,
+        cast,
         durationSeconds,
         containerExt,
         addedAt,

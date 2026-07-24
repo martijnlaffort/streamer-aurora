@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -10,19 +12,37 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Aurora', style: AppTypography.display),
-            SizedBox(height: 8),
-            Text(
-              'Something beautiful is coming.',
-              style: TextStyle(color: AppColors.textSecondary),
+    return Scaffold(
+      body: Stack(
+        children: [
+          const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Aurora', style: AppTypography.display),
+                SizedBox(height: 8),
+                Text(
+                  'Something beautiful is coming.',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          // Dev-only entry to the source probe harness (Task 0.2).
+          if (kDebugMode)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: SafeArea(
+                child: IconButton(
+                  icon: const Icon(Icons.bug_report_outlined,
+                      color: AppColors.textSecondary),
+                  tooltip: 'Source probe',
+                  onPressed: () => context.push('/dev/source-probe'),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

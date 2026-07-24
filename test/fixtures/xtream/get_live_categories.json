@@ -1,0 +1,7 @@
+[
+  {"category_id": "4", "category_name": "NL | ALGEMEEN", "parent_id": 0},
+  {"category_id": 7, "category_name": "SPORT", "parent_id": 0},
+  {"category_id": "9", "category_name": "", "parent_id": 0},
+  {"category_name": "MISSING ID", "parent_id": 0},
+  "not-an-object"
+]

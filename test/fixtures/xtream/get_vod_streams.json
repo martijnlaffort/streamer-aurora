@@ -1,0 +1,25 @@
+[
+  {
+    "num": 1,
+    "name": "Some Movie (2024)",
+    "stream_type": "movie",
+    "stream_id": 1001,
+    "stream_icon": "http://cdn.example.com/movie1.jpg",
+    "rating": "7.2",
+    "rating_5based": 3.6,
+    "added": "1690000000",
+    "category_id": "12",
+    "container_extension": "mkv"
+  },
+  {
+    "num": 2,
+    "name": "Other Movie",
+    "stream_id": "1002",
+    "rating": 6,
+    "added": 1700000000,
+    "category_id": "12",
+    "container_extension": "mp4",
+    "year": "2023"
+  },
+  {"stream_icon": "http://cdn.example.com/broken.jpg", "rating": "not-a-number"}
+]

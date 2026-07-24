@@ -270,3 +270,6 @@ Build these as their own one-task-at-a-time prompts once Phase 1 is stable on yo
   rename later if wanted).
 - Local toolchain lives on D: (`D:\dev\flutter`, `D:\Android\sdk`); Flutter pinned 3.44.8
   locally and in CI.
+- Task 0.2: added `genre`/`cast` to Movie and Series (get_vod_info/get_series provide them;
+  detail pages per PRD §8.7 need them) and a `SeriesDetail` aggregate for get_series_info.
+  The dev harness lives at `/dev/source-probe` (bug icon on Home, debug builds only).

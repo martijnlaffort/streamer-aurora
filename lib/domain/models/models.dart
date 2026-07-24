@@ -12,5 +12,6 @@ export 'movie.dart';
 export 'preferences.dart';
 export 'season.dart';
 export 'series.dart';
+export 'series_detail.dart';
 export 'stream_ref.dart';
 export 'watch_progress.dart';

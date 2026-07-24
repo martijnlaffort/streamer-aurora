@@ -14,6 +14,8 @@ class Series extends Equatable {
     this.rating,
     this.year,
     this.plot,
+    this.genre,
+    this.cast,
   });
 
   final String id;
@@ -25,6 +27,12 @@ class Series extends Equatable {
   final double? rating;
   final int? year;
   final String? plot;
+
+  /// Freeform, as panels provide it ("Drama").
+  final String? genre;
+
+  /// Freeform comma-separated names.
+  final String? cast;
 
   /// When this row was cached locally (UTC) — drives the cache TTL.
   final DateTime cachedAt;
@@ -40,6 +48,8 @@ class Series extends Equatable {
         rating,
         year,
         plot,
+        genre,
+        cast,
         cachedAt,
       ];
 

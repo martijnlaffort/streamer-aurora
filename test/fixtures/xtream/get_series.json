@@ -1,0 +1,24 @@
+[
+  {
+    "num": 1,
+    "name": "Great Show",
+    "series_id": 15,
+    "cover": "http://cdn.example.com/show15.jpg",
+    "plot": "A show about things.",
+    "cast": "Actor X, Actor Y",
+    "genre": "Drama",
+    "releaseDate": "2020-01-01",
+    "rating": "8",
+    "backdrop_path": ["http://cdn.example.com/show15-bd.jpg"],
+    "category_id": "9"
+  },
+  {
+    "num": 2,
+    "name": "Other Show",
+    "series_id": "16",
+    "cover": null,
+    "rating": null,
+    "category_id": 9
+  },
+  {"name": "BROKEN — no series_id"}
+]

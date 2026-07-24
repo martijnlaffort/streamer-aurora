@@ -1,0 +1,58 @@
+{
+  "seasons": [
+    {
+      "id": 100,
+      "name": "Season 1",
+      "season_number": 1,
+      "episode_count": 2,
+      "cover": "http://cdn.example.com/show15-s1.jpg"
+    },
+    {"name": "BROKEN — no season_number"}
+  ],
+  "info": {
+    "name": "Great Show",
+    "cover": "http://cdn.example.com/show15.jpg",
+    "plot": "A show about things.",
+    "cast": "Actor X, Actor Y",
+    "genre": "Drama",
+    "releaseDate": "2020-01-01",
+    "rating": "8",
+    "category_id": "9"
+  },
+  "episodes": {
+    "1": [
+      {
+        "id": "5001",
+        "episode_num": 1,
+        "title": "S01E01 - Pilot",
+        "container_extension": "mkv",
+        "info": {
+          "releasedate": "2020-01-01",
+          "plot": "The pilot.",
+          "duration_secs": 2700,
+          "movie_image": "http://cdn.example.com/e5001.jpg"
+        },
+        "added": "1690000000",
+        "season": 1
+      },
+      {
+        "id": 5002,
+        "episode_num": "2",
+        "title": "S01E02 - Second",
+        "container_extension": "mkv",
+        "info": {},
+        "season": 1
+      }
+    ],
+    "2": [
+      {
+        "id": "5010",
+        "episode_num": 1,
+        "title": "S02E01 - Return",
+        "container_extension": "mp4",
+        "info": {"duration_secs": "2600"}
+      },
+      {"title": "BROKEN — no id"}
+    ]
+  }
+}

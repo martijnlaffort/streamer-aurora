@@ -1,0 +1,29 @@
+{
+  "info": {
+    "name": "Some Movie",
+    "o_name": "Some Movie Original",
+    "movie_image": "http://cdn.example.com/movie1-poster.jpg",
+    "releasedate": "2024-05-01",
+    "youtube_trailer": "abc",
+    "director": "Jane Doe",
+    "actors": "Actor A, Actor B",
+    "cast": "Actor A, Actor B, Actor C",
+    "description": "Short description.",
+    "plot": "A longer plot line.",
+    "age": "16",
+    "country": "NL",
+    "genre": "Action / Drama",
+    "backdrop_path": ["http://cdn.example.com/movie1-backdrop.jpg"],
+    "duration_secs": 7260,
+    "duration": "02:01:00",
+    "rating": "7.2"
+  },
+  "movie_data": {
+    "stream_id": 1001,
+    "name": "Some Movie (2024)",
+    "added": "1690000000",
+    "category_id": "12",
+    "container_extension": "mkv",
+    "direct_source": ""
+  }
+}

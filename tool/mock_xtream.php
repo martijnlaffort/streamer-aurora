@@ -192,6 +192,18 @@ if ($path === '/player_api.php') {
     }
 }
 
+// --- M3U playlist (for testing the M3uSource path) ---------------------------
+if ($path === '/playlist.m3u') {
+    header('Content-Type: application/x-mpegurl');
+    $host = $_SERVER['HTTP_HOST'] ?? '127.0.0.1:8082';
+    echo "#EXTM3U\n";
+    foreach ($LIVE as $id => $ch) {
+        echo "#EXTINF:-1 tvg-id=\"{$ch['epg']}\" group-title=\"Test Live\",{$ch['name']}\n";
+        echo "http://$host/live/aurora/test/$id.ts\n";
+    }
+    exit;
+}
+
 // --- Stream endpoints: redirect to the real public stream --------------------
 if (preg_match('#^/(live|movie|series)/([^/]+)/([^/]+)/(\d+)\.\w+$#', $path, $m)) {
     [, $kind, $user, $pass, $id] = $m;

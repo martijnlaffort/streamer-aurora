@@ -27,6 +27,7 @@ void main() {
         username: 'user',
         password: 'secret-password',
         createdAt: DateTime.utc(2026, 1, 1),
+        epgUrl: 'http://epg.example.com/x.xml',
       );
 
   setUp(() {
@@ -47,7 +48,7 @@ void main() {
   group('AccountRepository (DoD: credentials live in secure storage)', () {
     test('password is stored in the credential store, never in the DB', () async {
       final repo = AccountRepository(db: db, credentials: credentials);
-      await repo.saveAccount(account(), epgUrl: 'http://epg.example.com/x.xml');
+      await repo.saveAccount(account());
 
       final rawRow = await db.accountsTable.select().getSingle();
       expect(credentials.passwords['acc1'], 'secret-password');

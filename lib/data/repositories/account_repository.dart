@@ -16,11 +16,9 @@ class AccountRepository {
   final CredentialStore _credentials;
 
   /// Upserts the account row and stores the password in secure storage.
-  /// [epgUrl] is the optional XMLTV url for M3U accounts.
-  Future<void> saveAccount(Account account, {String? epgUrl}) async {
+  Future<void> saveAccount(Account account) async {
     await _credentials.savePassword(account.id, account.password);
-    await _db.accountsTable
-        .insertOnConflictUpdate(account.toCompanion(epgUrl: epgUrl));
+    await _db.accountsTable.insertOnConflictUpdate(account.toCompanion());
   }
 
   Future<List<Account>> getAccounts() async {
@@ -37,14 +35,6 @@ class AccountRepository {
         .getSingleOrNull();
     if (row == null) return null;
     return row.toModel(password: await _credentials.readPassword(id) ?? '');
-  }
-
-  /// The stored XMLTV EPG url for an (M3U) account, if any.
-  Future<String?> getEpgUrl(String id) async {
-    final row = await (_db.accountsTable.select()
-          ..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
-    return row?.epgUrl;
   }
 
   /// Removes the account, its credential, and every trace of its catalog,

@@ -16,6 +16,7 @@ class Account extends Equatable {
     required this.username,
     required this.password,
     required this.createdAt,
+    this.epgUrl,
   });
 
   final String id;
@@ -32,9 +33,12 @@ class Account extends Equatable {
   /// UTC.
   final DateTime createdAt;
 
+  /// Optional XMLTV EPG url (M3U accounts only).
+  final String? epgUrl;
+
   @override
   List<Object?> get props =>
-      [id, type, name, serverUrl, username, password, createdAt];
+      [id, type, name, serverUrl, username, password, createdAt, epgUrl];
 
   @override
   bool get stringify => true;

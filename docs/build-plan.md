@@ -270,6 +270,10 @@ Build these as their own one-task-at-a-time prompts once Phase 1 is stable on yo
   rename later if wanted).
 - Local toolchain lives on D: (`D:\dev\flutter`, `D:\Android\sdk`); Flutter pinned 3.44.8
   locally and in CI.
+- Task 0.5: `epgUrl` moved onto the Account model so sources are constructible from the
+  account alone. M3U "file" input is a path/URL text field for now (a file picker needs a
+  plugin — revisit when mobile UX matters). The mock panel also serves `/playlist.m3u` for
+  testing the M3U path end-to-end.
 - Task 0.2: added `genre`/`cast` to Movie and Series (get_vod_info/get_series provide them;
   detail pages per PRD §8.7 need them) and a `SeriesDetail` aggregate for get_series_info.
   The dev harness lives at `/dev/source-probe` (bug icon on Home, debug builds only).

@@ -29,12 +29,12 @@ extension AccountRowMapper on AccountRow {
         username: username,
         password: password,
         createdAt: fromUtcMillis(createdAtMillisUtc),
+        epgUrl: epgUrl,
       );
 }
 
 extension AccountMapper on Account {
-  AccountsTableCompanion toCompanion({String? epgUrl}) =>
-      AccountsTableCompanion.insert(
+  AccountsTableCompanion toCompanion() => AccountsTableCompanion.insert(
         id: id,
         type: type,
         name: name,

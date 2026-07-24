@@ -1,0 +1,13 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="ch1" group-title="Live TV",Channel One
+http://host.example.com/live/ch1.m3u8
+#EXTINF:-1 group-title="Movies | Action",Die Hard (1988)
+http://host.example.com/vod/diehard.mp4
+#EXTINF:-1 group-title="Movies | Action" tvg-logo="http://logo.example.com/matrix.jpg",The Matrix (1999)
+http://host.example.com/vod/matrix.mkv
+# the section below is deliberately malformed
+#EXTINF:-1 group-title="Broken",Missing URL entry
+#EXTINF:-1 group-title="Live TV",Channel Two
+http://host.example.com/live/ch2.ts
+http://host.example.com/orphan/url.ts
+#EXTINF:-1 group-title="Broken",Trailing entry without url

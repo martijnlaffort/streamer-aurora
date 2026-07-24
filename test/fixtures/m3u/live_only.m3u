@@ -1,0 +1,13 @@
+#EXTM3U url-tvg="http://epg.example.com/guide.xml"
+#EXTINF:-1 tvg-id="npo1.nl" tvg-name="NPO 1" tvg-logo="http://logo.example.com/npo1.png" group-title="NL | Algemeen",NPO 1 HD
+http://stream.example.com/npo1/index.m3u8
+#EXTINF:-1 tvg-id="rtl4.nl" tvg-logo="http://logo.example.com/rtl4.png" group-title="NL | Algemeen",RTL 4
+http://stream.example.com/rtl4.ts
+
+#EXTINF:-1 tvg-id="" group-title="Sports",Formula 1: Practice, Qualifying & Race
+http://stream.example.com/f1
+#EXTINF:-1,No Attrs Channel
+http://stream.example.com/noattrs.m3u8
+#EXTINF:-1 tvg-id="doc.one",Documentary One
+#EXTGRP:Docs
+http://stream.example.com/docs1.ts

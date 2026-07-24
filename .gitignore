@@ -26,16 +26,24 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
-pubspec.lock
+# pubspec.lock is committed — this is an app; the lock records verified versions
 
 # Symbolication / Obfuscation
 app.*.symbols
 app.*.map.json
 
-# Android (not used here)
+# Android
 **/android/**/gradle-wrapper.jar
 .gradle/
 **/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/key.properties
+*.keystore
+*.jks
+
+# Windows
+**/windows/flutter/ephemeral/
+**/windows/flutter/generated_plugin*
 
 # iOS/Xcode
 **/ios/**/*.mode1v3

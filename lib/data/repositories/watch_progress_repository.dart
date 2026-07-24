@@ -1,0 +1,100 @@
+import 'package:drift/drift.dart';
+
+import '../../domain/models/models.dart';
+import '../db/app_database.dart';
+import '../db/mappers.dart';
+import 'sync_backend.dart';
+
+/// Watch progress, local-first with a sync seam (PRD §8.9, §9). Local is the
+/// source of truth; when a [ProgressSyncBackend] exists (Phase 2), a
+/// reconciler pushes rows with `syncedAt == null` and pulls newer ones —
+/// last-write-wins by `updatedAt` (UTC).
+class WatchProgressRepository {
+  WatchProgressRepository({
+    required this._db,
+    DateTime Function()? clock,
+    // Accepted but unused until the Phase 2 backend exists.
+    // ignore: avoid_unused_constructor_parameters
+    ProgressSyncBackend? backend,
+  }) : _clock = clock ?? (() => DateTime.now().toUtc());
+
+  final AppDatabase _db;
+  final DateTime Function() _clock;
+
+  /// Resume window per PRD §8.9: outside 5%..95% counts as fresh/finished.
+  static const double resumeMinFraction = 0.05;
+  static const double resumeMaxFraction = 0.95;
+
+  /// Upserts the position for [contentKey], stamping `updatedAt` now (UTC)
+  /// and clearing `syncedAt` (the row is dirty again). Applies the §8.9
+  /// completion rule automatically.
+  Future<WatchProgress> savePosition({
+    required String contentKey,
+    required int positionSeconds,
+    required int durationSeconds,
+  }) async {
+    final completed = durationSeconds > 0 &&
+        positionSeconds / durationSeconds >= resumeMaxFraction;
+    final progress = WatchProgress(
+      contentKey: contentKey,
+      positionSeconds: positionSeconds,
+      durationSeconds: durationSeconds,
+      updatedAt: _clock(),
+      completed: completed,
+    );
+    await _db.watchProgressTable.insertOnConflictUpdate(progress.toCompanion());
+    return progress;
+  }
+
+  Future<WatchProgress?> get(String contentKey) async {
+    final row = await (_db.watchProgressTable.select()
+          ..where((t) => t.contentKey.equals(contentKey)))
+        .getSingleOrNull();
+    return row?.toModel();
+  }
+
+  /// Whether the §8.9 window says this progress warrants a Resume offer.
+  bool shouldOfferResume(WatchProgress? progress) {
+    if (progress == null || progress.completed) return false;
+    if (progress.durationSeconds <= 0) return false;
+    final fraction = progress.positionSeconds / progress.durationSeconds;
+    return fraction > resumeMinFraction && fraction < resumeMaxFraction;
+  }
+
+  /// The Continue Watching rail: unfinished items, most recent first
+  /// (PRD §8.9: sorted by `updated_at` desc).
+  Future<List<WatchProgress>> continueWatching({int limit = 20}) async {
+    final rows = await (_db.watchProgressTable.select()
+          ..where((t) => t.completed.equals(false))
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAtMillisUtc)])
+          ..limit(limit))
+        .get();
+    return rows.map((r) => r.toModel()).toList();
+  }
+
+  /// Marks content finished and drops it from Continue Watching.
+  Future<void> markCompleted(String contentKey) async {
+    await (_db.watchProgressTable.update()
+          ..where((t) => t.contentKey.equals(contentKey)))
+        .write(WatchProgressTableCompanion(
+      completed: const Value(true),
+      updatedAtMillisUtc: Value(utcMillis(_clock())),
+      syncedAtMillisUtc: const Value(null),
+    ));
+  }
+
+  Future<void> remove(String contentKey) async {
+    await (_db.watchProgressTable.delete()
+          ..where((t) => t.contentKey.equals(contentKey)))
+        .go();
+  }
+
+  /// Rows the future reconciler would push (dirty = never synced since the
+  /// last local write).
+  Future<List<WatchProgress>> unsyncedEntries() async {
+    final rows = await (_db.watchProgressTable.select()
+          ..where((t) => t.syncedAtMillisUtc.isNull()))
+        .get();
+    return rows.map((r) => r.toModel()).toList();
+  }
+}

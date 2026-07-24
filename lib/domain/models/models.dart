@@ -5,6 +5,7 @@ library;
 export 'account.dart';
 export 'category.dart';
 export 'channel.dart';
+export 'content_key.dart';
 export 'enums.dart';
 export 'epg_entry.dart';
 export 'episode.dart';

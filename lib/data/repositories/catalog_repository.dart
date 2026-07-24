@@ -196,6 +196,23 @@ class CatalogRepository {
     return (await query.get()).map((r) => r.toModel()).toList();
   }
 
+  /// Cache-only single-row lookup (no source contact) — for resolving
+  /// content keys (Continue Watching, favorites) and detail routes.
+  Future<Movie?> movieById(Account account, String movieId) async {
+    final row = await (_db.moviesTable.select()
+          ..where((t) => t.accountId.equals(account.id) & t.id.equals(movieId)))
+        .getSingleOrNull();
+    return row?.toModel();
+  }
+
+  /// Cache-only single-row lookup (no source contact).
+  Future<Series?> seriesById(Account account, String seriesId) async {
+    final row = await (_db.seriesTable.select()
+          ..where((t) => t.accountId.equals(account.id) & t.id.equals(seriesId)))
+        .getSingleOrNull();
+    return row?.toModel();
+  }
+
   // --- Details (enrich cache; serve cache offline) ---------------------------
 
   /// Full VOD detail: fetches from the source and folds the richer fields

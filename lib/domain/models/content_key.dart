@@ -12,3 +12,16 @@ String contentKeyFor({
 /// The `accountId` component of a content key (for account-scoped cleanup).
 String accountIdOfContentKey(String contentKey) =>
     contentKey.split(':').first;
+
+/// Splits `account:type:id` back into its parts; null if malformed.
+({String accountId, String type, String id})? parseContentKey(
+    String contentKey) {
+  final parts = contentKey.split(':');
+  if (parts.length < 3) return null;
+  return (
+    accountId: parts[0],
+    type: parts[1],
+    // Ids never contain ':' today, but don't truncate if that changes.
+    id: parts.sublist(2).join(':'),
+  );
+}

@@ -26,12 +26,43 @@ $LIVE = [
           'url' => 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8'],
 ];
 
-$MOVIES = [
-    1001 => ['name' => 'Big Buck Bunny (720p clip)',
-             'url' => 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4'],
-    1002 => ['name' => 'Big Buck Bunny (360p clip)',
-             'url' => 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4'],
+// A generated catalog large enough to make Home rails and grids feel real.
+// Posters/backdrops come from picsum.photos (stable per seed); every stream
+// URL still resolves to a playable Big Buck Bunny clip.
+$VOD_CATEGORIES = [20 => 'Action', 21 => 'Drama', 22 => 'Sci-Fi', 23 => 'Documentary'];
+
+$MOVIE_CLIP_URLS = [
+    'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4',
+    'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
 ];
+
+$MOVIES = [];
+$adjectives = ['Silent', 'Crimson', 'Endless', 'Broken', 'Golden', 'Hidden',
+               'Electric', 'Frozen', 'Burning', 'Midnight', 'Distant', 'Savage'];
+$nouns = ['Harbor', 'Empire', 'Signal', 'Garden', 'Protocol', 'Horizon',
+          'Echo', 'Kingdom', 'Circuit', 'Meridian', 'Voyage', 'Frontier'];
+for ($i = 0; $i < 48; $i++) {
+    $id = 1001 + $i;
+    // Shift the noun sequence per 12-block so all 48 names are distinct.
+    $MOVIES[$id] = [
+        'name'   => $adjectives[$i % 12] . ' ' . $nouns[($i * 7 + intdiv($i, 12) + 3) % 12],
+        'cat'    => (string) (20 + $i % 4),
+        'year'   => 1996 + ($i * 13) % 30,
+        'rating' => number_format(5.0 + ($i * 37 % 45) / 10, 1, '.', ''),
+        'added'  => time() - $i * 86400 * 3,
+        'url'    => $MOVIE_CLIP_URLS[$i % 2],
+    ];
+}
+
+$SERIES = [];
+for ($i = 0; $i < 6; $i++) {
+    $id = 15 + $i;
+    $SERIES[$id] = [
+        'name'   => $adjectives[($i * 5 + 2) % 12] . ' ' . $nouns[($i * 3 + 1) % 12] . 's',
+        'year'   => 2010 + $i * 2,
+        'rating' => number_format(6.5 + $i * 0.4, 1, '.', ''),
+    ];
+}
 
 $EPISODES = [
     5001 => ['title' => 'S01E01 - First Hop', 'season' => 1, 'num' => 1,
@@ -83,10 +114,14 @@ if ($path === '/player_api.php') {
             json_out([['category_id' => '1', 'category_name' => 'Test Live', 'parent_id' => 0]]);
 
         case 'get_vod_categories':
-            json_out([['category_id' => '2', 'category_name' => 'Test Movies', 'parent_id' => 0]]);
+            $rows = [];
+            foreach ($GLOBALS['VOD_CATEGORIES'] as $id => $name) {
+                $rows[] = ['category_id' => (string) $id, 'category_name' => $name, 'parent_id' => 0];
+            }
+            json_out($rows);
 
         case 'get_series_categories':
-            json_out([['category_id' => '3', 'category_name' => 'Test Series', 'parent_id' => 0]]);
+            json_out([['category_id' => '30', 'category_name' => 'Shows', 'parent_id' => 0]]);
 
         case 'get_live_streams':
             $rows = [];
@@ -107,8 +142,10 @@ if ($path === '/player_api.php') {
             foreach ($GLOBALS['MOVIES'] as $id => $m) {
                 $rows[] = [
                     'num' => $num++, 'name' => $m['name'], 'stream_type' => 'movie',
-                    'stream_id' => $id, 'stream_icon' => '', 'rating' => '7.5',
-                    'added' => '1700000000', 'category_id' => '2',
+                    'stream_id' => $id,
+                    'stream_icon' => "https://picsum.photos/seed/aurora$id/300/450",
+                    'rating' => $m['rating'], 'year' => (string) $m['year'],
+                    'added' => (string) $m['added'], 'category_id' => $m['cat'],
                     'container_extension' => 'mp4',
                 ];
             }
@@ -123,27 +160,40 @@ if ($path === '/player_api.php') {
             json_out([
                 'info' => [
                     'name' => $m['name'],
-                    'plot' => 'A large and lovable rabbit deals with three tiny bullies.',
-                    'genre' => 'Animation / Short', 'cast' => 'Big Buck Bunny',
-                    'duration_secs' => 10, 'rating' => '7.5',
-                    'releasedate' => '2008-05-10', 'movie_image' => '',
-                    'backdrop_path' => [],
+                    'plot' => "An evocative tale of {$m['name']}: ten seconds of a "
+                            . 'large and lovable rabbit standing in for real cinema.',
+                    'genre' => $GLOBALS['VOD_CATEGORIES'][(int) $m['cat']] ?? 'Drama',
+                    'cast' => 'Big Buck Bunny, Frank, Rinky, Gamera',
+                    'duration_secs' => 600, 'rating' => $m['rating'],
+                    'releasedate' => $m['year'] . '-05-10',
+                    'movie_image' => "https://picsum.photos/seed/aurora$id/300/450",
+                    'backdrop_path' => ["https://picsum.photos/seed/aurorabd$id/1280/720"],
                 ],
                 'movie_data' => [
-                    'stream_id' => $id, 'name' => $m['name'], 'added' => '1700000000',
-                    'category_id' => '2', 'container_extension' => 'mp4',
+                    'stream_id' => $id, 'name' => $m['name'],
+                    'added' => (string) $m['added'],
+                    'category_id' => $m['cat'], 'container_extension' => 'mp4',
                 ],
             ]);
 
         case 'get_series':
-            json_out([[
-                'num' => 1, 'name' => 'Buck Tales', 'series_id' => 15,
-                'cover' => '', 'plot' => 'Adventures of a big rabbit.',
-                'cast' => 'Big Buck Bunny', 'genre' => 'Animation',
-                'releaseDate' => '2008-05-10', 'rating' => '8', 'category_id' => '3',
-            ]]);
+            $rows = [];
+            $num = 1;
+            foreach ($GLOBALS['SERIES'] as $id => $s) {
+                $rows[] = [
+                    'num' => $num++, 'name' => $s['name'], 'series_id' => $id,
+                    'cover' => "https://picsum.photos/seed/auroras$id/300/450",
+                    'plot' => "The continuing story of {$s['name']}.",
+                    'cast' => 'Big Buck Bunny', 'genre' => 'Drama',
+                    'releaseDate' => $s['year'] . '-01-01',
+                    'rating' => $s['rating'], 'category_id' => '30',
+                ];
+            }
+            json_out($rows);
 
         case 'get_series_info':
+            $sid = (int) ($_GET['series_id'] ?? 15);
+            $s = $GLOBALS['SERIES'][$sid] ?? ['name' => 'Unknown Show', 'year' => 2020, 'rating' => '7.0'];
             $eps = [];
             foreach ($GLOBALS['EPISODES'] as $id => $e) {
                 $eps[] = [
@@ -156,13 +206,16 @@ if ($path === '/player_api.php') {
             json_out([
                 'seasons' => [[
                     'id' => 100, 'name' => 'Season 1', 'season_number' => 1,
-                    'episode_count' => count($eps), 'cover' => '',
+                    'episode_count' => count($eps),
+                    'cover' => "https://picsum.photos/seed/auroras$sid/300/450",
                 ]],
                 'info' => [
-                    'name' => 'Buck Tales', 'cover' => '',
-                    'plot' => 'Adventures of a big rabbit.', 'genre' => 'Animation',
-                    'cast' => 'Big Buck Bunny', 'releaseDate' => '2008-05-10',
-                    'rating' => '8', 'category_id' => '3',
+                    'name' => $s['name'],
+                    'cover' => "https://picsum.photos/seed/auroras$sid/300/450",
+                    'plot' => "The continuing story of {$s['name']}.",
+                    'genre' => 'Drama', 'cast' => 'Big Buck Bunny',
+                    'releaseDate' => $s['year'] . '-01-01',
+                    'rating' => $s['rating'], 'category_id' => '30',
                 ],
                 'episodes' => ['1' => $eps],
             ]);

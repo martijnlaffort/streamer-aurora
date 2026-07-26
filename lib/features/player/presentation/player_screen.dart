@@ -43,6 +43,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   int? _pendingResumeSeconds;
   DateTime _lastProgressSave = DateTime.fromMillisecondsSinceEpoch(0);
 
+  // Language preference state (PRD §8.10).
+  Preferences _prefs = const Preferences.defaults();
+  bool _autoTracksApplied = false;
+
   // Playback state mirrored for the overlay.
   bool _playing = false;
   bool _buffering = true;
@@ -80,6 +84,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     WidgetsBinding.instance.addObserver(this);
     _player = Player();
     _controller = VideoController(_player);
+
+    ref.read(preferencesRepositoryProvider).get().then((prefs) {
+      if (mounted) _prefs = prefs;
+    });
 
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations([
@@ -199,7 +207,49 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  void _onTracks(Tracks tracks) {}
+  /// Auto-select the preferred audio/subtitle language once per media item
+  /// (PRD §8.10) — the headline fix over Smarters.
+  void _onTracks(Tracks tracks) {
+    if (_autoTracksApplied) return;
+    final audio =
+        tracks.audio.where((t) => t.id != 'auto' && t.id != 'no').toList();
+    final subs =
+        tracks.subtitle.where((t) => t.id != 'auto' && t.id != 'no').toList();
+    if (audio.isEmpty && subs.isEmpty) return;
+    _autoTracksApplied = true;
+
+    final wantAudio = _prefs.preferredAudioLang;
+    if (wantAudio != null) {
+      final match =
+          audio.where((t) => _langMatches(t.language, wantAudio)).firstOrNull;
+      if (match != null) _player.setAudioTrack(match);
+    }
+
+    final wantSubs = _prefs.preferredSubtitleLang;
+    if (wantSubs == Preferences.subsOff) {
+      _player.setSubtitleTrack(SubtitleTrack.no());
+    } else if (wantSubs != null) {
+      final match =
+          subs.where((t) => _langMatches(t.language, wantSubs)).firstOrNull;
+      if (match != null) _player.setSubtitleTrack(match);
+    }
+  }
+
+  /// Tolerant tag comparison: "en" matches "eng", "nl" matches "nld"/"dut"
+  /// won't (different codes) — prefix matching both ways covers the common
+  /// 2-vs-3-letter cases panels actually produce.
+  bool _langMatches(String? trackLang, String preferred) {
+    if (trackLang == null || trackLang.isEmpty) return false;
+    final t = trackLang.toLowerCase();
+    final p = preferred.toLowerCase();
+    return t == p || t.startsWith(p) || p.startsWith(t);
+  }
+
+  Future<void> _savePreferences(Preferences prefs) async {
+    _prefs = prefs;
+    await ref.read(preferencesRepositoryProvider).save(prefs);
+    ref.invalidate(preferencesProvider);
+  }
 
   Future<void> _openCurrent({int? resumeFrom}) async {
     setState(() {
@@ -213,6 +263,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         setState(() => _error = 'No active account.');
         return;
       }
+      _autoTracksApplied = false;
       // No explicit resume request (queue advance, retry): pick up stored
       // progress silently when the §8.9 window says so.
       if (resumeFrom == null) {
@@ -364,10 +415,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   Future<void> _selectAudioTrack(AudioTrack track) async {
     await _player.setAudioTrack(track);
+    // Learn on manual change (PRD §8.10): a deliberate switch becomes the
+    // new global preference.
+    final language = track.language;
+    if (language != null && language.isNotEmpty) {
+      await _savePreferences(_prefs.copyWith(preferredAudioLang: language));
+    }
   }
 
   Future<void> _selectSubtitleTrack(SubtitleTrack track) async {
     await _player.setSubtitleTrack(track);
+    if (track.id == 'no') {
+      await _savePreferences(
+          _prefs.copyWith(preferredSubtitleLang: Preferences.subsOff));
+    } else {
+      final language = track.language;
+      if (language != null && language.isNotEmpty) {
+        await _savePreferences(
+            _prefs.copyWith(preferredSubtitleLang: language));
+      }
+    }
   }
 
   void _showAudioSheet() {

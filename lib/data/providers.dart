@@ -63,3 +63,7 @@ final accountsProvider = FutureProvider<List<Account>>(
 /// The account the UI is showing. Invalidate after switching.
 final activeAccountProvider = FutureProvider<Account?>(
     (ref) => ref.watch(accountRepositoryProvider).getActiveAccount());
+
+/// Global playback preferences. Invalidate after saving.
+final preferencesProvider = FutureProvider<Preferences>(
+    (ref) => ref.watch(preferencesRepositoryProvider).get());

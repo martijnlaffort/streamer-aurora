@@ -16,6 +16,11 @@ import '../../../data/repositories/watch_progress_repository.dart';
 import '../../../domain/models/models.dart' show Preferences;
 import '../player_request.dart';
 
+/// Android emulators stall on hardware video decode (documented media_kit
+/// quirk): run with `--dart-define=AURORA_SW_DECODE=true` there. Real
+/// devices keep hardware decoding.
+const bool _forceSoftwareDecode = bool.fromEnvironment('AURORA_SW_DECODE');
+
 /// The player (PRD §8.8): media_kit playback with a custom HBO-style
 /// controls overlay, audio/subtitle selection, gestures, and an
 /// autoplay-next queue.
@@ -84,7 +89,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _player = Player();
-    _controller = VideoController(_player);
+    _controller = VideoController(
+      _player,
+      configuration: const VideoControllerConfiguration(
+          enableHardwareAcceleration: !_forceSoftwareDecode),
+    );
 
     ref.read(preferencesRepositoryProvider).get().then((prefs) {
       if (mounted) _prefs = prefs;
@@ -129,6 +138,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _error = message;
         _controlsVisible = true;
       });
+    }));
+    // mpv's own log stream — the only place open/decode failures explain
+    // themselves. debugPrint is compiled out of release builds.
+    _subs.add(_player.stream.log.listen((event) {
+      debugPrint('mpv[${event.level}] ${event.prefix}: ${event.text}');
     }));
     _subs.add(_player.stream.completed.listen((completed) {
       if (completed) _onCompleted();

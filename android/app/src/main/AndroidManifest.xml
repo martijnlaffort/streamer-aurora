@@ -1,8 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Streaming app: release builds need INTERNET explicitly (debug builds
+         inject it, which hides its absence until a release build). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="aurora"
+        android:label="Aurora"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

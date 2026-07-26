@@ -264,6 +264,14 @@ Build these as their own one-task-at-a-time prompts once Phase 1 is stable on yo
 
 ## Execution notes (added during Task 0.1)
 
+- Phase 1 verification (2026-07-26): Android release builds need INTERNET +
+  usesCleartextTraffic in the main manifest (debug builds inject INTERNET, hiding its
+  absence — the Android twin of the iOS ATS rule). Android *emulators* cannot create an
+  EGL context for mpv's video output (documented media_kit limitation on recent system
+  images; audio/metadata fine) — verify playback on Windows desktop or real devices;
+  `--dart-define=AURORA_SW_DECODE=true` also disables hardware decode for emulator runs.
+  Full playback chain verified on Windows desktop against the mock panel.
+
 - `sqlite3_flutter_libs` is published as `0.6.0+eol` (end of life) — the current official
   drift setup is `drift` + `drift_flutter` + `path_provider`. Task 0.4 should use that.
 - App identity: project name `aurora`, placeholder id `com.example.aurora` (deliberate —

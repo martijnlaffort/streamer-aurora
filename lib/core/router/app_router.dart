@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/movies/presentation/movie_detail_screen.dart';
 import '../../features/movies/presentation/movies_screen.dart';
+import '../../features/player/player_request.dart';
+import '../../features/player/presentation/player_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/series/presentation/series_detail_screen.dart';
 import '../../features/series/presentation/series_screen.dart';
@@ -65,6 +67,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'seriesDetail',
         builder: (context, state) =>
             SeriesDetailScreen(seriesId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/player',
+        name: 'player',
+        builder: (context, state) =>
+            PlayerScreen(request: state.extra! as PlayerRequest),
       ),
       GoRoute(
         path: '/accounts',

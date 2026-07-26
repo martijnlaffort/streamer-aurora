@@ -13,6 +13,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../data/providers.dart';
 import '../../../data/repositories/watch_progress_repository.dart';
+import '../../../domain/models/models.dart' show Preferences;
 import '../player_request.dart';
 
 /// The player (PRD §8.8): media_kit playback with a custom HBO-style

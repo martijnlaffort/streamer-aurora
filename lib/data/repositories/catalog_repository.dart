@@ -213,6 +213,83 @@ class CatalogRepository {
     return row?.toModel();
   }
 
+  // --- Search (cache-only — instant, PRD §8.6) -------------------------------
+
+  Future<List<Movie>> searchMovies(Account account, String query,
+      {int limit = 30}) async {
+    final rows = await (_db.moviesTable.select()
+          ..where((t) =>
+              t.accountId.equals(account.id) & t.name.like('%$query%'))
+          ..orderBy([(t) => OrderingTerm.asc(t.name)])
+          ..limit(limit))
+        .get();
+    return rows.map((r) => r.toModel()).toList();
+  }
+
+  Future<List<Series>> searchSeries(Account account, String query,
+      {int limit = 30}) async {
+    final rows = await (_db.seriesTable.select()
+          ..where((t) =>
+              t.accountId.equals(account.id) & t.name.like('%$query%'))
+          ..orderBy([(t) => OrderingTerm.asc(t.name)])
+          ..limit(limit))
+        .get();
+    return rows.map((r) => r.toModel()).toList();
+  }
+
+  // --- Cache maintenance (PRD §8.12) -----------------------------------------
+
+  Future<({int channels, int movies, int series, int episodes})> cacheStats(
+      Account account) async {
+    Future<int> countOf(TableInfo table, Expression<bool> where) async {
+      final count = countAll();
+      final query = _db.selectOnly(table)
+        ..addColumns([count])
+        ..where(where);
+      final row = await query.getSingle();
+      return row.read(count) ?? 0;
+    }
+
+    return (
+      channels:
+          await countOf(_db.channelsTable, _db.channelsTable.accountId.equals(account.id)),
+      movies:
+          await countOf(_db.moviesTable, _db.moviesTable.accountId.equals(account.id)),
+      series:
+          await countOf(_db.seriesTable, _db.seriesTable.accountId.equals(account.id)),
+      episodes: await countOf(
+          _db.episodesTable, _db.episodesTable.accountId.equals(account.id)),
+    );
+  }
+
+  /// Drops the cached catalog (not progress/favorites); the next read
+  /// refetches from the source.
+  Future<void> clearCatalogCache(Account account) async {
+    await _db.transaction(() async {
+      await (_db.categoriesTable.delete()
+            ..where((t) => t.accountId.equals(account.id)))
+          .go();
+      await (_db.channelsTable.delete()
+            ..where((t) => t.accountId.equals(account.id)))
+          .go();
+      await (_db.moviesTable.delete()
+            ..where((t) => t.accountId.equals(account.id)))
+          .go();
+      await (_db.seriesTable.delete()
+            ..where((t) => t.accountId.equals(account.id)))
+          .go();
+      await (_db.episodesTable.delete()
+            ..where((t) => t.accountId.equals(account.id)))
+          .go();
+      await (_db.epgCacheTable.delete()
+            ..where((t) => t.accountId.equals(account.id)))
+          .go();
+      await (_db.catalogMetaTable.delete()
+            ..where((t) => t.accountId.equals(account.id)))
+          .go();
+    });
+  }
+
   // --- Details (enrich cache; serve cache offline) ---------------------------
 
   /// Full VOD detail: fetches from the source and folds the richer fields

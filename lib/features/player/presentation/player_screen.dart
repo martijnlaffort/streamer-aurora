@@ -12,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../data/providers.dart';
+import '../../../data/repositories/watch_progress_repository.dart';
 import '../player_request.dart';
 
 /// The player (PRD §8.8): media_kit playback with a custom HBO-style
@@ -26,12 +27,21 @@ class PlayerScreen extends ConsumerStatefulWidget {
   ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends ConsumerState<PlayerScreen> {
+class _PlayerScreenState extends ConsumerState<PlayerScreen>
+    with WidgetsBindingObserver {
   late final Player _player;
   late final VideoController _controller;
   final List<StreamSubscription<dynamic>> _subs = [];
 
+  /// Grabbed once so dispose-time saving never touches `ref` late.
+  late final WatchProgressRepository _progressRepo =
+      ref.read(watchProgressRepositoryProvider);
+
   late int _index = widget.request.startIndex;
+
+  // Resume state (PRD §8.9).
+  int? _pendingResumeSeconds;
+  DateTime _lastProgressSave = DateTime.fromMillisecondsSinceEpoch(0);
 
   // Playback state mirrored for the overlay.
   bool _playing = false;
@@ -67,6 +77,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _player = Player();
     _controller = VideoController(_player);
 
@@ -78,6 +89,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
     _subs.add(_player.stream.playing.listen((v) {
       setState(() => _playing = v);
+      // Save on pause (PRD §8.9).
+      if (!v && _position > Duration.zero && _duration > Duration.zero) {
+        _saveProgress();
+      }
     }));
     _subs.add(_player.stream.buffering.listen((v) {
       setState(() => _buffering = v);
@@ -115,6 +130,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    // Save on exit (PRD §8.9) before the player goes away.
+    if (_position > Duration.zero && _duration > Duration.zero) {
+      _saveProgress();
+    }
     _hideTimer?.cancel();
     _hintTimer?.cancel();
     _upNextTimer?.cancel();
@@ -136,9 +156,49 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     }
   }
 
-  // Hook points refined by Tasks 1.5 (resume) and 1.6 (languages).
-  void _onPosition(Duration position) {}
-  void _onDuration(Duration duration) {}
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Backgrounding: persist position and pause (PRD §8.9).
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (_position > Duration.zero && _duration > Duration.zero) {
+        _saveProgress();
+      }
+      if (state == AppLifecycleState.paused) _player.pause();
+    }
+  }
+
+  void _saveProgress() {
+    _lastProgressSave = DateTime.now();
+    // savePosition applies the §8.9 completion rule (≥95% → completed).
+    _progressRepo.savePosition(
+      contentKey: _current.contentKey,
+      positionSeconds: _position.inSeconds,
+      durationSeconds: _duration.inSeconds,
+    );
+  }
+
+  /// Throttled ~5s ticker while playing (PRD §8.9).
+  void _onPosition(Duration position) {
+    if (!_playing || _duration == Duration.zero) return;
+    if (DateTime.now().difference(_lastProgressSave) >=
+        const Duration(seconds: 5)) {
+      _saveProgress();
+    }
+  }
+
+  /// The media just reported its length — this is the moment a pending
+  /// resume seek becomes possible.
+  void _onDuration(Duration duration) {
+    final resume = _pendingResumeSeconds;
+    if (resume != null && duration > Duration.zero) {
+      _pendingResumeSeconds = null;
+      if (resume < duration.inSeconds) {
+        _player.seek(Duration(seconds: resume));
+      }
+    }
+  }
+
   void _onTracks(Tracks tracks) {}
 
   Future<void> _openCurrent({int? resumeFrom}) async {
@@ -153,6 +213,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         setState(() => _error = 'No active account.');
         return;
       }
+      // No explicit resume request (queue advance, retry): pick up stored
+      // progress silently when the §8.9 window says so.
+      if (resumeFrom == null) {
+        final progress = await _progressRepo.get(_current.contentKey);
+        if (_progressRepo.shouldOfferResume(progress)) {
+          resumeFrom = progress!.positionSeconds;
+        }
+      }
+      _pendingResumeSeconds = resumeFrom;
       final url = ref
           .read(sourceFactoryProvider)(account)
           .buildStreamUrl(_current.streamRef);
@@ -164,6 +233,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   }
 
   void _onCompleted() {
+    // Completion drops it from Continue Watching and, for series,
+    // advances the next-unwatched pointer (PRD §8.9).
+    _progressRepo.markCompleted(_current.contentKey);
     if (_next == null) {
       setState(() => _controlsVisible = true);
       return;

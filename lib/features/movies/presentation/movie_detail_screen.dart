@@ -28,9 +28,12 @@ final movieByIdProvider =
 /// Movie detail (PRD §8.7): backdrop, meta, plot, cast, context-aware
 /// Play/Resume with Start over, favorite toggle.
 class MovieDetailScreen extends ConsumerWidget {
-  const MovieDetailScreen({super.key, required this.movieId});
+  const MovieDetailScreen({super.key, required this.movieId, this.heroTag});
 
   final String movieId;
+
+  /// Shared-element tag from the originating poster card (PRD §10).
+  final String? heroTag;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -45,19 +48,23 @@ class MovieDetailScreen extends ConsumerWidget {
             child: Text('$e', style: const TextStyle(color: AppColors.error))),
         data: (m) => m == null
             ? const Center(child: Text('Not found in the catalog.'))
-            : _MovieDetail(movie: m),
+            : _MovieDetail(movie: m, heroTag: heroTag),
       ),
     );
   }
 }
 
 class _MovieDetail extends ConsumerWidget {
-  const _MovieDetail({required this.movie});
+  const _MovieDetail({required this.movie, this.heroTag});
 
   final Movie movie;
+  final String? heroTag;
 
   String get _contentKey => contentKeyFor(
       accountId: movie.accountId, type: StreamType.movie, id: movie.id);
+
+  Widget _maybeHero(Widget child) =>
+      heroTag != null ? Hero(tag: heroTag!, child: child) : child;
 
   Future<void> _play(BuildContext context, WidgetRef ref,
       {int? resumeFrom}) async {
@@ -103,7 +110,7 @@ class _MovieDetail extends ConsumerWidget {
       children: [
         SizedBox(
           height: 300,
-          child: Stack(
+          child: _maybeHero(Stack(
             fit: StackFit.expand,
             children: [
               if (image != null)
@@ -120,7 +127,7 @@ class _MovieDetail extends ConsumerWidget {
               const DecoratedBox(
                   decoration: BoxDecoration(gradient: AppColors.scrim)),
             ],
-          ),
+          )),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),

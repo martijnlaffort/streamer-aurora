@@ -60,14 +60,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/movie/:id',
         name: 'movieDetail',
-        builder: (context, state) =>
-            MovieDetailScreen(movieId: state.pathParameters['id']!),
+        builder: (context, state) => MovieDetailScreen(
+          movieId: state.pathParameters['id']!,
+          heroTag: state.extra as String?,
+        ),
       ),
       GoRoute(
         path: '/series/:id',
         name: 'seriesDetail',
-        builder: (context, state) =>
-            SeriesDetailScreen(seriesId: state.pathParameters['id']!),
+        builder: (context, state) => SeriesDetailScreen(
+          seriesId: state.pathParameters['id']!,
+          heroTag: state.extra as String?,
+        ),
       ),
       GoRoute(
         path: '/player',

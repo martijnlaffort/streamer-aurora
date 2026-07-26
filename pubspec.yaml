@@ -31,6 +31,7 @@ dependencies:
   # UI
   cached_network_image: ^3.4.1
   screen_brightness: ^2.1.11 # player brightness gesture
+  google_fonts: ^8.2.0 # display + UI typefaces (PRD §10)
 
   # Models
   equatable: ^2.1.0

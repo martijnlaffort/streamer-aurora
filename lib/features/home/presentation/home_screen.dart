@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,8 +14,8 @@ import '../../../domain/models/models.dart';
 import '../home_providers.dart';
 import 'widgets/media_rail.dart';
 
-/// Home (PRD §8.2): featured hero, Continue Watching, Recently Added, and
-/// per-category rails — all served from the cached catalog.
+/// Home (PRD §8.2): rotating featured hero, Continue Watching, Recently
+/// Added, and per-category rails — all served from the cached catalog.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -48,7 +50,7 @@ class _NoAccount extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Aurora', style: AppTypography.display),
+          Text('Aurora', style: AppTypography.display),
           const SizedBox(height: 8),
           const Text('Add a playlist to light this screen up.',
               style: TextStyle(color: AppColors.textSecondary)),
@@ -82,10 +84,11 @@ class _HomeContent extends ConsumerWidget {
         ref.invalidate(homeDataProvider);
       },
       child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics()),
         slivers: [
-          if (data.hero != null)
-            SliverToBoxAdapter(child: _Hero(movie: data.hero!)),
+          if (data.heroes.isNotEmpty)
+            SliverToBoxAdapter(child: _FeaturedHero(movies: data.heroes)),
           if (data.continueWatching.isNotEmpty)
             SliverToBoxAdapter(
               child: MediaRail(
@@ -105,10 +108,12 @@ class _HomeContent extends ConsumerWidget {
                 itemCount: data.recentlyAdded.length,
                 itemBuilder: (context, i) {
                   final movie = data.recentlyAdded[i];
+                  final tag = 'recent-m-${movie.id}';
                   return PosterCard(
                     title: movie.name,
                     imageUrl: movie.posterUrl,
-                    onTap: () => context.push('/movie/${movie.id}'),
+                    heroTag: tag,
+                    onTap: () => context.push('/movie/${movie.id}', extra: tag),
                   );
                 },
               ),
@@ -120,10 +125,12 @@ class _HomeContent extends ConsumerWidget {
                 itemCount: movies.length,
                 itemBuilder: (context, i) {
                   final movie = movies[i];
+                  final tag = 'cat-${category.id}-m-${movie.id}';
                   return PosterCard(
                     title: movie.name,
                     imageUrl: movie.posterUrl,
-                    onTap: () => context.push('/movie/${movie.id}'),
+                    heroTag: tag,
+                    onTap: () => context.push('/movie/${movie.id}', extra: tag),
                   );
                 },
               ),
@@ -135,33 +142,68 @@ class _HomeContent extends ConsumerWidget {
   }
 }
 
-class _Hero extends StatelessWidget {
-  const _Hero({required this.movie});
+/// Rotating featured hero (PRD §8.2/§10): gentle cross-fades through the
+/// newest additions every few seconds.
+class _FeaturedHero extends StatefulWidget {
+  const _FeaturedHero({required this.movies});
 
-  final Movie movie;
+  final List<Movie> movies;
+
+  @override
+  State<_FeaturedHero> createState() => _FeaturedHeroState();
+}
+
+class _FeaturedHeroState extends State<_FeaturedHero> {
+  int _index = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.movies.length > 1) {
+      _timer = Timer.periodic(const Duration(seconds: 6), (_) {
+        if (mounted) {
+          setState(() => _index = (_index + 1) % widget.movies.length);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final movie = widget.movies[_index];
     final image = movie.backdropUrl ?? movie.posterUrl;
     return GestureDetector(
       onTap: () => context.push('/movie/${movie.id}'),
       child: SizedBox(
-        height: 420,
+        height: 430,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (image != null)
-              CachedNetworkImage(
-                imageUrl: image,
-                fit: BoxFit.cover,
-                placeholder: (context, url) =>
-                    const ColoredBox(color: AppColors.surfaceElevated),
-                errorWidget: (context, url, error) =>
-                    const ColoredBox(color: AppColors.surfaceElevated),
-              )
-            else
-              const ColoredBox(color: AppColors.surfaceElevated),
-            // Content stays legible over any artwork (PRD §10).
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 700),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: image != null
+                  ? CachedNetworkImage(
+                      key: ValueKey(movie.id),
+                      imageUrl: image,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) =>
+                          const ColoredBox(color: AppColors.surfaceElevated),
+                      errorWidget: (context, url, error) =>
+                          const ColoredBox(color: AppColors.surfaceElevated),
+                    )
+                  : ColoredBox(
+                      key: ValueKey('empty-${movie.id}'),
+                      color: AppColors.surfaceElevated),
+            ),
             const DecoratedBox(
                 decoration: BoxDecoration(gradient: AppColors.scrim)),
             Positioned(
@@ -175,15 +217,43 @@ class _Hero extends StatelessWidget {
                       style: AppTypography.label
                           .copyWith(color: AppColors.accentAlt)),
                   const SizedBox(height: 6),
-                  Text(movie.name,
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    child: Text(
+                      movie.name,
+                      key: ValueKey(movie.id),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.display.copyWith(fontSize: 32)),
+                      style: AppTypography.display.copyWith(fontSize: 32),
+                    ),
+                  ),
                   const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: () => context.push('/movie/${movie.id}'),
-                    icon: const Icon(Icons.info_outline, size: 18),
-                    label: const Text('Details'),
+                  Row(
+                    children: [
+                      FilledButton.icon(
+                        onPressed: () => context.push('/movie/${movie.id}'),
+                        icon: const Icon(Icons.info_outline, size: 18),
+                        label: const Text('Details'),
+                      ),
+                      const Spacer(),
+                      if (widget.movies.length > 1)
+                        Row(
+                          children: [
+                            for (final (i, _) in widget.movies.indexed)
+                              Container(
+                                width: i == _index ? 16 : 6,
+                                height: 6,
+                                margin: const EdgeInsets.only(left: 4),
+                                decoration: BoxDecoration(
+                                  color: i == _index
+                                      ? AppColors.accent
+                                      : Colors.white30,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                          ],
+                        ),
+                    ],
                   ),
                 ],
               ),

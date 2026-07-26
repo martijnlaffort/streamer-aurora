@@ -16,9 +16,12 @@ import '../series_providers.dart';
 /// Series detail (PRD §8.4/§8.7): season selector, episode list with
 /// per-episode progress, primary action = next unwatched episode.
 class SeriesDetailScreen extends ConsumerStatefulWidget {
-  const SeriesDetailScreen({super.key, required this.seriesId});
+  const SeriesDetailScreen({super.key, required this.seriesId, this.heroTag});
 
   final String seriesId;
+
+  /// Shared-element tag from the originating poster card (PRD §10).
+  final String? heroTag;
 
   @override
   ConsumerState<SeriesDetailScreen> createState() =>
@@ -60,6 +63,26 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
     ref.invalidate(seriesProgressProvider(widget.seriesId));
     ref.invalidate(progressProvider);
     ref.invalidate(homeDataProvider);
+  }
+
+  Widget _headerImage(String? image) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (image != null)
+          CachedNetworkImage(
+            imageUrl: image,
+            fit: BoxFit.cover,
+            placeholder: (context, url) =>
+                const ColoredBox(color: AppColors.surfaceElevated),
+            errorWidget: (context, url, error) =>
+                const ColoredBox(color: AppColors.surfaceElevated),
+          )
+        else
+          const ColoredBox(color: AppColors.surfaceElevated),
+        const DecoratedBox(decoration: BoxDecoration(gradient: AppColors.scrim)),
+      ],
+    );
   }
 
   /// First episode that isn't completed; partially-watched counts (that's
@@ -116,24 +139,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             children: [
               SizedBox(
                 height: 280,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (image != null)
-                      CachedNetworkImage(
-                        imageUrl: image,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) =>
-                            const ColoredBox(color: AppColors.surfaceElevated),
-                        errorWidget: (context, url, error) =>
-                            const ColoredBox(color: AppColors.surfaceElevated),
+                child: widget.heroTag != null
+                    ? Hero(
+                        tag: widget.heroTag!,
+                        child: _headerImage(image),
                       )
-                    else
-                      const ColoredBox(color: AppColors.surfaceElevated),
-                    const DecoratedBox(
-                        decoration: BoxDecoration(gradient: AppColors.scrim)),
-                  ],
-                ),
+                    : _headerImage(image),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),

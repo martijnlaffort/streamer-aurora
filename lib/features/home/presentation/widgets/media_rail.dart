@@ -31,6 +31,7 @@ class MediaRail extends StatelessWidget {
           height: height,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: itemCount,
             separatorBuilder: (context, i) => const SizedBox(width: 12),

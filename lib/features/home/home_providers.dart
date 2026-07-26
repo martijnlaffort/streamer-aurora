@@ -7,13 +7,14 @@ import '../../domain/models/models.dart';
 /// catalog (reads are DB-backed; the repository handles TTL refreshes).
 class HomeData {
   const HomeData({
-    required this.hero,
+    required this.heroes,
     required this.recentlyAdded,
     required this.continueWatching,
     required this.categoryRails,
   });
 
-  final Movie? hero;
+  /// Rotating featured hero candidates (newest first).
+  final List<Movie> heroes;
   final List<Movie> recentlyAdded;
 
   /// Progress entries resolved to their movies (episode resume joins in 1.3+).
@@ -38,14 +39,18 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
     });
   final recentlyAdded = recent.take(_railLength).toList();
 
-  // Hero: newest item, enriched with its backdrop when the panel is up
-  // (falls back to the cached row offline).
-  Movie? hero = recentlyAdded.firstOrNull;
-  if (hero != null && hero.backdropUrl == null) {
+  // Featured heroes: the newest few, enriched with backdrops when the panel
+  // is up (cached rows are fine offline) — the Home hero rotates through them.
+  final heroes = <Movie>[];
+  for (final candidate in recentlyAdded.take(5)) {
+    if (candidate.backdropUrl != null) {
+      heroes.add(candidate);
+      continue;
+    }
     try {
-      hero = await catalog.movieDetail(account, hero.id);
+      heroes.add(await catalog.movieDetail(account, candidate.id));
     } on Exception {
-      // Cached row is fine — hero just uses the poster.
+      heroes.add(candidate);
     }
   }
 
@@ -71,7 +76,7 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   }
 
   return HomeData(
-    hero: hero,
+    heroes: heroes,
     recentlyAdded: recentlyAdded,
     continueWatching: continueWatching,
     categoryRails: rails,

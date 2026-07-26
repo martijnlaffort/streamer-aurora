@@ -77,10 +77,13 @@ class _MoviesScreenState extends ConsumerState<MoviesScreen> {
                   itemCount: sorted.length,
                   itemBuilder: (context, i) {
                     final movie = sorted[i];
+                    final tag = 'movies-m-${movie.id}';
                     return PosterCard(
                       title: movie.name,
                       imageUrl: movie.posterUrl,
-                      onTap: () => context.push('/movie/${movie.id}'),
+                      heroTag: tag,
+                      onTap: () =>
+                          context.push('/movie/${movie.id}', extra: tag),
                     );
                   },
                 );

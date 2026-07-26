@@ -77,10 +77,13 @@ class _SeriesScreenState extends ConsumerState<SeriesScreen> {
                   itemCount: sorted.length,
                   itemBuilder: (context, i) {
                     final s = sorted[i];
+                    final tag = 'series-s-${s.id}';
                     return PosterCard(
                       title: s.name,
                       imageUrl: s.posterUrl,
-                      onTap: () => context.push('/series/${s.id}'),
+                      heroTag: tag,
+                      onTap: () =>
+                          context.push('/series/${s.id}', extra: tag),
                     );
                   },
                 );

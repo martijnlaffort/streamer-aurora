@@ -14,6 +14,7 @@ class PosterCard extends StatefulWidget {
     this.imageUrl,
     this.onTap,
     this.width = 128,
+    this.heroTag,
   });
 
   final String title;
@@ -21,12 +22,19 @@ class PosterCard extends StatefulWidget {
   final VoidCallback? onTap;
   final double width;
 
+  /// Shared-element tag: the detail header carries the same tag so the
+  /// artwork flies poster → detail (PRD §10).
+  final String? heroTag;
+
   @override
   State<PosterCard> createState() => _PosterCardState();
 }
 
 class _PosterCardState extends State<PosterCard> {
   bool _engaged = false;
+
+  Widget _maybeHero(Widget child) =>
+      widget.heroTag != null ? Hero(tag: widget.heroTag!, child: child) : child;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +55,7 @@ class _PosterCardState extends State<PosterCard> {
                 children: [
                   AspectRatio(
                     aspectRatio: 2 / 3,
-                    child: ClipRRect(
+                    child: _maybeHero(ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
@@ -75,7 +83,7 @@ class _PosterCardState extends State<PosterCard> {
                                     color: AppColors.textSecondary),
                               ),
                       ),
-                    ),
+                    )),
                   ),
                   const SizedBox(height: 6),
                   Text(

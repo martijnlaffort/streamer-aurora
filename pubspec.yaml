@@ -30,6 +30,7 @@ dependencies:
 
   # UI
   cached_network_image: ^3.4.1
+  screen_brightness: ^2.1.11 # player brightness gesture
 
   # Models
   equatable: ^2.1.0

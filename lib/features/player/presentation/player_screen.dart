@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -84,6 +85,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       ? widget.request.queue[_index + 1]
       : null;
 
+  bool get _isMobile => Platform.isAndroid || Platform.isIOS;
+
   @override
   void initState() {
     super.initState();
@@ -99,11 +102,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (mounted) _prefs = prefs;
     });
 
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    // Fullscreen + landscape lock is a mobile concern; on desktop these calls
+    // can pin the window to a broken size, so keep them phone/tablet-only.
+    if (_isMobile) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
 
     _subs.add(_player.stream.playing.listen((v) {
       setState(() => _playing = v);
@@ -166,8 +173,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     _player.dispose();
     _restoreBrightness();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    if (_isMobile) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
     super.dispose();
   }
 
@@ -192,6 +201,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   void _saveProgress() {
+    // Live streams have no resume position — some HLS report a rolling
+    // duration, so guard explicitly rather than relying on duration == 0.
+    if (_current.isLive) return;
     _lastProgressSave = DateTime.now();
     // savePosition applies the §8.9 completion rule (≥95% → completed).
     _progressRepo.savePosition(
@@ -280,8 +292,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       }
       _autoTracksApplied = false;
       // No explicit resume request (queue advance, retry): pick up stored
-      // progress silently when the §8.9 window says so.
-      if (resumeFrom == null) {
+      // progress silently when the §8.9 window says so. Live streams never
+      // resume.
+      if (resumeFrom == null && !_current.isLive) {
         final progress = await _progressRepo.get(_current.contentKey);
         if (_progressRepo.shouldOfferResume(progress)) {
           resumeFrom = progress!.positionSeconds;
@@ -636,6 +649,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
+  Widget _liveIndicator() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration:
+                const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Text('LIVE',
+              style: AppTypography.label.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5)),
+          const Spacer(),
+          if (_buffering)
+            const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2)),
+        ],
+      ),
+    );
+  }
+
   Widget _controlsOverlay() {
     if (_locked) {
       // Locked: everything hidden except the unlock affordance.
@@ -735,12 +776,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    IconButton(
-                      iconSize: 40,
-                      onPressed: () => _seekRelative(-10),
-                      icon: const Icon(Icons.replay_10),
-                    ),
-                    const SizedBox(width: 28),
+                    if (!_current.isLive) ...[
+                      IconButton(
+                        iconSize: 40,
+                        onPressed: () => _seekRelative(-10),
+                        icon: const Icon(Icons.replay_10),
+                      ),
+                      const SizedBox(width: 28),
+                    ],
                     IconButton(
                       iconSize: 64,
                       onPressed: () {
@@ -751,17 +794,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           ? Icons.pause_circle_filled
                           : Icons.play_circle_filled),
                     ),
-                    const SizedBox(width: 28),
-                    IconButton(
-                      iconSize: 40,
-                      onPressed: () => _seekRelative(10),
-                      icon: const Icon(Icons.forward_10),
-                    ),
+                    if (!_current.isLive) ...[
+                      const SizedBox(width: 28),
+                      IconButton(
+                        iconSize: 40,
+                        onPressed: () => _seekRelative(10),
+                        icon: const Icon(Icons.forward_10),
+                      ),
+                    ],
                   ],
                 ),
                 const Spacer(),
-                // Seek bar with buffer indicator.
-                Padding(
+                // Seek bar (VOD) — a LIVE badge replaces it for live streams.
+                if (_current.isLive)
+                  _liveIndicator()
+                else
+                  Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [

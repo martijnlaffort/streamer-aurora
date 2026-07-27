@@ -274,7 +274,56 @@ if (preg_match('#^/(live|movie|series)/([^/]+)/([^/]+)/(\d+)\.\w+$#', $path, $m)
         http_response_code(404);
         exit;
     }
+    // HLS master playlists break under a plain 302: players resolve relative
+    // variant/media URIs against the pre-redirect URL (the mock), not the CDN.
+    // Proxy the playlist and rewrite relative URLs to absolute instead.
+    if (str_contains($target, '.m3u8')) {
+        serve_hls($target);
+    }
+    // Direct media (MP4, TS) has no sub-resources — a redirect is fine.
     header('Location: ' . $target, true, 302);
+    exit;
+}
+
+/**
+ * Fetch an HLS playlist and absolutize its relative URLs (both bare lines and
+ * URI="..." attributes on EXT-X-MEDIA/KEY tags) so a client reaching it via
+ * the mock resolves variants/renditions/segments against the real CDN.
+ */
+function serve_hls(string $url): void
+{
+    $ctx = stream_context_create(['http' => [
+        'follow_location' => 1,
+        'header' => "User-Agent: Aurora-mock/1.0\r\n",
+        'timeout' => 15,
+    ]]);
+    $body = @file_get_contents($url, false, $ctx);
+    if ($body === false) {
+        http_response_code(502);
+        echo 'mock_xtream: could not fetch upstream HLS';
+        exit;
+    }
+    $base = substr($url, 0, strrpos($url, '/') + 1);
+    $abs = static function (string $u) use ($base): string {
+        return preg_match('#^https?://#', $u) ? $u : $base . $u;
+    };
+    $out = [];
+    foreach (preg_split('/\r?\n/', $body) as $line) {
+        $t = trim($line);
+        if ($t === '') {
+            $out[] = $line;
+        } elseif ($t[0] === '#') {
+            $out[] = preg_replace_callback(
+                '/URI="([^"]+)"/',
+                static fn ($mm) => 'URI="' . $abs($mm[1]) . '"',
+                $line
+            );
+        } else {
+            $out[] = $abs($t);
+        }
+    }
+    header('Content-Type: application/vnd.apple.mpegurl');
+    echo implode("\n", $out);
     exit;
 }
 

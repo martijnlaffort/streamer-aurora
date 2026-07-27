@@ -8,20 +8,23 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
+import '../../player/player_request.dart';
 
 /// Unified instant search over the cached catalog (PRD §8.6): debounced,
-/// no network round-trips. Channels join in Phase 2 with Live TV.
+/// no network round-trips — movies, series, and live channels.
 final searchResultsProvider = FutureProvider.family<
-    ({List<Movie> movies, List<Series> series}), String>((ref, query) async {
+    ({List<Movie> movies, List<Series> series, List<Channel> channels}),
+    String>((ref, query) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null || query.trim().length < 2) {
-    return (movies: <Movie>[], series: <Series>[]);
+    return (movies: <Movie>[], series: <Series>[], channels: <Channel>[]);
   }
   final catalog = ref.watch(catalogRepositoryProvider);
   final q = query.trim();
   return (
     movies: await catalog.searchMovies(account, q),
     series: await catalog.searchSeries(account, q),
+    channels: await catalog.searchChannels(account, q),
   );
 });
 
@@ -89,7 +92,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   style: TextStyle(color: AppColors.textSecondary)),
             );
           }
-          if (data.movies.isEmpty && data.series.isEmpty) {
+          if (data.movies.isEmpty &&
+              data.series.isEmpty &&
+              data.channels.isEmpty) {
             return Center(
               child: Text('Nothing found for “${_query.trim()}”.',
                   style: const TextStyle(color: AppColors.textSecondary)),
@@ -97,6 +102,35 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           }
           return ListView(
             children: [
+              if (data.channels.isNotEmpty) ...[
+                const _SectionHeader('Channels'),
+                for (final channel in data.channels)
+                  _ResultTile(
+                    title: channel.name,
+                    imageUrl: channel.logoUrl,
+                    contain: true,
+                    onTap: () => context.push(
+                      '/player',
+                      extra: PlayerRequest(
+                        queue: [
+                          PlayerItem(
+                            streamRef: StreamRef(
+                              accountId: channel.accountId,
+                              type: StreamType.live,
+                              streamId: channel.id,
+                            ),
+                            title: channel.name,
+                            contentKey: contentKeyFor(
+                                accountId: channel.accountId,
+                                type: StreamType.live,
+                                id: channel.id),
+                            isLive: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
               if (data.movies.isNotEmpty) ...[
                 const _SectionHeader('Movies'),
                 for (final movie in data.movies)
@@ -152,6 +186,7 @@ class _ResultTile extends StatelessWidget {
     required this.onTap,
     this.imageUrl,
     this.subtitle,
+    this.contain = false,
   });
 
   final String title;
@@ -159,24 +194,44 @@ class _ResultTile extends StatelessWidget {
   final String? subtitle;
   final VoidCallback onTap;
 
+  /// Channel logos are contained on a square tile; posters cover a 2:3 tile.
+  final bool contain;
+
   @override
   Widget build(BuildContext context) {
     return ListTile(
       onTap: onTap,
-      leading: SizedBox(
-        width: 40,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: AspectRatio(
-            aspectRatio: 2 / 3,
-            child: imageUrl != null
-                ? Image.network(imageUrl!, fit: BoxFit.cover,
-                    errorBuilder: (context, error, stack) =>
-                        const ColoredBox(color: AppColors.surfaceElevated))
-                : const ColoredBox(color: AppColors.surfaceElevated),
-          ),
-        ),
-      ),
+      leading: contain
+          ? Container(
+              width: 44,
+              height: 44,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: imageUrl != null
+                  ? Image.network(imageUrl!, fit: BoxFit.contain,
+                      errorBuilder: (context, error, stack) => const Icon(
+                          Icons.live_tv, color: AppColors.textSecondary))
+                  : const Icon(Icons.live_tv, color: AppColors.textSecondary),
+            )
+          : SizedBox(
+              width: 40,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: AspectRatio(
+                  aspectRatio: 2 / 3,
+                  child: imageUrl != null
+                      ? Image.network(imageUrl!, fit: BoxFit.cover,
+                          errorBuilder: (context, error, stack) =>
+                              const ColoredBox(
+                                  color: AppColors.surfaceElevated))
+                      : const ColoredBox(color: AppColors.surfaceElevated),
+                ),
+              ),
+            ),
       title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: subtitle != null && subtitle!.isNotEmpty
           ? Text(subtitle!,

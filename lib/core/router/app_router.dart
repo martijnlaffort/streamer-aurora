@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/live/presentation/live_screen.dart';
 import '../../features/movies/presentation/movie_detail_screen.dart';
 import '../../features/movies/presentation/movies_screen.dart';
 import '../../features/player/player_request.dart';
@@ -30,6 +31,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: '/',
                 name: 'home',
                 builder: (context, state) => const HomeScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/live',
+                name: 'live',
+                builder: (context, state) => const LiveScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

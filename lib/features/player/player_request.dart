@@ -7,16 +7,21 @@ class PlayerItem {
     required this.title,
     required this.contentKey,
     this.subtitle,
+    this.isLive = false,
   });
 
   final StreamRef streamRef;
   final String title;
 
-  /// Secondary line, e.g. "S1 · E2 — The Meadow".
+  /// Secondary line, e.g. "S1 · E2 — The Meadow" or the now-playing programme.
   final String? subtitle;
 
   /// Watch-progress identity for this item.
   final String contentKey;
+
+  /// Live streams have no meaningful duration: the player hides the seek bar,
+  /// shows a LIVE badge, and skips resume/progress tracking.
+  final bool isLive;
 }
 
 /// What a detail screen hands the player route: a queue (a single movie, or

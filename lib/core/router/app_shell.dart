@@ -29,6 +29,10 @@ class AppShell extends StatelessWidget {
               selectedIcon: Icon(Icons.home),
               label: 'Home'),
           NavigationDestination(
+              icon: Icon(Icons.live_tv_outlined),
+              selectedIcon: Icon(Icons.live_tv),
+              label: 'Live'),
+          NavigationDestination(
               icon: Icon(Icons.movie_outlined),
               selectedIcon: Icon(Icons.movie),
               label: 'Movies'),

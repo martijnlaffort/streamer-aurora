@@ -213,6 +213,15 @@ class CatalogRepository {
     return row?.toModel();
   }
 
+  /// Cache-only single-row lookup (no source contact).
+  Future<Channel?> channelById(Account account, String channelId) async {
+    final row = await (_db.channelsTable.select()
+          ..where(
+              (t) => t.accountId.equals(account.id) & t.id.equals(channelId)))
+        .getSingleOrNull();
+    return row?.toModel();
+  }
+
   // --- Search (cache-only — instant, PRD §8.6) -------------------------------
 
   Future<List<Movie>> searchMovies(Account account, String query,
@@ -229,6 +238,17 @@ class CatalogRepository {
   Future<List<Series>> searchSeries(Account account, String query,
       {int limit = 30}) async {
     final rows = await (_db.seriesTable.select()
+          ..where((t) =>
+              t.accountId.equals(account.id) & t.name.like('%$query%'))
+          ..orderBy([(t) => OrderingTerm.asc(t.name)])
+          ..limit(limit))
+        .get();
+    return rows.map((r) => r.toModel()).toList();
+  }
+
+  Future<List<Channel>> searchChannels(Account account, String query,
+      {int limit = 30}) async {
+    final rows = await (_db.channelsTable.select()
           ..where((t) =>
               t.accountId.equals(account.id) & t.name.like('%$query%'))
           ..orderBy([(t) => OrderingTerm.asc(t.name)])

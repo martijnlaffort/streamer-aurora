@@ -264,6 +264,15 @@ Build these as their own one-task-at-a-time prompts once Phase 1 is stable on yo
 
 ## Execution notes (added during Task 0.1)
 
+- Task 2.4 — sync (PRD §9). Personal single-user design: one shared Sanctum token, no
+  login UI. The Laravel API lives in `backend/` as an overlay on a stock Laravel app (see
+  its README). Reconciliation semantics: **watch progress** = proper per-record last-write-wins
+  by UTC updatedAt (pull-since + push-dirty); **preferences** = pushed with a local "changed at"
+  timestamp, server arbitrates LWW, winner applied back; **favorites** = union merge (adds
+  propagate both ways, removals do NOT — no tombstones). Built now, deploy later: the client +
+  Settings ship, the API is lint-verified and unit-tested via the reconciler, end-to-end waits
+  on the user deploying to Ploi/Hetzner.
+
 - Task 2.3 — **system Picture-in-Picture is not deliverable on iOS with this stack.** iOS
   PiP requires an AVPictureInPictureController backed by an AVPlayerLayer (AVFoundation);
   media_kit renders via libmpv into a Metal texture, so there is no layer to hand PiP.

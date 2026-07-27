@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/db/app_database.dart' show CatalogKind;
 import '../../../data/providers.dart';
+import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
 
@@ -92,6 +93,10 @@ class SettingsScreen extends ConsumerWidget {
 
     Future<void> savePrefs(Preferences updated) async {
       await prefsRepo.save(updated);
+      // Stamp the local edit so sync's last-write-wins favours it (§9).
+      await ref
+          .read(syncConfigStoreProvider)
+          .setPreferencesChangedAt(DateTime.now().toUtc());
       ref.invalidate(preferencesProvider);
     }
 
@@ -118,6 +123,18 @@ class SettingsScreen extends ConsumerWidget {
             title: const Text('Favorites'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/favorites'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.sync),
+            title: const Text('Sync'),
+            subtitle: Text(
+              (ref.watch(syncConfigProvider).value?.isConfigured ?? false)
+                  ? 'On — across your devices'
+                  : 'Off',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/sync'),
           ),
           const Divider(),
           const _SectionLabel('Playback'),

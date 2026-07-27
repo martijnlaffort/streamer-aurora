@@ -51,4 +51,17 @@ class FavoritesRepository {
       for (final r in rows) (r.contentKey, fromUtcMillis(r.addedAtMillisUtc)),
     ];
   }
+
+  /// Adds a favorite from a sync pull if not already present (union merge —
+  /// PRD §9). Removals don't propagate (no tombstones); documented in
+  /// SyncService.
+  Future<void> addIfAbsent(String contentKey, DateTime addedAt) async {
+    await _db.favoritesTable.insertOne(
+      FavoritesTableCompanion.insert(
+        contentKey: contentKey,
+        addedAtMillisUtc: utcMillis(addedAt),
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+  }
 }

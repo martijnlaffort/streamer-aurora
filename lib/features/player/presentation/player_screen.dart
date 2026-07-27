@@ -14,6 +14,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../data/providers.dart';
 import '../../../data/repositories/watch_progress_repository.dart';
+import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart' show Preferences;
 import '../player_request.dart';
 
@@ -284,6 +285,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<void> _savePreferences(Preferences prefs) async {
     _prefs = prefs;
     await ref.read(preferencesRepositoryProvider).save(prefs);
+    // Stamp the change so sync's last-write-wins favours this device (§9).
+    await ref
+        .read(syncConfigStoreProvider)
+        .setPreferencesChangedAt(DateTime.now().toUtc());
     ref.invalidate(preferencesProvider);
   }
 

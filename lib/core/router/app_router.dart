@@ -16,6 +16,7 @@ import '../../features/settings/presentation/add_account_screen.dart';
 import '../../features/settings/presentation/favorites_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/source_probe_screen.dart';
+import '../../features/settings/presentation/sync_settings_screen.dart';
 import 'app_shell.dart';
 
 /// Provider-wrapped so later tasks can add guards that watch app state.
@@ -96,6 +97,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/favorites',
         name: 'favorites',
         builder: (context, state) => const FavoritesScreen(),
+      ),
+      GoRoute(
+        path: '/settings/sync',
+        name: 'sync',
+        builder: (context, state) => const SyncSettingsScreen(),
       ),
       GoRoute(
         path: '/accounts',

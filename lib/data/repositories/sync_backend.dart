@@ -13,11 +13,17 @@ abstract interface class ProgressSyncBackend {
 }
 
 abstract interface class PreferencesSyncBackend {
-  Future<void> push(Preferences preferences);
-  Future<Preferences?> pull();
+  /// [updatedAt] is when the prefs last changed locally — the server keeps the
+  /// newer of the two (last-write-wins).
+  Future<void> push(Preferences preferences, DateTime updatedAt);
+
+  /// The authoritative prefs and their `updatedAt`, or null when the server
+  /// has none yet.
+  Future<({Preferences prefs, DateTime updatedAt})?> pull();
 }
 
 abstract interface class FavoritesSyncBackend {
+  /// Adds [contentKeys] on the server (idempotent).
   Future<void> push(List<String> contentKeys);
   Future<List<String>> pull();
 }

@@ -89,12 +89,36 @@ class WatchProgressRepository {
         .go();
   }
 
-  /// Rows the future reconciler would push (dirty = never synced since the
-  /// last local write).
+  /// Rows the reconciler pushes (dirty = never synced since the last local
+  /// write).
   Future<List<WatchProgress>> unsyncedEntries() async {
     final rows = await (_db.watchProgressTable.select()
           ..where((t) => t.syncedAtMillisUtc.isNull()))
         .get();
     return rows.map((r) => r.toModel()).toList();
+  }
+
+  /// Applies a remote entry the reconciler judged newer, marking it synced so
+  /// it isn't immediately pushed back (PRD §9 last-write-wins).
+  Future<void> applyRemote(WatchProgress remote) async {
+    await _db.watchProgressTable.insertOnConflictUpdate(
+      WatchProgressTableCompanion.insert(
+        contentKey: remote.contentKey,
+        positionSeconds: remote.positionSeconds,
+        durationSeconds: remote.durationSeconds,
+        updatedAtMillisUtc: utcMillis(remote.updatedAt),
+        syncedAtMillisUtc: Value(utcMillis(_clock())),
+        completed: Value(remote.completed),
+      ),
+    );
+  }
+
+  /// Marks [contentKeys] synced after a successful push.
+  Future<void> markSynced(Iterable<String> contentKeys) async {
+    if (contentKeys.isEmpty) return;
+    await (_db.watchProgressTable.update()
+          ..where((t) => t.contentKey.isIn(contentKeys.toList())))
+        .write(WatchProgressTableCompanion(
+            syncedAtMillisUtc: Value(utcMillis(_clock()))));
   }
 }

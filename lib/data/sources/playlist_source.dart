@@ -45,6 +45,10 @@ abstract interface class PlaylistSource {
   /// Now/next (or a few upcoming entries) for a live stream.
   Future<List<EpgEntry>> getShortEpg(String streamId, {int limit = 4});
 
+  /// The bulk XMLTV endpoint for this account (Xtream `xmltv.php`, or the
+  /// M3U account's configured EPG url), or null when none is available.
+  String? get xmltvUrl;
+
   /// Builds the playable URL for [ref] per the source's URL scheme
   /// (PRD §6.1 for Xtream). The UI never assembles URLs itself. Async because
   /// M3U must resolve the id against its playlist, loading it if needed.

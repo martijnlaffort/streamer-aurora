@@ -204,9 +204,13 @@ class M3uSource implements PlaylistSource {
 
   @override
   Future<List<EpgEntry>> getShortEpg(String streamId, {int limit = 4}) async {
-    // XMLTV ingestion (effectiveEpgUrl) arrives with the EPG repository.
+    // M3U has no per-channel EPG endpoint; now/next comes from the bulk XMLTV
+    // at [xmltvUrl], ingested by the EPG repository.
     return const [];
   }
+
+  @override
+  String? get xmltvUrl => effectiveEpgUrl;
 
   @override
   Future<String> buildStreamUrl(StreamRef ref) async {

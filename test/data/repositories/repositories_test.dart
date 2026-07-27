@@ -209,24 +209,6 @@ void main() {
       expect(offline.seasons.map((s) => s.seasonNumber), [1, 2]);
     });
 
-    test('EPG: cached within TTL, stale cache served offline', () async {
-      final repo = catalogRepo();
-      await repo.channels(account());
-      final channel = (await repo.channels(account())).first;
-
-      final epg = await repo.shortEpg(account(), channel);
-      expect(epg, hasLength(2));
-      expect(source.calls['getShortEpg'], 1);
-
-      await repo.shortEpg(account(), channel);
-      expect(source.calls['getShortEpg'], 1, reason: 'within EPG TTL');
-
-      now = now.add(const Duration(hours: 1)); // beyond 30 min TTL
-      source.offline = true;
-      final stale = await repo.shortEpg(account(), channel);
-      expect(stale.map((e) => e.title), ['Now Show', 'Next Show']);
-      expect(stale.first.start.isUtc, isTrue);
-    });
   });
 
   group('WatchProgressRepository', () {

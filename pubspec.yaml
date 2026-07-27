@@ -27,10 +27,12 @@ dependencies:
   drift_flutter: ^0.3.1 # official drift runtime libs (sqlite3_flutter_libs is EOL)
   path_provider: ^2.1.6
   flutter_secure_storage: ^10.3.1
+  xml: ^7.0.1 # XMLTV EPG parsing (PRD §8.5)
 
   # UI
   cached_network_image: ^3.4.1
   screen_brightness: ^2.1.11 # player brightness gesture
+  linked_scroll_controller: ^0.2.0 # synced horizontal scroll in the EPG grid
   google_fonts: ^8.2.0 # display + UI typefaces (PRD §10)
 
   # Models

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/live/presentation/guide_screen.dart';
 import '../../features/live/presentation/live_screen.dart';
 import '../../features/movies/presentation/movie_detail_screen.dart';
 import '../../features/movies/presentation/movies_screen.dart';
@@ -85,6 +86,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'player',
         builder: (context, state) =>
             PlayerScreen(request: state.extra! as PlayerRequest),
+      ),
+      GoRoute(
+        path: '/guide',
+        name: 'guide',
+        builder: (context, state) => const GuideScreen(),
       ),
       GoRoute(
         path: '/favorites',

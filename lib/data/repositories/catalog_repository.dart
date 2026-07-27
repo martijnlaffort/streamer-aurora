@@ -19,14 +19,12 @@ class CatalogRepository {
     required this._sourceFactory,
     DateTime Function()? clock,
     this.catalogTtl = const Duration(hours: 12),
-    this.epgTtl = const Duration(minutes: 30),
   }) : _clock = clock ?? (() => DateTime.now().toUtc());
 
   final AppDatabase _db;
   final PlaylistSource Function(Account) _sourceFactory;
   final DateTime Function() _clock;
   final Duration catalogTtl;
-  final Duration epgTtl;
 
   /// The most recent fire-and-forget TTL refresh, exposed so tests (and a
   /// future sync UI) can await determinism instead of racing it.
@@ -371,48 +369,4 @@ class CatalogRepository {
     }
   }
 
-  // --- EPG (short-TTL cache) -------------------------------------------------
-
-  Future<List<EpgEntry>> shortEpg(Account account, Channel channel,
-      {int limit = 4}) async {
-    final key = channel.epgChannelId ?? channel.id;
-    final cached = await (_db.epgCacheTable.select()
-          ..where((t) =>
-              t.accountId.equals(account.id) & t.channelId.equals(key))
-          ..orderBy([(t) => OrderingTerm.asc(t.startMillisUtc)]))
-        .get();
-    final fresh = cached.isNotEmpty &&
-        _clock()
-                .difference(fromUtcMillis(cached.first.cachedAtMillisUtc)) <=
-            epgTtl;
-    if (fresh) return cached.map((r) => r.toModel()).toList();
-
-    try {
-      final entries = await _sourceFactory(account)
-          .getShortEpg(channel.id, limit: limit);
-      final now = utcMillis(_clock());
-      await _db.transaction(() async {
-        await (_db.epgCacheTable.delete()
-              ..where((t) =>
-                  t.accountId.equals(account.id) & t.channelId.equals(key)))
-            .go();
-        await _db.batch((b) => b.insertAll(_db.epgCacheTable, [
-              for (final e in entries)
-                EpgCacheTableCompanion.insert(
-                  accountId: account.id,
-                  channelId: key,
-                  startMillisUtc: utcMillis(e.start),
-                  stopMillisUtc: utcMillis(e.stop),
-                  title: e.title,
-                  description: Value(e.description),
-                  cachedAtMillisUtc: now,
-                ),
-            ]));
-      });
-      return entries;
-    } on SourceException {
-      // Stale beats nothing — the offline case.
-      return cached.map((r) => r.toModel()).toList();
-    }
-  }
 }

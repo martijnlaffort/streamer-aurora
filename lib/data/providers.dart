@@ -5,6 +5,7 @@ import 'db/app_database.dart';
 import 'db/credential_store.dart';
 import 'repositories/account_repository.dart';
 import 'repositories/catalog_repository.dart';
+import 'repositories/epg_repository.dart';
 import 'repositories/favorites_repository.dart';
 import 'repositories/preferences_repository.dart';
 import 'repositories/watch_progress_repository.dart';
@@ -42,6 +43,13 @@ final accountRepositoryProvider = Provider<AccountRepository>((ref) {
 
 final catalogRepositoryProvider = Provider<CatalogRepository>((ref) {
   return CatalogRepository(
+    db: ref.watch(appDatabaseProvider),
+    sourceFactory: ref.watch(sourceFactoryProvider),
+  );
+});
+
+final epgRepositoryProvider = Provider<EpgRepository>((ref) {
+  return EpgRepository(
     db: ref.watch(appDatabaseProvider),
     sourceFactory: ref.watch(sourceFactoryProvider),
   );

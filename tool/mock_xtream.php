@@ -249,11 +249,41 @@ if ($path === '/player_api.php') {
 if ($path === '/playlist.m3u') {
     header('Content-Type: application/x-mpegurl');
     $host = $_SERVER['HTTP_HOST'] ?? '127.0.0.1:8082';
-    echo "#EXTM3U\n";
+    echo "#EXTM3U url-tvg=\"http://$host/xmltv.php\"\n";
     foreach ($LIVE as $id => $ch) {
         echo "#EXTINF:-1 tvg-id=\"{$ch['epg']}\" group-title=\"Test Live\",{$ch['name']}\n";
         echo "http://$host/live/aurora/test/$id.ts\n";
     }
+    exit;
+}
+
+// --- XMLTV EPG (Xtream xmltv.php + the M3U url-tvg above) ---------------------
+if ($path === '/xmltv.php') {
+    header('Content-Type: application/xml');
+    echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<tv>\n";
+    foreach ($LIVE as $ch) {
+        $eid = htmlspecialchars($ch['epg']);
+        echo "  <channel id=\"$eid\"><display-name>"
+            . htmlspecialchars($ch['name']) . "</display-name></channel>\n";
+    }
+    // A programme every hour from 2h ago to 6h ahead, in UTC.
+    $slot = (int) floor(time() / 3600) * 3600 - 2 * 3600;
+    foreach ($LIVE as $ch) {
+        $eid = htmlspecialchars($ch['epg']);
+        for ($i = 0; $i < 8; $i++) {
+            $start = $slot + $i * 3600;
+            $stop = $start + 3600;
+            $s = gmdate('YmdHis', $start) . ' +0000';
+            $e = gmdate('YmdHis', $stop) . ' +0000';
+            $hh = gmdate('H:i', $start);
+            $title = htmlspecialchars($ch['name'] . " — $hh show");
+            echo "  <programme start=\"$s\" stop=\"$e\" channel=\"$eid\">"
+                . "<title>$title</title>"
+                . "<desc>Mock programme for testing the EPG guide.</desc>"
+                . "</programme>\n";
+        }
+    }
+    echo "</tv>\n";
     exit;
 }
 

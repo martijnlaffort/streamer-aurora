@@ -378,6 +378,13 @@ class XtreamSource implements PlaylistSource {
     return result;
   }
 
+  @override
+  String? get xmltvUrl {
+    final u = Uri.encodeComponent(account.username);
+    final p = Uri.encodeComponent(account.password);
+    return '$_server/xmltv.php?username=$u&password=$p';
+  }
+
   // --- Stream URLs (PRD §6.1) ------------------------------------------------
 
   @override

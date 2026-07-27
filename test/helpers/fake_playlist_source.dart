@@ -140,4 +140,11 @@ class FakePlaylistSource implements PlaylistSource {
   @override
   Future<String> buildStreamUrl(StreamRef ref) async =>
       'http://fake/${ref.type.name}/${ref.streamId}';
+
+  /// Null → EPG falls back to per-channel getShortEpg; set to exercise the
+  /// bulk-XMLTV ingestion path.
+  String? xmltv;
+
+  @override
+  String? get xmltvUrl => xmltv;
 }

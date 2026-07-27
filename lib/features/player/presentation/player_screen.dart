@@ -54,6 +54,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Preferences _prefs = const Preferences.defaults();
   bool _autoTracksApplied = false;
 
+  // Live now-playing programme (PRD §8.5), refreshed while watching.
+  String? _liveNow;
+  Timer? _liveEpgTimer;
+
   // Playback state mirrored for the overlay.
   bool _playing = false;
   bool _buffering = true;
@@ -168,6 +172,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _hideTimer?.cancel();
     _hintTimer?.cancel();
     _upNextTimer?.cancel();
+    _liveEpgTimer?.cancel();
     for (final sub in _subs) {
       sub.cancel();
     }
@@ -282,8 +287,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     setState(() {
       _error = null;
       _upNextCountdown = null;
+      _liveNow = null;
     });
     _upNextTimer?.cancel();
+    _liveEpgTimer?.cancel();
     try {
       final account = await ref.read(activeAccountProvider.future);
       if (account == null) {
@@ -306,9 +313,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           .buildStreamUrl(_current.streamRef);
       await _player.open(Media(url));
       _scheduleHide();
+      if (_current.isLive) {
+        _refreshLiveEpg();
+        _liveEpgTimer = Timer.periodic(
+            const Duration(seconds: 60), (_) => _refreshLiveEpg());
+      }
     } on Exception catch (e) {
       setState(() => _error = '$e');
     }
+  }
+
+  /// Fetches the programme airing now on the live channel (PRD §8.5).
+  Future<void> _refreshLiveEpg() async {
+    if (!_current.isLive) return;
+    final account = await ref.read(activeAccountProvider.future);
+    if (account == null) return;
+    final channel = await ref
+        .read(catalogRepositoryProvider)
+        .channelById(account, _current.streamRef.streamId);
+    if (channel == null) return;
+    final programme =
+        await ref.read(epgRepositoryProvider).currentProgramme(account, channel);
+    if (mounted) setState(() => _liveNow = programme?.title);
   }
 
   void _onCompleted() {
@@ -743,7 +769,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.title),
-                          if (_current.subtitle != null)
+                          if (_liveNow != null)
+                            Text('Now: $_liveNow',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.label
+                                    .copyWith(color: AppColors.accentAlt))
+                          else if (_current.subtitle != null)
                             Text(_current.subtitle!,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,

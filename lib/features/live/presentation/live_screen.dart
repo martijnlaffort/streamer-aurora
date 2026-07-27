@@ -27,9 +27,20 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   Widget build(BuildContext context) {
     final categories = ref.watch(liveCategoriesProvider);
     final channels = ref.watch(channelsListProvider(_categoryId));
+    final hasEpg = ref.watch(hasEpgProvider).value ?? false;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Live TV')),
+      appBar: AppBar(
+        title: const Text('Live TV'),
+        actions: [
+          if (hasEpg)
+            IconButton(
+              icon: const Icon(Icons.calendar_month_outlined),
+              tooltip: 'TV Guide',
+              onPressed: () => context.push('/guide'),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           categories.when(

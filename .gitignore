@@ -1,3 +1,6 @@
+# Local git worktrees live under the repo root (worktrees/<name>).
+worktrees/
+
 # Miscellaneous
 *.class
 *.log

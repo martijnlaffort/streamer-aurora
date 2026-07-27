@@ -156,24 +156,29 @@ void main() {
   });
 
   group('stream URLs', () {
-    test('returns the original playlist URL for a known id', () async {
-      final (source, _) = build('test/fixtures/m3u/mixed.m3u');
-      final movies = await source.getVodStreams();
+    test('resolves a known id on a fresh instance (loads on demand)',
+        () async {
+      // Discover the id from one instance…
+      final (probe, _) = build('test/fixtures/m3u/mixed.m3u');
+      final movie = (await probe.getVodStreams()).first;
 
-      final url = source.buildStreamUrl(StreamRef(
+      // …then resolve it on a brand-new source that never fetched anything —
+      // this is exactly what the player does per playback.
+      final (fresh, _) = build('test/fixtures/m3u/mixed.m3u');
+      final url = await fresh.buildStreamUrl(StreamRef(
         accountId: 'm3u1',
         type: StreamType.movie,
-        streamId: movies.first.id,
-        containerExt: movies.first.containerExt,
+        streamId: movie.id,
+        containerExt: movie.containerExt,
       ));
       expect(url, 'http://host.example.com/vod/diehard.mp4');
     });
 
-    test('throws before the playlist is loaded', () {
+    test('throws for an unknown id', () {
       final (source, _) = build('test/fixtures/m3u/mixed.m3u');
       expect(
         () => source.buildStreamUrl(const StreamRef(
-            accountId: 'm3u1', type: StreamType.live, streamId: 'x')),
+            accountId: 'm3u1', type: StreamType.live, streamId: 'nope')),
         throwsA(isA<SourceException>()),
       );
     });

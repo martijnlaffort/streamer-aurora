@@ -46,6 +46,7 @@ abstract interface class PlaylistSource {
   Future<List<EpgEntry>> getShortEpg(String streamId, {int limit = 4});
 
   /// Builds the playable URL for [ref] per the source's URL scheme
-  /// (PRD §6.1 for Xtream). The UI never assembles URLs itself.
-  String buildStreamUrl(StreamRef ref);
+  /// (PRD §6.1 for Xtream). The UI never assembles URLs itself. Async because
+  /// M3U must resolve the id against its playlist, loading it if needed.
+  Future<String> buildStreamUrl(StreamRef ref);
 }

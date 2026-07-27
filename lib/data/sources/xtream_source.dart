@@ -381,7 +381,7 @@ class XtreamSource implements PlaylistSource {
   // --- Stream URLs (PRD §6.1) ------------------------------------------------
 
   @override
-  String buildStreamUrl(StreamRef ref) {
+  Future<String> buildStreamUrl(StreamRef ref) async {
     final u = Uri.encodeComponent(account.username);
     final p = Uri.encodeComponent(account.password);
     return switch (ref.type) {

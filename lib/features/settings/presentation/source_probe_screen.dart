@@ -92,12 +92,13 @@ class _SourceProbeScreenState extends State<SourceProbeScreen> {
         _log('VOD info "${detail.name}": '
             'plot=${detail.plot != null} genre=${detail.genre ?? '-'} '
             'duration=${detail.durationSeconds ?? '?'}s');
-        _log('Stream URL: ${source.buildStreamUrl(StreamRef(
+        final streamUrl = await source.buildStreamUrl(StreamRef(
           accountId: account.id,
           type: StreamType.movie,
           streamId: detail.id,
           containerExt: detail.containerExt,
-        ))}');
+        ));
+        _log('Stream URL: $streamUrl');
       }
 
       if (series.isNotEmpty) {

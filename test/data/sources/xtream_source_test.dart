@@ -227,16 +227,17 @@ void main() {
   });
 
   group('stream URLs (PRD §6.1)', () {
-    test('builds live/movie/episode URLs with encoding and defaults', () {
+    test('builds live/movie/episode URLs with encoding and defaults',
+        () async {
       final (source, _, _) = build({});
 
       expect(
-        source.buildStreamUrl(const StreamRef(
+        await source.buildStreamUrl(const StreamRef(
             accountId: 'acc1', type: StreamType.live, streamId: '242')),
         'http://panel.example.com:8080/live/u1/p%201%2B%26/242.ts',
       );
       expect(
-        source.buildStreamUrl(const StreamRef(
+        await source.buildStreamUrl(const StreamRef(
             accountId: 'acc1',
             type: StreamType.movie,
             streamId: '1001',
@@ -244,7 +245,7 @@ void main() {
         'http://panel.example.com:8080/movie/u1/p%201%2B%26/1001.mkv',
       );
       expect(
-        source.buildStreamUrl(const StreamRef(
+        await source.buildStreamUrl(const StreamRef(
             accountId: 'acc1', type: StreamType.episode, streamId: '5001')),
         'http://panel.example.com:8080/series/u1/p%201%2B%26/5001.mp4',
       );

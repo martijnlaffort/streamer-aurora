@@ -138,5 +138,6 @@ class FakePlaylistSource implements PlaylistSource {
   }
 
   @override
-  String buildStreamUrl(StreamRef ref) => 'http://fake/${ref.type.name}/${ref.streamId}';
+  Future<String> buildStreamUrl(StreamRef ref) async =>
+      'http://fake/${ref.type.name}/${ref.streamId}';
 }

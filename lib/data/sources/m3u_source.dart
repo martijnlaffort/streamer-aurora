@@ -209,12 +209,11 @@ class M3uSource implements PlaylistSource {
   }
 
   @override
-  String buildStreamUrl(StreamRef ref) {
-    final playlist = _playlist;
-    if (playlist == null) {
-      throw const SourceException(
-          'Playlist not loaded yet — call authenticate() or a fetch first');
-    }
+  Future<String> buildStreamUrl(StreamRef ref) async {
+    // Resolve the id against the playlist, loading it if this is a fresh
+    // instance (the app builds a new source per playback). Cached after the
+    // first load for the life of this instance.
+    final playlist = await _load();
     for (final entry in playlist.entries) {
       if (stableId(entry.url) == ref.streamId) return entry.url;
     }

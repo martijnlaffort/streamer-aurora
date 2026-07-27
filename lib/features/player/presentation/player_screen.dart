@@ -301,7 +301,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         }
       }
       _pendingResumeSeconds = resumeFrom;
-      final url = ref
+      final url = await ref
           .read(sourceFactoryProvider)(account)
           .buildStreamUrl(_current.streamRef);
       await _player.open(Media(url));

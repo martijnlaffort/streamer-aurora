@@ -33,6 +33,7 @@ class PreferencesRepository {
         preferredAudioLang: Value(preferences.preferredAudioLang),
         preferredSubtitleLang: Value(preferences.preferredSubtitleLang),
         autoplayNext: Value(preferences.autoplayNext),
+        backgroundPlayback: Value(preferences.backgroundPlayback),
       ),
     );
   }

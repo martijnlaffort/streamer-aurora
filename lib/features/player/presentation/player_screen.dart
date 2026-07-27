@@ -201,7 +201,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (_position > Duration.zero && _duration > Duration.zero) {
         _saveProgress();
       }
-      if (state == AppLifecycleState.paused) _player.pause();
+      // Keep audio going in the background when the user opted in (Task 2.3);
+      // otherwise pause to save battery/data.
+      if (state == AppLifecycleState.paused && !_prefs.backgroundPlayback) {
+        _player.pause();
+      }
     }
   }
 
@@ -366,9 +370,28 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     });
   }
 
+  bool get _hasPrevious => _index > 0;
+
   void _playNext() {
     if (_next == null) return;
-    setState(() => _index += 1);
+    // Manual skip: save where we left the current item first (PRD §8.9).
+    _saveProgress();
+    _upNextTimer?.cancel();
+    setState(() {
+      _index += 1;
+      _upNextCountdown = null;
+    });
+    _openCurrent();
+  }
+
+  void _playPrevious() {
+    if (!_hasPrevious) return;
+    _saveProgress();
+    _upNextTimer?.cancel();
+    setState(() {
+      _index -= 1;
+      _upNextCountdown = null;
+    });
     _openCurrent();
   }
 
@@ -808,6 +831,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    // Previous episode (series queues).
+                    if (widget.request.queue.length > 1) ...[
+                      IconButton(
+                        iconSize: 32,
+                        tooltip: 'Previous',
+                        onPressed: _hasPrevious ? _playPrevious : null,
+                        icon: const Icon(Icons.skip_previous),
+                      ),
+                      const SizedBox(width: 16),
+                    ],
                     if (!_current.isLive) ...[
                       IconButton(
                         iconSize: 40,
@@ -832,6 +865,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         iconSize: 40,
                         onPressed: () => _seekRelative(10),
                         icon: const Icon(Icons.forward_10),
+                      ),
+                    ],
+                    // Next episode (series queues).
+                    if (widget.request.queue.length > 1) ...[
+                      const SizedBox(width: 16),
+                      IconButton(
+                        iconSize: 32,
+                        tooltip: 'Next',
+                        onPressed: _next != null ? _playNext : null,
+                        icon: const Icon(Icons.skip_next),
                       ),
                     ],
                   ],

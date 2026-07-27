@@ -264,6 +264,16 @@ Build these as their own one-task-at-a-time prompts once Phase 1 is stable on yo
 
 ## Execution notes (added during Task 0.1)
 
+- Task 2.3 — **system Picture-in-Picture is not deliverable on iOS with this stack.** iOS
+  PiP requires an AVPictureInPictureController backed by an AVPlayerLayer (AVFoundation);
+  media_kit renders via libmpv into a Metal texture, so there is no layer to hand PiP.
+  Piping libmpv frames into an AVSampleBufferDisplayLayer to drive PiP is a large native
+  project, out of scope. Since iOS is the primary target, Task 2.3 ships the feasible,
+  higher-value pieces instead: **background audio playback** (screen-off / minimised, gated
+  by a setting; iOS UIBackgroundModes=audio) and **autoplay-next refinements** (previous/next
+  episode controls). Android system PiP is feasible (native onUserLeaveHint) but deferred —
+  low value while the user is on iOS; revisit if an Android/TV build is prioritised.
+
 - Phase 1 verification (2026-07-26): Android release builds need INTERNET +
   usesCleartextTraffic in the main manifest (debug builds inject INTERNET, hiding its
   absence — the Android twin of the iOS ATS rule). Android *emulators* cannot create an

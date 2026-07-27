@@ -164,6 +164,10 @@ class PreferencesTable extends Table {
   TextColumn get preferredSubtitleLang => text().nullable()();
   BoolColumn get autoplayNext => boolean().withDefault(const Constant(true))();
 
+  /// Keep audio playing when the app is backgrounded (added in schema v2).
+  BoolColumn get backgroundPlayback =>
+      boolean().withDefault(const Constant(false))();
+
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
 
@@ -241,5 +245,16 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          // v2: background-playback preference.
+          if (from < 2) {
+            await m.addColumn(
+                preferencesTable, preferencesTable.backgroundPlayback);
+          }
+        },
+      );
 }

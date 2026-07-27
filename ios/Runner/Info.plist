@@ -46,6 +46,13 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 
+	<!-- Allow audio to keep playing when the app is backgrounded, gated by
+	     the in-app "Continue audio in background" setting (Task 2.3). -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+
 	<!-- App Transport Security: most IPTV panels serve plain HTTP, which iOS
 	     blocks by default. Without this the stream fails silently. -->
 	<key>NSAppTransportSecurity</key>

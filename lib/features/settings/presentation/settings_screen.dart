@@ -164,6 +164,16 @@ class SettingsScreen extends ConsumerWidget {
             activeThumbColor: AppColors.accent,
             onChanged: (v) => savePrefs(prefs.copyWith(autoplayNext: v)),
           ),
+          SwitchListTile(
+            secondary: const Icon(Icons.headphones_outlined),
+            title: const Text('Continue audio in background'),
+            subtitle: const Text('Keep playing when the app is minimised',
+                style: TextStyle(color: AppColors.textSecondary)),
+            value: prefs.backgroundPlayback,
+            activeThumbColor: AppColors.accent,
+            onChanged: (v) =>
+                savePrefs(prefs.copyWith(backgroundPlayback: v)),
+          ),
           const Divider(),
           const _SectionLabel('Cache'),
           ListTile(

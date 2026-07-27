@@ -269,12 +269,17 @@ void main() {
       final repo = PreferencesRepository(db: db);
       expect(await repo.get(), const Preferences.defaults());
 
+      // Default background playback is off.
+      expect((await repo.get()).backgroundPlayback, isFalse);
+
       const prefs = Preferences(
           preferredAudioLang: 'eng',
           preferredSubtitleLang: 'nl',
-          autoplayNext: false);
+          autoplayNext: false,
+          backgroundPlayback: true);
       await repo.save(prefs);
       expect(await repo.get(), prefs);
+      expect((await repo.get()).backgroundPlayback, isTrue);
     });
   });
 

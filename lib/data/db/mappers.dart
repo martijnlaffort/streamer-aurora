@@ -221,6 +221,7 @@ extension PreferencesRowMapper on PreferencesRow {
         preferredAudioLang: preferredAudioLang,
         preferredSubtitleLang: preferredSubtitleLang,
         autoplayNext: autoplayNext,
+        backgroundPlayback: backgroundPlayback,
       );
 }
 

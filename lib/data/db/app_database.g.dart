@@ -4176,6 +4176,20 @@ class $PreferencesTableTable extends PreferencesTable
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _backgroundPlaybackMeta =
+      const VerificationMeta('backgroundPlayback');
+  @override
+  late final GeneratedColumn<bool> backgroundPlayback = GeneratedColumn<bool>(
+    'background_playback',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("background_playback" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _activeAccountIdMeta = const VerificationMeta(
     'activeAccountId',
   );
@@ -4193,6 +4207,7 @@ class $PreferencesTableTable extends PreferencesTable
     preferredAudioLang,
     preferredSubtitleLang,
     autoplayNext,
+    backgroundPlayback,
     activeAccountId,
   ];
   @override
@@ -4237,6 +4252,15 @@ class $PreferencesTableTable extends PreferencesTable
         ),
       );
     }
+    if (data.containsKey('background_playback')) {
+      context.handle(
+        _backgroundPlaybackMeta,
+        backgroundPlayback.isAcceptableOrUnknown(
+          data['background_playback']!,
+          _backgroundPlaybackMeta,
+        ),
+      );
+    }
     if (data.containsKey('active_account_id')) {
       context.handle(
         _activeAccountIdMeta,
@@ -4271,6 +4295,10 @@ class $PreferencesTableTable extends PreferencesTable
         DriftSqlType.bool,
         data['${effectivePrefix}autoplay_next'],
       )!,
+      backgroundPlayback: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}background_playback'],
+      )!,
       activeAccountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}active_account_id'],
@@ -4291,6 +4319,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
   final String? preferredSubtitleLang;
   final bool autoplayNext;
 
+  /// Keep audio playing when the app is backgrounded (added in schema v2).
+  final bool backgroundPlayback;
+
   /// App state, not a user preference — which account the UI is showing.
   final String? activeAccountId;
   const PreferencesRow({
@@ -4298,6 +4329,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     this.preferredAudioLang,
     this.preferredSubtitleLang,
     required this.autoplayNext,
+    required this.backgroundPlayback,
     this.activeAccountId,
   });
   @override
@@ -4311,6 +4343,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       map['preferred_subtitle_lang'] = Variable<String>(preferredSubtitleLang);
     }
     map['autoplay_next'] = Variable<bool>(autoplayNext);
+    map['background_playback'] = Variable<bool>(backgroundPlayback);
     if (!nullToAbsent || activeAccountId != null) {
       map['active_account_id'] = Variable<String>(activeAccountId);
     }
@@ -4327,6 +4360,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           ? const Value.absent()
           : Value(preferredSubtitleLang),
       autoplayNext: Value(autoplayNext),
+      backgroundPlayback: Value(backgroundPlayback),
       activeAccountId: activeAccountId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeAccountId),
@@ -4347,6 +4381,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
         json['preferredSubtitleLang'],
       ),
       autoplayNext: serializer.fromJson<bool>(json['autoplayNext']),
+      backgroundPlayback: serializer.fromJson<bool>(json['backgroundPlayback']),
       activeAccountId: serializer.fromJson<String?>(json['activeAccountId']),
     );
   }
@@ -4360,6 +4395,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
         preferredSubtitleLang,
       ),
       'autoplayNext': serializer.toJson<bool>(autoplayNext),
+      'backgroundPlayback': serializer.toJson<bool>(backgroundPlayback),
       'activeAccountId': serializer.toJson<String?>(activeAccountId),
     };
   }
@@ -4369,6 +4405,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     Value<String?> preferredAudioLang = const Value.absent(),
     Value<String?> preferredSubtitleLang = const Value.absent(),
     bool? autoplayNext,
+    bool? backgroundPlayback,
     Value<String?> activeAccountId = const Value.absent(),
   }) => PreferencesRow(
     id: id ?? this.id,
@@ -4379,6 +4416,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
         ? preferredSubtitleLang.value
         : this.preferredSubtitleLang,
     autoplayNext: autoplayNext ?? this.autoplayNext,
+    backgroundPlayback: backgroundPlayback ?? this.backgroundPlayback,
     activeAccountId: activeAccountId.present
         ? activeAccountId.value
         : this.activeAccountId,
@@ -4395,6 +4433,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       autoplayNext: data.autoplayNext.present
           ? data.autoplayNext.value
           : this.autoplayNext,
+      backgroundPlayback: data.backgroundPlayback.present
+          ? data.backgroundPlayback.value
+          : this.backgroundPlayback,
       activeAccountId: data.activeAccountId.present
           ? data.activeAccountId.value
           : this.activeAccountId,
@@ -4408,6 +4449,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           ..write('preferredAudioLang: $preferredAudioLang, ')
           ..write('preferredSubtitleLang: $preferredSubtitleLang, ')
           ..write('autoplayNext: $autoplayNext, ')
+          ..write('backgroundPlayback: $backgroundPlayback, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -4419,6 +4461,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     preferredAudioLang,
     preferredSubtitleLang,
     autoplayNext,
+    backgroundPlayback,
     activeAccountId,
   );
   @override
@@ -4429,6 +4472,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           other.preferredAudioLang == this.preferredAudioLang &&
           other.preferredSubtitleLang == this.preferredSubtitleLang &&
           other.autoplayNext == this.autoplayNext &&
+          other.backgroundPlayback == this.backgroundPlayback &&
           other.activeAccountId == this.activeAccountId);
 }
 
@@ -4437,12 +4481,14 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
   final Value<String?> preferredAudioLang;
   final Value<String?> preferredSubtitleLang;
   final Value<bool> autoplayNext;
+  final Value<bool> backgroundPlayback;
   final Value<String?> activeAccountId;
   const PreferencesTableCompanion({
     this.id = const Value.absent(),
     this.preferredAudioLang = const Value.absent(),
     this.preferredSubtitleLang = const Value.absent(),
     this.autoplayNext = const Value.absent(),
+    this.backgroundPlayback = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   PreferencesTableCompanion.insert({
@@ -4450,6 +4496,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.preferredAudioLang = const Value.absent(),
     this.preferredSubtitleLang = const Value.absent(),
     this.autoplayNext = const Value.absent(),
+    this.backgroundPlayback = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   static Insertable<PreferencesRow> custom({
@@ -4457,6 +4504,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Expression<String>? preferredAudioLang,
     Expression<String>? preferredSubtitleLang,
     Expression<bool>? autoplayNext,
+    Expression<bool>? backgroundPlayback,
     Expression<String>? activeAccountId,
   }) {
     return RawValuesInsertable({
@@ -4466,6 +4514,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       if (preferredSubtitleLang != null)
         'preferred_subtitle_lang': preferredSubtitleLang,
       if (autoplayNext != null) 'autoplay_next': autoplayNext,
+      if (backgroundPlayback != null) 'background_playback': backgroundPlayback,
       if (activeAccountId != null) 'active_account_id': activeAccountId,
     });
   }
@@ -4475,6 +4524,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Value<String?>? preferredAudioLang,
     Value<String?>? preferredSubtitleLang,
     Value<bool>? autoplayNext,
+    Value<bool>? backgroundPlayback,
     Value<String?>? activeAccountId,
   }) {
     return PreferencesTableCompanion(
@@ -4483,6 +4533,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       preferredSubtitleLang:
           preferredSubtitleLang ?? this.preferredSubtitleLang,
       autoplayNext: autoplayNext ?? this.autoplayNext,
+      backgroundPlayback: backgroundPlayback ?? this.backgroundPlayback,
       activeAccountId: activeAccountId ?? this.activeAccountId,
     );
   }
@@ -4504,6 +4555,9 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     if (autoplayNext.present) {
       map['autoplay_next'] = Variable<bool>(autoplayNext.value);
     }
+    if (backgroundPlayback.present) {
+      map['background_playback'] = Variable<bool>(backgroundPlayback.value);
+    }
     if (activeAccountId.present) {
       map['active_account_id'] = Variable<String>(activeAccountId.value);
     }
@@ -4517,6 +4571,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
           ..write('preferredAudioLang: $preferredAudioLang, ')
           ..write('preferredSubtitleLang: $preferredSubtitleLang, ')
           ..write('autoplayNext: $autoplayNext, ')
+          ..write('backgroundPlayback: $backgroundPlayback, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -7600,6 +7655,7 @@ typedef $$PreferencesTableTableCreateCompanionBuilder =
       Value<String?> preferredAudioLang,
       Value<String?> preferredSubtitleLang,
       Value<bool> autoplayNext,
+      Value<bool> backgroundPlayback,
       Value<String?> activeAccountId,
     });
 typedef $$PreferencesTableTableUpdateCompanionBuilder =
@@ -7608,6 +7664,7 @@ typedef $$PreferencesTableTableUpdateCompanionBuilder =
       Value<String?> preferredAudioLang,
       Value<String?> preferredSubtitleLang,
       Value<bool> autoplayNext,
+      Value<bool> backgroundPlayback,
       Value<String?> activeAccountId,
     });
 
@@ -7637,6 +7694,11 @@ class $$PreferencesTableTableFilterComposer
 
   ColumnFilters<bool> get autoplayNext => $composableBuilder(
     column: $table.autoplayNext,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get backgroundPlayback => $composableBuilder(
+    column: $table.backgroundPlayback,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7675,6 +7737,11 @@ class $$PreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get backgroundPlayback => $composableBuilder(
+    column: $table.backgroundPlayback,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get activeAccountId => $composableBuilder(
     column: $table.activeAccountId,
     builder: (column) => ColumnOrderings(column),
@@ -7705,6 +7772,11 @@ class $$PreferencesTableTableAnnotationComposer
 
   GeneratedColumn<bool> get autoplayNext => $composableBuilder(
     column: $table.autoplayNext,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get backgroundPlayback => $composableBuilder(
+    column: $table.backgroundPlayback,
     builder: (column) => column,
   );
 
@@ -7755,12 +7827,14 @@ class $$PreferencesTableTableTableManager
                 Value<String?> preferredAudioLang = const Value.absent(),
                 Value<String?> preferredSubtitleLang = const Value.absent(),
                 Value<bool> autoplayNext = const Value.absent(),
+                Value<bool> backgroundPlayback = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion(
                 id: id,
                 preferredAudioLang: preferredAudioLang,
                 preferredSubtitleLang: preferredSubtitleLang,
                 autoplayNext: autoplayNext,
+                backgroundPlayback: backgroundPlayback,
                 activeAccountId: activeAccountId,
               ),
           createCompanionCallback:
@@ -7769,12 +7843,14 @@ class $$PreferencesTableTableTableManager
                 Value<String?> preferredAudioLang = const Value.absent(),
                 Value<String?> preferredSubtitleLang = const Value.absent(),
                 Value<bool> autoplayNext = const Value.absent(),
+                Value<bool> backgroundPlayback = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion.insert(
                 id: id,
                 preferredAudioLang: preferredAudioLang,
                 preferredSubtitleLang: preferredSubtitleLang,
                 autoplayNext: autoplayNext,
+                backgroundPlayback: backgroundPlayback,
                 activeAccountId: activeAccountId,
               ),
           withReferenceMapper: (p0) => p0

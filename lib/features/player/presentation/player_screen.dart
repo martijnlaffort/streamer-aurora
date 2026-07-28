@@ -23,6 +23,12 @@ import '../player_request.dart';
 /// devices keep hardware decoding.
 const bool _forceSoftwareDecode = bool.fromEnvironment('AURORA_SW_DECODE');
 
+/// Many Xtream panels serve `player_api.php` to anything but only hand out the
+/// actual video to whitelisted player User-Agents — libmpv's default
+/// "Lavf/…" gets rejected, so the catalog loads but streams fail to open.
+/// Present as VLC, which panels accept almost universally.
+const String kStreamUserAgent = 'VLC/3.0.21 LibVLC/3.0.21';
+
 /// The player (PRD §8.8): media_kit playback with a custom HBO-style
 /// controls overlay, audio/subtitle selection, gestures, and an
 /// autoplay-next queue.
@@ -320,6 +326,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       final url = await ref
           .read(sourceFactoryProvider)(account)
           .buildStreamUrl(_current.streamRef);
+      // Present a player User-Agent panels accept (see kStreamUserAgent).
+      // Set on the native mpv handle directly — the dedicated `user-agent`
+      // property overrides libmpv's default and avoids duplicate headers.
+      final platform = _player.platform;
+      if (platform is NativePlayer) {
+        await platform.setProperty('user-agent', kStreamUserAgent);
+      }
       await _player.open(Media(url));
       _scheduleHide();
       if (_current.isLive) {

@@ -75,6 +75,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Track _selected = const Track();
   String? _error;
 
+  // Rolling tail of interesting mpv log lines — surfaced on the error screen
+  // so open/decode failures (HTTP status, refused, format) explain themselves
+  // even in release builds where debugPrint is gone.
+  final List<String> _diagLog = [];
+
   // Overlay state.
   bool _controlsVisible = true;
   bool _locked = false;
@@ -102,7 +107,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _player = Player();
+    // logLevel: info so the mpv log stream carries HTTP status / open-failure
+    // detail (the default `error` level drops it).
+    _player = Player(
+      configuration: const PlayerConfiguration(logLevel: MPVLogLevel.info),
+    );
     _controller = VideoController(
       _player,
       configuration: const VideoControllerConfiguration(
@@ -161,6 +170,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // themselves. debugPrint is compiled out of release builds.
     _subs.add(_player.stream.log.listen((event) {
       debugPrint('mpv[${event.level}] ${event.prefix}: ${event.text}');
+      final level = event.level.toLowerCase();
+      final text = '${event.prefix}: ${event.text}'.trim();
+      final interesting = level == 'error' ||
+          level == 'fatal' ||
+          level == 'warn' ||
+          RegExp(r'(4\d\d|5\d\d|http|tcp|open|host|refused|format|forbidden|denied|unauthor)',
+                  caseSensitive: false)
+              .hasMatch(text);
+      if (interesting && text.isNotEmpty) {
+        _diagLog.add(text);
+        if (_diagLog.length > 12) _diagLog.removeAt(0);
+      }
     }));
     _subs.add(_player.stream.completed.listen((completed) {
       if (completed) _onCompleted();
@@ -303,6 +324,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _error = null;
       _upNextCountdown = null;
       _liveNow = null;
+      _diagLog.clear();
     });
     _upNextTimer?.cancel();
     _liveEpgTimer?.cancel();
@@ -659,6 +681,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.error)),
           ),
+          if (_diagLog.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.all(10),
+              constraints: const BoxConstraints(maxHeight: 160, maxWidth: 640),
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  _diagLog.join('\n'),
+                  style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: AppColors.textSecondary),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: () => _openCurrent(),

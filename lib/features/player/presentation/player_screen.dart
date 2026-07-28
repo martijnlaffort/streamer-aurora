@@ -79,6 +79,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   // so open/decode failures (HTTP status, refused, format) explain themselves
   // even in release builds where debugPrint is gone.
   final List<String> _diagLog = [];
+  bool _showErrorDetails = false;
 
   // Overlay state.
   bool _controlsVisible = true;
@@ -325,6 +326,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _upNextCountdown = null;
       _liveNow = null;
       _diagLog.clear();
+      _showErrorDetails = false;
     });
     _upNextTimer?.cancel();
     _liveEpgTimer?.cancel();
@@ -668,47 +670,121 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
+  /// Turns a raw stream-open failure into a plain-language title + fix hint.
+  /// Matches on the combined error text and mpv log tail so it works for the
+  /// custom codes IPTV panels use (e.g. 456).
+  ({String title, String? hint}) _friendlyError() {
+    final blob = '${_error ?? ''}\n${_diagLog.join('\n')}'.toLowerCase();
+    bool has(List<String> needles) => needles.any(blob.contains);
+
+    if (has(['456', 'max connection', 'connection limit'])) {
+      return (
+        title: 'Your provider refused this connection',
+        hint: 'This usually means your current IP is blocked, or your '
+            "account's connection limit is already in use. Try switching to a "
+            'different VPN server, or stop the stream on your other devices, '
+            'then Retry.',
+      );
+    }
+    if (has([' 401', ' 403', 'unauthor', 'forbidden', 'denied'])) {
+      return (
+        title: 'Access denied by your provider',
+        hint: 'Your login was rejected. Check that your subscription is active '
+            'and your account details are correct.',
+      );
+    }
+    if (has([' 404', 'not found', 'no such'])) {
+      return (
+        title: "This stream isn't available",
+        hint: 'It may be offline or removed. Try a different title or channel.',
+      );
+    }
+    if (has([
+      'refused',
+      'timed out',
+      'timeout',
+      'failed host lookup',
+      'unreachable',
+      'could not reach',
+      'tcp:',
+      'ffurl_read',
+    ])) {
+      return (
+        title: 'Can’t reach the stream',
+        hint: 'Check your internet or VPN connection, then Retry.',
+      );
+    }
+    if (has(['format', 'decode', 'invalid data', 'unsupported', 'codec'])) {
+      return (
+        title: 'This stream can’t be played',
+        hint: 'The format may be unsupported, or the stream is broken. '
+            'Try another source.',
+      );
+    }
+    return (title: 'Couldn’t play this stream', hint: null);
+  }
+
   Widget _errorView() {
+    final friendly = _friendlyError();
+    final hasDetail = _diagLog.isNotEmpty || _error != null;
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.error_outline, color: AppColors.error, size: 40),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Text(_error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.error)),
-          ),
-          if (_diagLog.isNotEmpty) ...[
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, color: AppColors.error, size: 40),
             const SizedBox(height: 12),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.all(10),
-              constraints: const BoxConstraints(maxHeight: 160, maxWidth: 640),
-              decoration: BoxDecoration(
-                color: Colors.white10,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: SingleChildScrollView(
-                child: SelectableText(
-                  _diagLog.join('\n'),
-                  style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 11,
-                      color: AppColors.textSecondary),
-                ),
-              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(friendly.title,
+                  textAlign: TextAlign.center, style: AppTypography.title),
             ),
+            if (friendly.hint != null) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 48),
+                child: Text(friendly.hint!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textSecondary)),
+              ),
+            ],
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () => _openCurrent(),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+            if (hasDetail) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () =>
+                    setState(() => _showErrorDetails = !_showErrorDetails),
+                child: Text(
+                    _showErrorDetails ? 'Hide details' : 'Technical details'),
+              ),
+              if (_showErrorDetails)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.all(10),
+                  constraints:
+                      const BoxConstraints(maxHeight: 160, maxWidth: 640),
+                  decoration: BoxDecoration(
+                    color: Colors.white10,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      [?_error, ..._diagLog].join('\n'),
+                      style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 11,
+                          color: AppColors.textSecondary),
+                    ),
+                  ),
+                ),
+            ],
           ],
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: () => _openCurrent(),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
-          ),
-        ],
+        ),
       ),
     );
   }

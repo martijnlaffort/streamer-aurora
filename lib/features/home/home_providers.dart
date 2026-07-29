@@ -3,6 +3,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../../domain/models/models.dart';
 
+/// One Continue Watching card — a movie, or a series (represented by its
+/// most-recent in-progress episode).
+class ContinueEntry {
+  const ContinueEntry({
+    required this.progress,
+    required this.title,
+    required this.route,
+    this.subtitle,
+    this.imageUrl,
+  });
+
+  final WatchProgress progress;
+  final String title;
+
+  /// e.g. "S1 · E2" for an episode; null for a movie.
+  final String? subtitle;
+  final String? imageUrl;
+
+  /// Where tapping the card goes ('/movie/:id' or '/series/:id').
+  final String route;
+}
+
 /// Everything the Home screen renders, resolved in one pass from the cached
 /// catalog (reads are DB-backed; the repository handles TTL refreshes).
 class HomeData {
@@ -17,8 +39,8 @@ class HomeData {
   final List<Movie> heroes;
   final List<Movie> recentlyAdded;
 
-  /// Progress entries resolved to their movies (episode resume joins in 1.3+).
-  final List<(WatchProgress, Movie)> continueWatching;
+  /// Continue Watching (PRD §8.9): movies and series, most-recent first.
+  final List<ContinueEntry> continueWatching;
   final List<(Category, List<Movie>)> categoryRails;
 }
 
@@ -54,16 +76,39 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
     }
   }
 
-  // Continue Watching (PRD §8.9): resolve movie keys against the cache.
+  // Continue Watching (PRD §8.9): movies play directly; episodes resolve back
+  // to their series (one card per series — the most-recent episode, since the
+  // list is already updatedAt-desc).
   final progress =
       await ref.watch(watchProgressRepositoryProvider).continueWatching();
-  final continueWatching = <(WatchProgress, Movie)>[];
+  final continueWatching = <ContinueEntry>[];
+  final seenSeries = <String>{};
   for (final p in progress) {
     final key = parseContentKey(p.contentKey);
     if (key == null || key.accountId != account.id) continue;
-    if (key.type != StreamType.movie.name) continue;
-    final movie = await catalog.movieById(account, key.id);
-    if (movie != null) continueWatching.add((p, movie));
+    if (key.type == StreamType.movie.name) {
+      final movie = await catalog.movieById(account, key.id);
+      if (movie != null) {
+        continueWatching.add(ContinueEntry(
+          progress: p,
+          title: movie.name,
+          imageUrl: movie.backdropUrl ?? movie.posterUrl,
+          route: '/movie/${movie.id}',
+        ));
+      }
+    } else if (key.type == StreamType.episode.name) {
+      final episode = await catalog.episodeById(account, key.id);
+      if (episode == null || !seenSeries.add(episode.seriesId)) continue;
+      final series = await catalog.seriesById(account, episode.seriesId);
+      if (series == null) continue;
+      continueWatching.add(ContinueEntry(
+        progress: p,
+        title: series.name,
+        subtitle: 'S${episode.seasonNumber} · E${episode.episodeNumber}',
+        imageUrl: series.backdropUrl ?? series.posterUrl,
+        route: '/series/${series.id}',
+      ));
+    }
   }
 
   // Per-category rails via paged reads — no full-catalog loads per rail.

@@ -211,6 +211,17 @@ class CatalogRepository {
     return row?.toModel();
   }
 
+  /// Cache-only single episode lookup — resolves a watched episode back to its
+  /// series (for Continue Watching). Present whenever the series detail was
+  /// opened, which is the only way to reach an episode.
+  Future<Episode?> episodeById(Account account, String episodeId) async {
+    final row = await (_db.episodesTable.select()
+          ..where(
+              (t) => t.accountId.equals(account.id) & t.id.equals(episodeId)))
+        .getSingleOrNull();
+    return row?.toModel();
+  }
+
   /// Cache-only single-row lookup (no source contact).
   Future<Channel?> channelById(Account account, String channelId) async {
     final row = await (_db.channelsTable.select()

@@ -93,12 +93,10 @@ class _HomeContent extends ConsumerWidget {
             SliverToBoxAdapter(
               child: MediaRail(
                 title: 'Continue Watching',
-                height: 172,
+                height: 188,
                 itemCount: data.continueWatching.length,
-                itemBuilder: (context, i) {
-                  final (progress, movie) = data.continueWatching[i];
-                  return _ContinueCard(progress: progress, movie: movie);
-                },
+                itemBuilder: (context, i) =>
+                    _ContinueCard(entry: data.continueWatching[i]),
               ),
             ),
           if (data.recentlyAdded.isNotEmpty)
@@ -266,21 +264,20 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
 }
 
 class _ContinueCard extends StatelessWidget {
-  const _ContinueCard({required this.progress, required this.movie});
+  const _ContinueCard({required this.entry});
 
-  final WatchProgress progress;
-  final Movie movie;
+  final ContinueEntry entry;
 
   @override
   Widget build(BuildContext context) {
-    final image = movie.backdropUrl ?? movie.posterUrl;
+    final progress = entry.progress;
     final fraction = progress.durationSeconds > 0
         ? (progress.positionSeconds / progress.durationSeconds).clamp(0.0, 1.0)
         : 0.0;
     return SizedBox(
       width: 220,
       child: GestureDetector(
-        onTap: () => context.push('/movie/${movie.id}'),
+        onTap: () => context.push(entry.route),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -291,9 +288,9 @@ class _ContinueCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if (image != null)
+                    if (entry.imageUrl != null)
                       CachedNetworkImage(
-                        imageUrl: image,
+                        imageUrl: entry.imageUrl!,
                         fit: BoxFit.cover,
                         placeholder: (context, url) =>
                             const ColoredBox(color: AppColors.surfaceElevated),
@@ -320,10 +317,16 @@ class _ContinueCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text(movie.name,
+            Text(entry.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.label),
+            if (entry.subtitle != null)
+              Text(entry.subtitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 12)),
           ],
         ),
       ),

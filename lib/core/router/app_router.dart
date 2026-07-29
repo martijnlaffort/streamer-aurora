@@ -13,6 +13,7 @@ import '../../features/series/presentation/series_detail_screen.dart';
 import '../../features/series/presentation/series_screen.dart';
 import '../../features/settings/presentation/accounts_screen.dart';
 import '../../features/settings/presentation/add_account_screen.dart';
+import '../../features/settings/presentation/content_languages_screen.dart';
 import '../../features/settings/presentation/favorites_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/source_probe_screen.dart';
@@ -102,6 +103,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings/sync',
         name: 'sync',
         builder: (context, state) => const SyncSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/languages',
+        name: 'contentLanguages',
+        builder: (context, state) => const ContentLanguagesScreen(),
       ),
       GoRoute(
         path: '/accounts',

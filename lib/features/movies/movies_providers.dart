@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/language/content_language.dart';
 import '../../data/providers.dart';
 import '../../domain/models/models.dart';
 
@@ -16,17 +17,31 @@ extension MovieSortLabel on MovieSort {
 final vodCategoriesProvider = FutureProvider<List<Category>>((ref) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return [];
-  return ref.watch(catalogRepositoryProvider).categories(account, CategoryType.vod);
+  final cats = await ref
+      .watch(catalogRepositoryProvider)
+      .categories(account, CategoryType.vod);
+  final enabled = await ref.watch(contentLanguageFilterProvider.future);
+  if (enabled == null) return cats;
+  return cats
+      .where((c) => enabled.contains(detectContentLanguage(c.name).code))
+      .toList();
 });
 
-/// Movies for one category (null = all), unsorted — the screen sorts.
+/// Movies for one category (null = all), unsorted — the screen sorts. The
+/// unscoped "All" list honours the content-language filter (an explicitly
+/// picked category is already an allowed one).
 final moviesListProvider =
     FutureProvider.family<List<Movie>, String?>((ref, categoryId) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return [];
-  return ref
+  final movies = await ref
       .watch(catalogRepositoryProvider)
       .movies(account, categoryId: categoryId);
+  if (categoryId != null) return movies;
+  final allowed =
+      await ref.watch(allowedCategoryIdsProvider(CategoryType.vod).future);
+  if (allowed == null) return movies;
+  return movies.where((m) => allowed.contains(m.categoryId)).toList();
 });
 
 List<Movie> sortMovies(List<Movie> movies, MovieSort sort) {

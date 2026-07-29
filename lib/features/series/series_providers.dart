@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/language/content_language.dart';
 import '../../data/providers.dart';
 import '../../domain/models/models.dart';
 
@@ -15,18 +16,28 @@ extension SeriesSortLabel on SeriesSort {
 final seriesCategoriesProvider = FutureProvider<List<Category>>((ref) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return [];
-  return ref
+  final cats = await ref
       .watch(catalogRepositoryProvider)
       .categories(account, CategoryType.series);
+  final enabled = await ref.watch(contentLanguageFilterProvider.future);
+  if (enabled == null) return cats;
+  return cats
+      .where((c) => enabled.contains(detectContentLanguage(c.name).code))
+      .toList();
 });
 
 final seriesListProvider =
     FutureProvider.family<List<Series>, String?>((ref, categoryId) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return [];
-  return ref
+  final series = await ref
       .watch(catalogRepositoryProvider)
       .series(account, categoryId: categoryId);
+  if (categoryId != null) return series;
+  final allowed =
+      await ref.watch(allowedCategoryIdsProvider(CategoryType.series).future);
+  if (allowed == null) return series;
+  return series.where((s) => allowed.contains(s.categoryId)).toList();
 });
 
 List<Series> sortSeries(List<Series> series, SeriesSort sort) {

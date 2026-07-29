@@ -11,6 +11,7 @@ class Preferences extends Equatable {
     this.preferredSubtitleLang,
     this.autoplayNext = true,
     this.backgroundPlayback = false,
+    this.contentLanguages,
   });
 
   const Preferences.defaults() : this();
@@ -25,11 +26,16 @@ class Preferences extends Equatable {
   /// Keep audio playing when the app is backgrounded (PRD §8.8, Task 2.3).
   final bool backgroundPlayback;
 
+  /// Content-language filter (PRD §8.3): the ContentLanguage codes to *show*
+  /// in the catalog. `null` means "not configured" → show every language.
+  final List<String>? contentLanguages;
+
   Preferences copyWith({
     String? preferredAudioLang,
     String? preferredSubtitleLang,
     bool? autoplayNext,
     bool? backgroundPlayback,
+    List<String>? contentLanguages,
   }) {
     return Preferences(
       preferredAudioLang: preferredAudioLang ?? this.preferredAudioLang,
@@ -37,6 +43,7 @@ class Preferences extends Equatable {
           preferredSubtitleLang ?? this.preferredSubtitleLang,
       autoplayNext: autoplayNext ?? this.autoplayNext,
       backgroundPlayback: backgroundPlayback ?? this.backgroundPlayback,
+      contentLanguages: contentLanguages ?? this.contentLanguages,
     );
   }
 
@@ -46,6 +53,7 @@ class Preferences extends Equatable {
         preferredSubtitleLang,
         autoplayNext,
         backgroundPlayback,
+        contentLanguages,
       ];
 
   @override

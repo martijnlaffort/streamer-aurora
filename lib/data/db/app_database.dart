@@ -168,6 +168,10 @@ class PreferencesTable extends Table {
   BoolColumn get backgroundPlayback =>
       boolean().withDefault(const Constant(false))();
 
+  /// Content-language filter: CSV of ContentLanguage codes to show, or null
+  /// for "all languages" (added in schema v4).
+  TextColumn get contentLanguages => text().nullable()();
+
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
 
@@ -260,7 +264,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -273,6 +277,11 @@ class AppDatabase extends _$AppDatabase {
           // v3: recent search history.
           if (from < 3) {
             await m.createTable(searchHistoryTable);
+          }
+          // v4: content-language filter preference.
+          if (from < 4) {
+            await m.addColumn(
+                preferencesTable, preferencesTable.contentLanguages);
           }
         },
       );

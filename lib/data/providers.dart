@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/language/content_language.dart';
 import '../domain/models/models.dart';
 import 'db/app_database.dart';
 import 'db/credential_store.dart';
@@ -83,3 +84,60 @@ final activeAccountProvider = FutureProvider<Account?>(
 /// Global playback preferences. Invalidate after saving.
 final preferencesProvider = FutureProvider<Preferences>(
     (ref) => ref.watch(preferencesRepositoryProvider).get());
+
+// --- Content-language filter (PRD §8.3) ------------------------------------
+
+/// The set of [ContentLanguage] codes to show, or `null` when the filter is
+/// off (unconfigured, or every language enabled) → show everything.
+final contentLanguageFilterProvider = FutureProvider<Set<String>?>((ref) async {
+  final prefs = await ref.watch(preferencesProvider.future);
+  final codes = prefs.contentLanguages;
+  if (codes == null || codes.isEmpty) return null;
+  return codes.toSet();
+});
+
+/// Category IDs of [type] whose detected language is enabled, or `null` when
+/// the filter is off (→ no restriction). Drives filtering of the unscoped
+/// title lists (Home rails, the "All" grids).
+final allowedCategoryIdsProvider =
+    FutureProvider.family<Set<String>?, CategoryType>((ref, type) async {
+  final enabled = await ref.watch(contentLanguageFilterProvider.future);
+  if (enabled == null) return null;
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return null;
+  final cats =
+      await ref.watch(catalogRepositoryProvider).categories(account, type);
+  return cats
+      .where((c) => enabled.contains(detectContentLanguage(c.name).code))
+      .map((c) => c.id)
+      .toSet();
+});
+
+/// Languages present across the active account's categories, with how many
+/// categories fall in each — powers the Settings picker. Sorted by size, with
+/// "Other" pinned last.
+final availableContentLanguagesProvider =
+    FutureProvider<List<({ContentLanguage lang, int count})>>((ref) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return const [];
+  final catalog = ref.watch(catalogRepositoryProvider);
+  final counts = <String, int>{};
+  final labels = <String, String>{};
+  for (final type in CategoryType.values) {
+    for (final category in await catalog.categories(account, type)) {
+      final lang = detectContentLanguage(category.name);
+      counts[lang.code] = (counts[lang.code] ?? 0) + 1;
+      labels[lang.code] = lang.label;
+    }
+  }
+  final result = [
+    for (final entry in counts.entries)
+      (lang: ContentLanguage(entry.key, labels[entry.key]!), count: entry.value)
+  ];
+  result.sort((a, b) {
+    if (a.lang.code == ContentLanguage.other.code) return 1;
+    if (b.lang.code == ContentLanguage.other.code) return -1;
+    return b.count.compareTo(a.count);
+  });
+  return result;
+});

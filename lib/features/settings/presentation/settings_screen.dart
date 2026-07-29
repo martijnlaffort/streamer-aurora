@@ -136,6 +136,18 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/sync'),
           ),
+          ListTile(
+            leading: const Icon(Icons.translate_outlined),
+            title: const Text('Content languages'),
+            subtitle: Text(
+              prefs.contentLanguages == null
+                  ? 'All languages'
+                  : '${prefs.contentLanguages!.length} selected',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/languages'),
+          ),
           const Divider(),
           const _SectionLabel('Playback'),
           ListTile(
@@ -153,6 +165,8 @@ class SettingsScreen extends ConsumerWidget {
                 preferredAudioLang: code,
                 preferredSubtitleLang: prefs.preferredSubtitleLang,
                 autoplayNext: prefs.autoplayNext,
+                backgroundPlayback: prefs.backgroundPlayback,
+                contentLanguages: prefs.contentLanguages,
               )),
             ),
           ),
@@ -171,6 +185,8 @@ class SettingsScreen extends ConsumerWidget {
                 preferredAudioLang: prefs.preferredAudioLang,
                 preferredSubtitleLang: code,
                 autoplayNext: prefs.autoplayNext,
+                backgroundPlayback: prefs.backgroundPlayback,
+                contentLanguages: prefs.contentLanguages,
               )),
             ),
           ),

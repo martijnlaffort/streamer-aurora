@@ -1,24 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/language/content_language.dart';
 import '../../data/providers.dart';
 import '../../domain/models/models.dart';
 
 final liveCategoriesProvider = FutureProvider<List<Category>>((ref) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return [];
-  return ref
+  final cats = await ref
       .watch(catalogRepositoryProvider)
       .categories(account, CategoryType.live);
+  final enabled = await ref.watch(contentLanguageFilterProvider.future);
+  if (enabled == null) return cats;
+  return cats
+      .where((c) => enabled.contains(detectContentLanguage(c.name).code))
+      .toList();
 });
 
-/// Channels for one category (null = all).
+/// Channels for one category (null = all). The unscoped list honours the
+/// content-language filter.
 final channelsListProvider =
     FutureProvider.family<List<Channel>, String?>((ref, categoryId) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return [];
-  return ref
+  final channels = await ref
       .watch(catalogRepositoryProvider)
       .channels(account, categoryId: categoryId);
+  if (categoryId != null) return channels;
+  final allowed =
+      await ref.watch(allowedCategoryIdsProvider(CategoryType.live).future);
+  if (allowed == null) return channels;
+  return channels.where((c) => allowed.contains(c.categoryId)).toList();
 });
 
 /// Now/Next for a channel (PRD §8.5), from the ingested XMLTV guide (or a

@@ -222,6 +222,10 @@ extension PreferencesRowMapper on PreferencesRow {
         preferredSubtitleLang: preferredSubtitleLang,
         autoplayNext: autoplayNext,
         backgroundPlayback: backgroundPlayback,
+        contentLanguages: (contentLanguages == null ||
+                contentLanguages!.isEmpty)
+            ? null
+            : contentLanguages!.split(','),
       );
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/language/content_language.dart';
 import '../../data/providers.dart';
 import '../../domain/models/models.dart';
 
@@ -59,8 +60,34 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   if (account == null) return null;
   final catalog = ref.watch(catalogRepositoryProvider);
 
+  // Content-language filter (PRD §8.3): everything on Home is restricted to
+  // categories whose detected language is enabled. Category IDs are resolved
+  // once here; `null` sets mean the filter is off (show all).
+  final enabled = await ref.watch(contentLanguageFilterProvider.future);
+  final vodCategories = await catalog.categories(account, CategoryType.vod);
+  final seriesCategories =
+      await catalog.categories(account, CategoryType.series);
+  final Set<String>? allowedVod = enabled == null
+      ? null
+      : vodCategories
+          .where((c) => enabled.contains(detectContentLanguage(c.name).code))
+          .map((c) => c.id)
+          .toSet();
+  final Set<String>? allowedSeries = enabled == null
+      ? null
+      : seriesCategories
+          .where((c) => enabled.contains(detectContentLanguage(c.name).code))
+          .map((c) => c.id)
+          .toSet();
+  List<Movie> keepMovies(List<Movie> m) => allowedVod == null
+      ? m
+      : m.where((x) => allowedVod.contains(x.categoryId)).toList();
+  List<Series> keepSeries(List<Series> s) => allowedSeries == null
+      ? s
+      : s.where((x) => allowedSeries.contains(x.categoryId)).toList();
+
   // Recently added drives the hero + first rail.
-  final all = await catalog.movies(account);
+  final all = keepMovies(await catalog.movies(account));
   final recent = [...all]..sort((a, b) {
       final at = a.addedAt?.millisecondsSinceEpoch ?? 0;
       final bt = b.addedAt?.millisecondsSinceEpoch ?? 0;
@@ -75,7 +102,7 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
         ..sort((a, b) => b.rating!.compareTo(a.rating!)))
       .take(_railLength)
       .toList();
-  final allSeries = await catalog.series(account);
+  final allSeries = keepSeries(await catalog.series(account));
   final popularSeries = ([...allSeries]
         ..removeWhere((s) => (s.rating ?? 0) <= 0)
         ..sort((a, b) => b.rating!.compareTo(a.rating!)))
@@ -133,9 +160,12 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   }
 
   // Per-category rails via paged reads — no full-catalog loads per rail.
-  final categories = await catalog.categories(account, CategoryType.vod);
+  // Reuses the language-filtered VOD categories resolved above.
+  final railCategories = allowedVod == null
+      ? vodCategories
+      : vodCategories.where((c) => allowedVod.contains(c.id)).toList();
   final rails = <(Category, List<Movie>)>[];
-  for (final category in categories.take(_maxCategoryRails)) {
+  for (final category in railCategories.take(_maxCategoryRails)) {
     final movies =
         await catalog.movies(account, categoryId: category.id, limit: _railLength);
     if (movies.isNotEmpty) rails.add((category, movies));

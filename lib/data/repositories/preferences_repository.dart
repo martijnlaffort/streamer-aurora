@@ -34,6 +34,12 @@ class PreferencesRepository {
         preferredSubtitleLang: Value(preferences.preferredSubtitleLang),
         autoplayNext: Value(preferences.autoplayNext),
         backgroundPlayback: Value(preferences.backgroundPlayback),
+        contentLanguages: Value(
+          (preferences.contentLanguages == null ||
+                  preferences.contentLanguages!.isEmpty)
+              ? null
+              : preferences.contentLanguages!.join(','),
+        ),
       ),
     );
   }

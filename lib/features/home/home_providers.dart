@@ -32,6 +32,8 @@ class HomeData {
     required this.heroes,
     required this.recentlyAdded,
     required this.continueWatching,
+    required this.popularMovies,
+    required this.popularSeries,
     required this.categoryRails,
   });
 
@@ -41,6 +43,11 @@ class HomeData {
 
   /// Continue Watching (PRD §8.9): movies and series, most-recent first.
   final List<ContinueEntry> continueWatching;
+
+  /// "Popular" = highest-rated (IPTV has no real trending signal, so the
+  /// panel's rating is the proxy). Empty when the panel provides no ratings.
+  final List<Movie> popularMovies;
+  final List<Series> popularSeries;
   final List<(Category, List<Movie>)> categoryRails;
 }
 
@@ -60,6 +67,20 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
       return bt.compareTo(at);
     });
   final recentlyAdded = recent.take(_railLength).toList();
+
+  // "Popular" = top-rated (no true trending signal exists for IPTV; the
+  // panel's rating is the honest proxy). Hidden entirely when unrated.
+  final popularMovies = ([...all]
+        ..removeWhere((m) => (m.rating ?? 0) <= 0)
+        ..sort((a, b) => b.rating!.compareTo(a.rating!)))
+      .take(_railLength)
+      .toList();
+  final allSeries = await catalog.series(account);
+  final popularSeries = ([...allSeries]
+        ..removeWhere((s) => (s.rating ?? 0) <= 0)
+        ..sort((a, b) => b.rating!.compareTo(a.rating!)))
+      .take(_railLength)
+      .toList();
 
   // Featured heroes: the newest few, enriched with backdrops when the panel
   // is up (cached rows are fine offline) — the Home hero rotates through them.
@@ -124,6 +145,8 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
     heroes: heroes,
     recentlyAdded: recentlyAdded,
     continueWatching: continueWatching,
+    popularMovies: popularMovies,
+    popularSeries: popularSeries,
     categoryRails: rails,
   );
 });

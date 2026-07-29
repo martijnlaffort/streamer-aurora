@@ -15,6 +15,7 @@ class PosterCard extends StatefulWidget {
     this.onTap,
     this.width = 128,
     this.heroTag,
+    this.rating,
   });
 
   final String title;
@@ -25,6 +26,10 @@ class PosterCard extends StatefulWidget {
   /// Shared-element tag: the detail header carries the same tag so the
   /// artwork flies poster → detail (PRD §10).
   final String? heroTag;
+
+  /// When set (>0), a small star badge is drawn on the poster — used by the
+  /// "Popular" rails to signal why a title is there.
+  final double? rating;
 
   @override
   State<PosterCard> createState() => _PosterCardState();
@@ -55,35 +60,49 @@ class _PosterCardState extends State<PosterCard> {
                 children: [
                   AspectRatio(
                     aspectRatio: 2 / 3,
-                    child: _maybeHero(ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceElevated,
-                          border: _engaged
-                              ? Border.all(color: AppColors.focusRing, width: 2)
-                              : null,
-                        ),
-                        child: widget.imageUrl != null
-                            ? CachedNetworkImage(
-                                imageUrl: widget.imageUrl!,
-                                fit: BoxFit.cover,
-                                fadeInDuration:
-                                    const Duration(milliseconds: 180),
-                                placeholder: (context, url) => const ColoredBox(
-                                    color: AppColors.surfaceElevated),
-                                errorWidget: (context, url, error) =>
-                                    const Center(
-                                  child: Icon(Icons.broken_image_outlined,
-                                      color: AppColors.textSecondary),
-                                ),
-                              )
-                            : const Center(
-                                child: Icon(Icons.movie_outlined,
-                                    color: AppColors.textSecondary),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: _maybeHero(ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceElevated,
+                                border: _engaged
+                                    ? Border.all(
+                                        color: AppColors.focusRing, width: 2)
+                                    : null,
                               ),
-                      ),
-                    )),
+                              child: widget.imageUrl != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: widget.imageUrl!,
+                                      fit: BoxFit.cover,
+                                      fadeInDuration:
+                                          const Duration(milliseconds: 180),
+                                      placeholder: (context, url) =>
+                                          const ColoredBox(
+                                              color: AppColors.surfaceElevated),
+                                      errorWidget: (context, url, error) =>
+                                          const Center(
+                                        child: Icon(Icons.broken_image_outlined,
+                                            color: AppColors.textSecondary),
+                                      ),
+                                    )
+                                  : const Center(
+                                      child: Icon(Icons.movie_outlined,
+                                          color: AppColors.textSecondary),
+                                    ),
+                            ),
+                          )),
+                        ),
+                        if (widget.rating != null && widget.rating! > 0)
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: _RatingBadge(widget.rating!),
+                          ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -97,6 +116,39 @@ class _PosterCardState extends State<PosterCard> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A small "★ 8.4" chip drawn over a poster's top-right corner.
+class _RatingBadge extends StatelessWidget {
+  const _RatingBadge(this.rating);
+
+  final double rating;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star_rounded, size: 13, color: AppColors.accentAlt),
+          const SizedBox(width: 2),
+          Text(
+            rating.toStringAsFixed(1),
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

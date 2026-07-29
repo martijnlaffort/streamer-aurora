@@ -99,6 +99,42 @@ class _HomeContent extends ConsumerWidget {
                     _ContinueCard(entry: data.continueWatching[i]),
               ),
             ),
+          if (data.popularMovies.isNotEmpty)
+            SliverToBoxAdapter(
+              child: MediaRail(
+                title: 'Popular Movies',
+                itemCount: data.popularMovies.length,
+                itemBuilder: (context, i) {
+                  final movie = data.popularMovies[i];
+                  final tag = 'pop-m-${movie.id}';
+                  return PosterCard(
+                    title: movie.name,
+                    imageUrl: movie.posterUrl,
+                    rating: movie.rating,
+                    heroTag: tag,
+                    onTap: () => context.push('/movie/${movie.id}', extra: tag),
+                  );
+                },
+              ),
+            ),
+          if (data.popularSeries.isNotEmpty)
+            SliverToBoxAdapter(
+              child: MediaRail(
+                title: 'Popular Series',
+                itemCount: data.popularSeries.length,
+                itemBuilder: (context, i) {
+                  final series = data.popularSeries[i];
+                  final tag = 'pop-s-${series.id}';
+                  return PosterCard(
+                    title: series.name,
+                    imageUrl: series.posterUrl,
+                    rating: series.rating,
+                    heroTag: tag,
+                    onTap: () => context.push('/series/${series.id}', extra: tag),
+                  );
+                },
+              ),
+            ),
           if (data.recentlyAdded.isNotEmpty)
             SliverToBoxAdapter(
               child: MediaRail(

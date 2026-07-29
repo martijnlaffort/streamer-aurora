@@ -8,6 +8,7 @@ import 'repositories/catalog_repository.dart';
 import 'repositories/epg_repository.dart';
 import 'repositories/favorites_repository.dart';
 import 'repositories/preferences_repository.dart';
+import 'repositories/search_history_repository.dart';
 import 'repositories/watch_progress_repository.dart';
 import 'sources/m3u_source.dart';
 import 'sources/playlist_source.dart';
@@ -63,6 +64,13 @@ final preferencesRepositoryProvider = Provider<PreferencesRepository>(
 
 final favoritesRepositoryProvider = Provider<FavoritesRepository>(
     (ref) => FavoritesRepository(db: ref.watch(appDatabaseProvider)));
+
+final searchHistoryRepositoryProvider = Provider<SearchHistoryRepository>(
+    (ref) => SearchHistoryRepository(db: ref.watch(appDatabaseProvider)));
+
+/// Recent search terms, newest first. Invalidate after recording/clearing.
+final recentSearchesProvider = FutureProvider<List<String>>(
+    (ref) => ref.watch(searchHistoryRepositoryProvider).recent());
 
 /// All saved accounts. Invalidate after add/delete.
 final accountsProvider = FutureProvider<List<Account>>(

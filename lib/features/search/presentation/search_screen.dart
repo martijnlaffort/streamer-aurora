@@ -54,6 +54,46 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     });
   }
 
+  /// Re-run a tapped recent search.
+  void _runQuery(String q) {
+    _debounce?.cancel();
+    _controller.text = q;
+    _controller.selection = TextSelection.collapsed(offset: q.length);
+    setState(() => _query = q);
+  }
+
+  /// Persist the current query as a recent search (on submit or result tap).
+  Future<void> _record() async {
+    final q = _query.trim();
+    if (q.length < 2) return;
+    await ref.read(searchHistoryRepositoryProvider).record(q);
+    ref.invalidate(recentSearchesProvider);
+  }
+
+  void _playChannel(Channel channel) {
+    _record();
+    context.push(
+      '/player',
+      extra: PlayerRequest(
+        queue: [
+          PlayerItem(
+            streamRef: StreamRef(
+              accountId: channel.accountId,
+              type: StreamType.live,
+              streamId: channel.id,
+            ),
+            title: channel.name,
+            contentKey: contentKeyFor(
+                accountId: channel.accountId,
+                type: StreamType.live,
+                id: channel.id),
+            isLive: true,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final results = ref.watch(searchResultsProvider(_query));
@@ -63,10 +103,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         title: TextField(
           controller: _controller,
           onChanged: _onChanged,
+          onSubmitted: (_) => _record(),
+          textInputAction: TextInputAction.search,
           autofocus: false,
           autocorrect: false,
           decoration: const InputDecoration(
-            hintText: 'Search movies and series…',
+            hintText: 'Search movies, series, channels…',
             border: InputBorder.none,
           ),
         ),
@@ -87,9 +129,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             child: Text('$e', style: const TextStyle(color: AppColors.error))),
         data: (data) {
           if (_query.trim().length < 2) {
-            return const Center(
-              child: Text('Type at least two characters.',
-                  style: TextStyle(color: AppColors.textSecondary)),
+            return _RecentSearches(
+              onTapQuery: _runQuery,
+              onRemove: (q) async {
+                await ref.read(searchHistoryRepositoryProvider).remove(q);
+                ref.invalidate(recentSearchesProvider);
+              },
+              onClear: () async {
+                await ref.read(searchHistoryRepositoryProvider).clear();
+                ref.invalidate(recentSearchesProvider);
+              },
             );
           }
           if (data.movies.isEmpty &&
@@ -109,26 +158,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     title: channel.name,
                     imageUrl: channel.logoUrl,
                     contain: true,
-                    onTap: () => context.push(
-                      '/player',
-                      extra: PlayerRequest(
-                        queue: [
-                          PlayerItem(
-                            streamRef: StreamRef(
-                              accountId: channel.accountId,
-                              type: StreamType.live,
-                              streamId: channel.id,
-                            ),
-                            title: channel.name,
-                            contentKey: contentKeyFor(
-                                accountId: channel.accountId,
-                                type: StreamType.live,
-                                id: channel.id),
-                            isLive: true,
-                          ),
-                        ],
-                      ),
-                    ),
+                    onTap: () => _playChannel(channel),
                   ),
               ],
               if (data.movies.isNotEmpty) ...[
@@ -141,7 +171,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       if (movie.year != null) '${movie.year}',
                       if (movie.genre != null) movie.genre!,
                     ].join(' · '),
-                    onTap: () => context.push('/movie/${movie.id}'),
+                    onTap: () {
+                      _record();
+                      context.push('/movie/${movie.id}');
+                    },
                   ),
               ],
               if (data.series.isNotEmpty) ...[
@@ -154,7 +187,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       if (series.year != null) '${series.year}',
                       if (series.genre != null) series.genre!,
                     ].join(' · '),
-                    onTap: () => context.push('/series/${series.id}'),
+                    onTap: () {
+                      _record();
+                      context.push('/series/${series.id}');
+                    },
                   ),
               ],
               const SizedBox(height: 24),
@@ -162,6 +198,61 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Empty-box state (PRD §8.6): recent searches, tap to re-run, swipe/× to
+/// remove, or clear all. Falls back to a hint when there's no history.
+class _RecentSearches extends ConsumerWidget {
+  const _RecentSearches({
+    required this.onTapQuery,
+    required this.onRemove,
+    required this.onClear,
+  });
+
+  final void Function(String) onTapQuery;
+  final Future<void> Function(String) onRemove;
+  final Future<void> Function() onClear;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recent = ref.watch(recentSearchesProvider);
+    return recent.maybeWhen(
+      orElse: () => const SizedBox.shrink(),
+      data: (queries) {
+        if (queries.isEmpty) {
+          return const Center(
+            child: Text('Search movies, series, and channels.',
+                style: TextStyle(color: AppColors.textSecondary)),
+          );
+        }
+        return ListView(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Recent searches', style: AppTypography.title),
+                  TextButton(onPressed: onClear, child: const Text('Clear all')),
+                ],
+              ),
+            ),
+            for (final q in queries)
+              ListTile(
+                leading: const Icon(Icons.history, color: AppColors.textSecondary),
+                title: Text(q),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  color: AppColors.textSecondary,
+                  onPressed: () => onRemove(q),
+                ),
+                onTap: () => onTapQuery(q),
+              ),
+          ],
+        );
+      },
     );
   }
 }

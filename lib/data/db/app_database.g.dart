@@ -5580,6 +5580,233 @@ class CatalogMetaTableCompanion extends UpdateCompanion<CatalogMetaRow> {
   }
 }
 
+class $SearchHistoryTableTable extends SearchHistoryTable
+    with TableInfo<$SearchHistoryTableTable, SearchHistoryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SearchHistoryTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _queryMeta = const VerificationMeta('query');
+  @override
+  late final GeneratedColumn<String> query = GeneratedColumn<String>(
+    'query',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _searchedAtMillisUtcMeta =
+      const VerificationMeta('searchedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> searchedAtMillisUtc = GeneratedColumn<int>(
+    'searched_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [query, searchedAtMillisUtc];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'search_history';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SearchHistoryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('query')) {
+      context.handle(
+        _queryMeta,
+        query.isAcceptableOrUnknown(data['query']!, _queryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_queryMeta);
+    }
+    if (data.containsKey('searched_at_millis_utc')) {
+      context.handle(
+        _searchedAtMillisUtcMeta,
+        searchedAtMillisUtc.isAcceptableOrUnknown(
+          data['searched_at_millis_utc']!,
+          _searchedAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_searchedAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {query};
+  @override
+  SearchHistoryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SearchHistoryRow(
+      query: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}query'],
+      )!,
+      searchedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}searched_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $SearchHistoryTableTable createAlias(String alias) {
+    return $SearchHistoryTableTable(attachedDatabase, alias);
+  }
+}
+
+class SearchHistoryRow extends DataClass
+    implements Insertable<SearchHistoryRow> {
+  final String query;
+  final int searchedAtMillisUtc;
+  const SearchHistoryRow({
+    required this.query,
+    required this.searchedAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['query'] = Variable<String>(query);
+    map['searched_at_millis_utc'] = Variable<int>(searchedAtMillisUtc);
+    return map;
+  }
+
+  SearchHistoryTableCompanion toCompanion(bool nullToAbsent) {
+    return SearchHistoryTableCompanion(
+      query: Value(query),
+      searchedAtMillisUtc: Value(searchedAtMillisUtc),
+    );
+  }
+
+  factory SearchHistoryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SearchHistoryRow(
+      query: serializer.fromJson<String>(json['query']),
+      searchedAtMillisUtc: serializer.fromJson<int>(
+        json['searchedAtMillisUtc'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'query': serializer.toJson<String>(query),
+      'searchedAtMillisUtc': serializer.toJson<int>(searchedAtMillisUtc),
+    };
+  }
+
+  SearchHistoryRow copyWith({String? query, int? searchedAtMillisUtc}) =>
+      SearchHistoryRow(
+        query: query ?? this.query,
+        searchedAtMillisUtc: searchedAtMillisUtc ?? this.searchedAtMillisUtc,
+      );
+  SearchHistoryRow copyWithCompanion(SearchHistoryTableCompanion data) {
+    return SearchHistoryRow(
+      query: data.query.present ? data.query.value : this.query,
+      searchedAtMillisUtc: data.searchedAtMillisUtc.present
+          ? data.searchedAtMillisUtc.value
+          : this.searchedAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SearchHistoryRow(')
+          ..write('query: $query, ')
+          ..write('searchedAtMillisUtc: $searchedAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(query, searchedAtMillisUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SearchHistoryRow &&
+          other.query == this.query &&
+          other.searchedAtMillisUtc == this.searchedAtMillisUtc);
+}
+
+class SearchHistoryTableCompanion extends UpdateCompanion<SearchHistoryRow> {
+  final Value<String> query;
+  final Value<int> searchedAtMillisUtc;
+  final Value<int> rowid;
+  const SearchHistoryTableCompanion({
+    this.query = const Value.absent(),
+    this.searchedAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SearchHistoryTableCompanion.insert({
+    required String query,
+    required int searchedAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : query = Value(query),
+       searchedAtMillisUtc = Value(searchedAtMillisUtc);
+  static Insertable<SearchHistoryRow> custom({
+    Expression<String>? query,
+    Expression<int>? searchedAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (query != null) 'query': query,
+      if (searchedAtMillisUtc != null)
+        'searched_at_millis_utc': searchedAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SearchHistoryTableCompanion copyWith({
+    Value<String>? query,
+    Value<int>? searchedAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return SearchHistoryTableCompanion(
+      query: query ?? this.query,
+      searchedAtMillisUtc: searchedAtMillisUtc ?? this.searchedAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (query.present) {
+      map['query'] = Variable<String>(query.value);
+    }
+    if (searchedAtMillisUtc.present) {
+      map['searched_at_millis_utc'] = Variable<int>(searchedAtMillisUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SearchHistoryTableCompanion(')
+          ..write('query: $query, ')
+          ..write('searchedAtMillisUtc: $searchedAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5601,6 +5828,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CatalogMetaTableTable catalogMetaTable = $CatalogMetaTableTable(
     this,
   );
+  late final $SearchHistoryTableTable searchHistoryTable =
+      $SearchHistoryTableTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5617,6 +5846,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     favoritesTable,
     epgCacheTable,
     catalogMetaTable,
+    searchHistoryTable,
   ];
 }
 
@@ -8438,6 +8668,164 @@ typedef $$CatalogMetaTableTableProcessedTableManager =
       CatalogMetaRow,
       PrefetchHooks Function()
     >;
+typedef $$SearchHistoryTableTableCreateCompanionBuilder =
+    SearchHistoryTableCompanion Function({
+      required String query,
+      required int searchedAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$SearchHistoryTableTableUpdateCompanionBuilder =
+    SearchHistoryTableCompanion Function({
+      Value<String> query,
+      Value<int> searchedAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$SearchHistoryTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SearchHistoryTableTable> {
+  $$SearchHistoryTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get query => $composableBuilder(
+    column: $table.query,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get searchedAtMillisUtc => $composableBuilder(
+    column: $table.searchedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SearchHistoryTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SearchHistoryTableTable> {
+  $$SearchHistoryTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get query => $composableBuilder(
+    column: $table.query,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get searchedAtMillisUtc => $composableBuilder(
+    column: $table.searchedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SearchHistoryTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SearchHistoryTableTable> {
+  $$SearchHistoryTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get query =>
+      $composableBuilder(column: $table.query, builder: (column) => column);
+
+  GeneratedColumn<int> get searchedAtMillisUtc => $composableBuilder(
+    column: $table.searchedAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$SearchHistoryTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SearchHistoryTableTable,
+          SearchHistoryRow,
+          $$SearchHistoryTableTableFilterComposer,
+          $$SearchHistoryTableTableOrderingComposer,
+          $$SearchHistoryTableTableAnnotationComposer,
+          $$SearchHistoryTableTableCreateCompanionBuilder,
+          $$SearchHistoryTableTableUpdateCompanionBuilder,
+          (
+            SearchHistoryRow,
+            BaseReferences<
+              _$AppDatabase,
+              $SearchHistoryTableTable,
+              SearchHistoryRow
+            >,
+          ),
+          SearchHistoryRow,
+          PrefetchHooks Function()
+        > {
+  $$SearchHistoryTableTableTableManager(
+    _$AppDatabase db,
+    $SearchHistoryTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SearchHistoryTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SearchHistoryTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SearchHistoryTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> query = const Value.absent(),
+                Value<int> searchedAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SearchHistoryTableCompanion(
+                query: query,
+                searchedAtMillisUtc: searchedAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String query,
+                required int searchedAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => SearchHistoryTableCompanion.insert(
+                query: query,
+                searchedAtMillisUtc: searchedAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SearchHistoryTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SearchHistoryTableTable,
+      SearchHistoryRow,
+      $$SearchHistoryTableTableFilterComposer,
+      $$SearchHistoryTableTableOrderingComposer,
+      $$SearchHistoryTableTableAnnotationComposer,
+      $$SearchHistoryTableTableCreateCompanionBuilder,
+      $$SearchHistoryTableTableUpdateCompanionBuilder,
+      (
+        SearchHistoryRow,
+        BaseReferences<
+          _$AppDatabase,
+          $SearchHistoryTableTable,
+          SearchHistoryRow
+        >,
+      ),
+      SearchHistoryRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8464,4 +8852,6 @@ class $AppDatabaseManager {
       $$EpgCacheTableTableTableManager(_db, _db.epgCacheTable);
   $$CatalogMetaTableTableTableManager get catalogMetaTable =>
       $$CatalogMetaTableTableTableManager(_db, _db.catalogMetaTable);
+  $$SearchHistoryTableTableTableManager get searchHistoryTable =>
+      $$SearchHistoryTableTableTableManager(_db, _db.searchHistoryTable);
 }

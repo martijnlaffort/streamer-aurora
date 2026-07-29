@@ -225,6 +225,20 @@ class CatalogMetaTable extends Table {
 /// Catalog slices tracked for TTL purposes.
 enum CatalogKind { live, vod, series }
 
+/// Recent search terms (PRD §8.6). Global (not account-scoped); the query is
+/// the key so re-searching a term just refreshes its timestamp.
+@DataClassName('SearchHistoryRow')
+class SearchHistoryTable extends Table {
+  @override
+  String get tableName => 'search_history';
+
+  TextColumn get query => text()();
+  IntColumn get searchedAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {query};
+}
+
 @DriftDatabase(tables: [
   AccountsTable,
   CategoriesTable,
@@ -237,6 +251,7 @@ enum CatalogKind { live, vod, series }
   FavoritesTable,
   EpgCacheTable,
   CatalogMetaTable,
+  SearchHistoryTable,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
@@ -245,7 +260,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -254,6 +269,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 2) {
             await m.addColumn(
                 preferencesTable, preferencesTable.backgroundPlayback);
+          }
+          // v3: recent search history.
+          if (from < 3) {
+            await m.createTable(searchHistoryTable);
           }
         },
       );

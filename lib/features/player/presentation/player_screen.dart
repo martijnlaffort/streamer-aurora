@@ -663,6 +663,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 ),
               ),
             if (_upNextCountdown != null && _next != null) _upNextCard(),
+            if (_shouldShowNextEpisode()) _nextEpisodeButton(),
             _controlsOverlay(),
           ],
         ),
@@ -785,6 +786,37 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  /// Netflix/HBO-style: a "Next Episode" button appears in the last ~45s of an
+  /// episode (once past halfway, so short clips don't trigger it early) so you
+  /// can skip the outro. Distinct from the on-completion autoplay countdown.
+  bool _shouldShowNextEpisode() {
+    if (_next == null || _current.isLive || _upNextCountdown != null) {
+      return false;
+    }
+    if (_duration <= Duration.zero) return false;
+    final remaining = _duration - _position;
+    return remaining > Duration.zero &&
+        remaining.inSeconds <= 45 &&
+        _position > _duration * 0.5;
+  }
+
+  Widget _nextEpisodeButton() {
+    return Positioned(
+      right: 24,
+      bottom: 96,
+      child: FilledButton.icon(
+        onPressed: _playNext,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.textPrimary,
+          foregroundColor: Colors.black,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        ),
+        icon: const Icon(Icons.skip_next),
+        label: const Text('Next Episode'),
       ),
     );
   }

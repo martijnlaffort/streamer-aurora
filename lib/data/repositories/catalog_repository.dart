@@ -31,6 +31,13 @@ class CatalogRepository {
   @visibleForTesting
   Future<void>? lastBackgroundRefresh;
 
+  /// De-dupes concurrent refreshes of the same slice. A single Home load calls
+  /// [_ensureFresh] for the same [CatalogKind] many times (categories, the
+  /// Popular/Recently rails, every category rail). Without this each call would
+  /// kick off its own full-catalog download + parse, and a handful running at
+  /// once exhausts memory and gets the app killed by the OS.
+  final Map<(String, CatalogKind), Future<void>> _refreshesInFlight = {};
+
   // --- Refresh machinery -----------------------------------------------------
 
   /// Force-refreshes catalog slices from the source (all three by default).
@@ -111,18 +118,33 @@ class CatalogRepository {
               t.accountId.equals(account.id) & t.kind.equalsValue(kind)))
         .getSingleOrNull();
     if (meta == null) {
-      await _refresh(account, _sourceFactory(account), kind);
+      // Never fetched: block on the (de-duped) refresh — there's nothing to
+      // serve until it lands.
+      await _refreshOnce(account, kind);
       return;
     }
     final age = _clock().difference(fromUtcMillis(meta.refreshedAtMillisUtc));
     if (age > catalogTtl) {
-      final refresh = _refresh(account, _sourceFactory(account), kind)
-          .catchError((Object e) => developer.log(
-              'background refresh of $kind failed: $e',
+      final refresh = _refreshOnce(account, kind).catchError((Object e) =>
+          developer.log('background refresh of $kind failed: $e',
               name: 'CatalogRepository'));
       lastBackgroundRefresh = refresh;
       unawaited(refresh);
     }
+  }
+
+  /// Runs at most one [_refresh] per (account, slice) at a time; concurrent
+  /// callers share the single in-flight future instead of each starting their
+  /// own full-catalog download. Cleared on completion (success or failure) so
+  /// the next post-TTL refresh can run.
+  Future<void> _refreshOnce(Account account, CatalogKind kind) {
+    final key = (account.id, kind);
+    final existing = _refreshesInFlight[key];
+    if (existing != null) return existing;
+    final future = _refresh(account, _sourceFactory(account), kind)
+        .whenComplete(() => _refreshesInFlight.remove(key));
+    _refreshesInFlight[key] = future;
+    return future;
   }
 
   // --- Reads (cache-backed, paged) -------------------------------------------

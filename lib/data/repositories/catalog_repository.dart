@@ -49,51 +49,128 @@ class CatalogRepository {
   /// Force-refreshes catalog slices from the source (all three by default).
   /// Throws [SourceException] on failure — callers decide how to surface it.
   Future<void> refreshCatalog(Account account, {Set<CatalogKind>? kinds}) async {
-    final source = _sourceFactory(account);
     for (final kind in kinds ?? CatalogKind.values.toSet()) {
-      await _refresh(account, source, kind);
+      await _refreshOnce(account, kind);
     }
   }
 
+  /// Refreshes one slice **incrementally**: fetch per category when the source
+  /// supports it (Xtream), upsert as we go, and delete no-longer-present rows
+  /// at the end. Two hard-won properties on large playlists (tens of
+  /// thousands of titles):
+  ///
+  /// 1. Memory stays flat. A whole-catalog `get_vod_streams` response is tens
+  ///    of MB of JSON that balloons ~10× when parsed — a transient spike that
+  ///    got the app killed by iOS mid-browse. Per-category responses are small.
+  /// 2. The DB is never locked for long. The old delete-all + insert-all
+  ///    transaction held drift's connection for 10s+ ("database has been
+  ///    locked" warnings), stalling every read — the app felt frozen. Chunked
+  ///    upserts release the connection between chunks, and the catalog stays
+  ///    complete and browsable throughout (no delete-then-reinsert window).
   Future<void> _refresh(
       Account account, PlaylistSource source, CatalogKind kind) async {
     switch (kind) {
       case CatalogKind.live:
         final categories = await source.getLiveCategories();
-        final channels = await source.getLiveStreams();
-        await _db.transaction(() async {
-          await _replaceCategories(account, CategoryType.live, categories);
-          await (_db.channelsTable.delete()
-                ..where((t) => t.accountId.equals(account.id)))
-              .go();
-          await _db.batch((b) => b.insertAll(
-              _db.channelsTable, channels.map((c) => c.toCompanion())));
-          await _touchMeta(account, kind);
-        });
+        await _replaceCategories(account, CategoryType.live, categories);
+        final seen = <String>{};
+        if (source.supportsCategoryFetch && categories.isNotEmpty) {
+          for (final category in categories) {
+            final channels =
+                await source.getLiveStreams(categoryId: category.id);
+            seen.addAll(channels.map((c) => c.id));
+            await _upsertChunked(_db.channelsTable,
+                [for (final c in channels) c.toCompanion()]);
+          }
+        } else {
+          final channels = await source.getLiveStreams();
+          seen.addAll(channels.map((c) => c.id));
+          await _upsertChunked(
+              _db.channelsTable, [for (final c in channels) c.toCompanion()]);
+        }
+        await _deleteMissing(
+            _db.channelsTable, _db.channelsTable.id, account.id, seen);
+        await _touchMeta(account, kind);
       case CatalogKind.vod:
         final categories = await source.getVodCategories();
-        final movies = await source.getVodStreams();
-        await _db.transaction(() async {
-          await _replaceCategories(account, CategoryType.vod, categories);
-          await (_db.moviesTable.delete()
-                ..where((t) => t.accountId.equals(account.id)))
-              .go();
-          await _db.batch((b) => b.insertAll(
-              _db.moviesTable, movies.map((m) => m.toCompanion())));
-          await _touchMeta(account, kind);
-        });
+        await _replaceCategories(account, CategoryType.vod, categories);
+        final seen = <String>{};
+        if (source.supportsCategoryFetch && categories.isNotEmpty) {
+          for (final category in categories) {
+            final movies = await source.getVodStreams(categoryId: category.id);
+            seen.addAll(movies.map((m) => m.id));
+            await _upsertChunked(
+                _db.moviesTable, [for (final m in movies) m.toCompanion()]);
+          }
+        } else {
+          final movies = await source.getVodStreams();
+          seen.addAll(movies.map((m) => m.id));
+          await _upsertChunked(
+              _db.moviesTable, [for (final m in movies) m.toCompanion()]);
+        }
+        await _deleteMissing(
+            _db.moviesTable, _db.moviesTable.id, account.id, seen);
+        await _touchMeta(account, kind);
       case CatalogKind.series:
         final categories = await source.getSeriesCategories();
-        final series = await source.getSeries();
-        await _db.transaction(() async {
-          await _replaceCategories(account, CategoryType.series, categories);
-          await (_db.seriesTable.delete()
-                ..where((t) => t.accountId.equals(account.id)))
-              .go();
-          await _db.batch((b) => b.insertAll(
-              _db.seriesTable, series.map((s) => s.toCompanion())));
-          await _touchMeta(account, kind);
-        });
+        await _replaceCategories(account, CategoryType.series, categories);
+        final seen = <String>{};
+        if (source.supportsCategoryFetch && categories.isNotEmpty) {
+          for (final category in categories) {
+            final series = await source.getSeries(categoryId: category.id);
+            seen.addAll(series.map((s) => s.id));
+            await _upsertChunked(
+                _db.seriesTable, [for (final s in series) s.toCompanion()]);
+          }
+        } else {
+          final series = await source.getSeries();
+          seen.addAll(series.map((s) => s.id));
+          await _upsertChunked(
+              _db.seriesTable, [for (final s in series) s.toCompanion()]);
+        }
+        await _deleteMissing(
+            _db.seriesTable, _db.seriesTable.id, account.id, seen);
+        await _touchMeta(account, kind);
+    }
+  }
+
+  /// Upserts rows in chunks, each in its own short transaction, so catalog
+  /// reads interleave instead of queueing behind one giant write.
+  Future<void> _upsertChunked<T extends Table, D>(
+      TableInfo<T, D> table, List<Insertable<D>> rows) async {
+    const chunk = 1000;
+    for (var i = 0; i < rows.length; i += chunk) {
+      final end = i + chunk < rows.length ? i + chunk : rows.length;
+      await _db.batch((b) => b.insertAll(table, rows.sublist(i, end),
+          mode: InsertMode.insertOrReplace));
+    }
+  }
+
+  /// Deletes the account's rows whose id was NOT part of this refresh —
+  /// the incremental equivalent of the old delete-all + insert-all, applied
+  /// only after all fresh data has landed.
+  Future<void> _deleteMissing(TableInfo<Table, dynamic> table,
+      GeneratedColumn<String> idColumn, String accountId, Set<String> seen) async {
+    final accountCol = _db.moviesTable.accountId.name; // same name on all
+    final existing = await _db.customSelect(
+      'SELECT ${idColumn.name} AS id FROM ${table.actualTableName} '
+      'WHERE $accountCol = ?',
+      variables: [Variable.withString(accountId)],
+    ).get();
+    final stale = [
+      for (final row in existing)
+        if (!seen.contains(row.read<String>('id'))) row.read<String>('id'),
+    ];
+    const chunk = 500;
+    for (var i = 0; i < stale.length; i += chunk) {
+      final end = i + chunk < stale.length ? i + chunk : stale.length;
+      final slice = stale.sublist(i, end);
+      final placeholders = List.filled(slice.length, '?').join(', ');
+      await _db.customStatement(
+        'DELETE FROM ${table.actualTableName} '
+        'WHERE $accountCol = ? AND ${idColumn.name} IN ($placeholders)',
+        [accountId, ...slice],
+      );
     }
   }
 
@@ -147,10 +224,29 @@ class CatalogRepository {
     final key = (account.id, kind);
     final existing = _refreshesInFlight[key];
     if (existing != null) return existing;
-    final future = _refresh(account, _sourceFactory(account), kind)
-        .whenComplete(() => _refreshesInFlight.remove(key));
+    final future = _serialized(() =>
+            _refresh(account, _sourceFactory(account), kind))
+        .whenComplete(() {
+      // MUST stay a block body. `() => map.remove(key)` RETURNS the removed
+      // value — this very future — and whenComplete awaits a returned future,
+      // so the future would wait on itself and never complete. That exact
+      // deadlock shipped once: every awaiting read hung forever while the
+      // refresh work still ran ("the app is really slow").
+      _refreshesInFlight.remove(key);
+    });
     _refreshesInFlight[key] = future;
     return future;
+  }
+
+  /// Serializes refreshes ACROSS slices too: at Home load, live/vod/series can
+  /// all go stale together, and even per-category downloads for two slices at
+  /// once doubles the transient memory. One at a time keeps the peak flat.
+  Future<void> _refreshTail = Future<void>.value();
+  Future<void> _serialized(Future<void> Function() job) {
+    final run = _refreshTail.then((_) => job());
+    // The chain must survive failures; errors still reach this job's awaiters.
+    _refreshTail = run.catchError((Object _) {});
+    return run;
   }
 
   // --- Reads (cache-backed, paged) -------------------------------------------
@@ -499,3 +595,4 @@ class CatalogRepository {
   }
 
 }
+

@@ -24,6 +24,13 @@ abstract interface class PlaylistSource {
   /// (invalid credentials, expired, unreachable) otherwise.
   Future<void> authenticate();
 
+  /// Whether `categoryId` on the list calls fetches ONLY that category from
+  /// the backend (Xtream: true). When true, catalog refreshes go category by
+  /// category so a huge playlist is never downloaded/parsed in one piece —
+  /// the whole-catalog spike is what got the app killed on memory-limited
+  /// phones. M3U is false: one playlist file is all there is.
+  bool get supportsCategoryFetch;
+
   Future<List<Category>> getLiveCategories();
 
   Future<List<Channel>> getLiveStreams({String? categoryId});

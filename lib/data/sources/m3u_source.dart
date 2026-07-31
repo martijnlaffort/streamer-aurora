@@ -44,6 +44,9 @@ class M3uSource implements PlaylistSource {
   final DateTime Function() _clock;
   final void Function(String message) _onSkippedRow;
 
+  @override
+  bool get supportsCategoryFetch => false;
+
   static const _vodExtensions = {'mp4', 'mkv', 'avi', 'mov', 'webm', 'flv'};
   static const _uncategorized = 'Uncategorized';
 

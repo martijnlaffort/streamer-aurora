@@ -41,6 +41,9 @@ class FakePlaylistSource implements PlaylistSource {
   }
 
   @override
+  bool get supportsCategoryFetch => false;
+
+  @override
   Future<void> authenticate() async => _guard('authenticate');
 
   @override

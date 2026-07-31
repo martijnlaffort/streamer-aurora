@@ -29,7 +29,12 @@ $LIVE = [
 // A generated catalog large enough to make Home rails and grids feel real.
 // Posters/backdrops come from picsum.photos (stable per seed); every stream
 // URL still resolves to a playable Big Buck Bunny clip.
-$VOD_CATEGORIES = [20 => 'Action', 21 => 'Drama', 22 => 'Sci-Fi', 23 => 'Documentary'];
+$VOD_CAT_NAMES = ['Action', 'Drama', 'Sci-Fi', 'Documentary', 'Comedy', 'Thriller',
+                  'Horror', 'Romance', 'Animation', 'Crime', 'Fantasy', 'Adventure',
+                  'Mystery', 'Family', 'War', 'Western', 'Music', 'History', 'Sport',
+                  'Biography'];
+$VOD_CATEGORIES = [];
+foreach ($VOD_CAT_NAMES as $k => $n) { $VOD_CATEGORIES[20 + $k] = $n; }
 
 $MOVIE_CLIP_URLS = [
     'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4',
@@ -41,26 +46,33 @@ $adjectives = ['Silent', 'Crimson', 'Endless', 'Broken', 'Golden', 'Hidden',
                'Electric', 'Frozen', 'Burning', 'Midnight', 'Distant', 'Savage'];
 $nouns = ['Harbor', 'Empire', 'Signal', 'Garden', 'Protocol', 'Horizon',
           'Echo', 'Kingdom', 'Circuit', 'Meridian', 'Voyage', 'Frontier'];
-for ($i = 0; $i < 48; $i++) {
+// Catalog size. Small by default so dev is fast; pass ?count=N to mimic a
+// large real IPTV VOD catalog (e.g. ?count=40000) and reproduce on-device
+// memory/scroll behaviour locally.
+$MOVIE_COUNT = (int) ($_GET['count'] ?? 200);
+$catCount = count($GLOBALS['VOD_CATEGORIES']);
+for ($i = 0; $i < $MOVIE_COUNT; $i++) {
     $id = 1001 + $i;
-    // Shift the noun sequence per 12-block so all 48 names are distinct.
     $MOVIES[$id] = [
-        'name'   => $adjectives[$i % 12] . ' ' . $nouns[($i * 7 + intdiv($i, 12) + 3) % 12],
-        'cat'    => (string) (20 + $i % 4),
-        'year'   => 1996 + ($i * 13) % 30,
-        'rating' => number_format(5.0 + ($i * 37 % 45) / 10, 1, '.', ''),
-        'added'  => time() - $i * 86400 * 3,
+        'name'   => $adjectives[$i % 12] . ' ' . $nouns[($i * 7 + intdiv($i, 12)) % 12]
+                    . ' ' . ($i + 1),
+        'cat'    => (string) (20 + $i % $catCount),
+        'year'   => 1980 + ($i * 13) % 45,
+        'rating' => number_format(3.0 + ($i * 37 % 70) / 10, 1, '.', ''),
+        'added'  => time() - $i * 3600,
         'url'    => $MOVIE_CLIP_URLS[$i % 2],
     ];
 }
 
 $SERIES = [];
-for ($i = 0; $i < 6; $i++) {
+$SERIES_COUNT = (int) ($_GET['scount'] ?? 24);
+for ($i = 0; $i < $SERIES_COUNT; $i++) {
     $id = 15 + $i;
     $SERIES[$id] = [
-        'name'   => $adjectives[($i * 5 + 2) % 12] . ' ' . $nouns[($i * 3 + 1) % 12] . 's',
-        'year'   => 2010 + $i * 2,
-        'rating' => number_format(6.5 + $i * 0.4, 1, '.', ''),
+        'name'   => $adjectives[($i * 5 + 2) % 12] . ' ' . $nouns[($i * 3 + 1) % 12] . 's '
+                    . ($i + 1),
+        'year'   => 1990 + $i % 35,
+        'rating' => number_format(3.0 + ($i * 41 % 70) / 10, 1, '.', ''),
     ];
 }
 

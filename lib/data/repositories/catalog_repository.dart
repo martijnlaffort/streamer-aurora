@@ -9,6 +9,12 @@ import '../db/app_database.dart';
 import '../db/mappers.dart';
 import '../sources/playlist_source.dart';
 
+/// DB-side ordering for paged movie reads (the browse grid).
+enum MovieOrder { nameAsc, addedDesc, ratingDesc }
+
+/// DB-side ordering for paged series reads.
+enum SeriesOrder { nameAsc, ratingDesc }
+
 /// Local-first catalog access (PRD §5, §7, §9): reads are served from drift,
 /// the source is only hit when a slice was never fetched or its TTL expired —
 /// and TTL refreshes happen in the background while the stale cache is served
@@ -185,15 +191,31 @@ class CatalogRepository {
   Future<List<Movie>> movies(
     Account account, {
     String? categoryId,
+    Set<String>? categoryIds,
+    MovieOrder order = MovieOrder.nameAsc,
     int? limit,
     int offset = 0,
   }) async {
+    // Content-language filter on the unscoped list with no allowed categories
+    // → nothing (skip the query).
+    if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
+      return [];
+    }
     await _ensureFresh(account, CatalogKind.vod);
     final query = _db.moviesTable.select()
-      ..where((t) => t.accountId.equals(account.id))
-      ..orderBy([(t) => OrderingTerm.asc(t.name)]);
+      ..where((t) => t.accountId.equals(account.id));
+    switch (order) {
+      case MovieOrder.nameAsc:
+        query.orderBy([(t) => OrderingTerm.asc(t.name)]);
+      case MovieOrder.addedDesc:
+        query.orderBy([(t) => OrderingTerm.desc(t.addedAtMillisUtc)]);
+      case MovieOrder.ratingDesc:
+        query.orderBy([(t) => OrderingTerm.desc(t.rating)]);
+    }
     if (categoryId != null) {
       query.where((t) => t.categoryId.equals(categoryId));
+    } else if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
     }
     if (limit != null) query.limit(limit, offset: offset);
     return (await query.get()).map((r) => r.toModel()).toList();
@@ -202,15 +224,27 @@ class CatalogRepository {
   Future<List<Series>> series(
     Account account, {
     String? categoryId,
+    Set<String>? categoryIds,
+    SeriesOrder order = SeriesOrder.nameAsc,
     int? limit,
     int offset = 0,
   }) async {
+    if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
+      return [];
+    }
     await _ensureFresh(account, CatalogKind.series);
     final query = _db.seriesTable.select()
-      ..where((t) => t.accountId.equals(account.id))
-      ..orderBy([(t) => OrderingTerm.asc(t.name)]);
+      ..where((t) => t.accountId.equals(account.id));
+    switch (order) {
+      case SeriesOrder.nameAsc:
+        query.orderBy([(t) => OrderingTerm.asc(t.name)]);
+      case SeriesOrder.ratingDesc:
+        query.orderBy([(t) => OrderingTerm.desc(t.rating)]);
+    }
     if (categoryId != null) {
       query.where((t) => t.categoryId.equals(categoryId));
+    } else if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
     }
     if (limit != null) query.limit(limit, offset: offset);
     return (await query.get()).map((r) => r.toModel()).toList();

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/language/content_language.dart';
 import '../../data/providers.dart';
+import '../../data/repositories/catalog_repository.dart';
 import '../../domain/models/models.dart';
 
 enum SeriesSort { name, rating }
@@ -26,30 +27,16 @@ final seriesCategoriesProvider = FutureProvider<List<Category>>((ref) async {
       .toList();
 });
 
-final seriesListProvider =
-    FutureProvider.family<List<Series>, String?>((ref, categoryId) async {
-  final account = await ref.watch(activeAccountProvider.future);
-  if (account == null) return [];
-  final series = await ref
-      .watch(catalogRepositoryProvider)
-      .series(account, categoryId: categoryId);
-  if (categoryId != null) return series;
-  final allowed =
-      await ref.watch(allowedCategoryIdsProvider(CategoryType.series).future);
-  if (allowed == null) return series;
-  return series.where((s) => allowed.contains(s.categoryId)).toList();
-});
+/// Page size for the browse grid — mirrors the movies feed so a large catalog
+/// is never held in memory all at once. Pagination lives in SeriesScreen.
+const seriesPageSize = 90;
 
-List<Series> sortSeries(List<Series> series, SeriesSort sort) {
-  final sorted = [...series];
-  switch (sort) {
-    case SeriesSort.name:
-      sorted.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    case SeriesSort.rating:
-      sorted.sort((a, b) => (b.rating ?? -1).compareTo(a.rating ?? -1));
-  }
-  return sorted;
-}
+/// Maps the UI sort to the DB-side ordering used for paged reads. Pagination is
+/// driven by SeriesScreen directly against the repository.
+SeriesOrder seriesOrderFor(SeriesSort sort) => switch (sort) {
+      SeriesSort.name => SeriesOrder.nameAsc,
+      SeriesSort.rating => SeriesOrder.ratingDesc,
+    };
 
 /// Seasons + episodes (source-fetched, cache-backed offline).
 final seriesDetailProvider =

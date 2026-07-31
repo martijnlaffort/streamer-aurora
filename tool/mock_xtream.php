@@ -46,10 +46,10 @@ $adjectives = ['Silent', 'Crimson', 'Endless', 'Broken', 'Golden', 'Hidden',
                'Electric', 'Frozen', 'Burning', 'Midnight', 'Distant', 'Savage'];
 $nouns = ['Harbor', 'Empire', 'Signal', 'Garden', 'Protocol', 'Horizon',
           'Echo', 'Kingdom', 'Circuit', 'Meridian', 'Voyage', 'Frontier'];
-// Catalog size. Small by default so dev is fast; pass ?count=N to mimic a
-// large real IPTV VOD catalog (e.g. ?count=40000) and reproduce on-device
-// memory/scroll behaviour locally.
-$MOVIE_COUNT = (int) ($_GET['count'] ?? 200);
+// Catalog size. Small by default so dev is fast; pass ?count=N per request or
+// set MOCK_COUNT in the server env to mimic a large real IPTV VOD catalog
+// (e.g. MOCK_COUNT=40000) and reproduce on-device memory behaviour locally.
+$MOVIE_COUNT = (int) ($_GET['count'] ?? (getenv('MOCK_COUNT') ?: 200));
 $catCount = count($GLOBALS['VOD_CATEGORIES']);
 for ($i = 0; $i < $MOVIE_COUNT; $i++) {
     $id = 1001 + $i;
@@ -65,7 +65,7 @@ for ($i = 0; $i < $MOVIE_COUNT; $i++) {
 }
 
 $SERIES = [];
-$SERIES_COUNT = (int) ($_GET['scount'] ?? 24);
+$SERIES_COUNT = (int) ($_GET['scount'] ?? (getenv('MOCK_SCOUNT') ?: 24));
 for ($i = 0; $i < $SERIES_COUNT; $i++) {
     $id = 15 + $i;
     $SERIES[$id] = [
@@ -136,9 +136,13 @@ if ($path === '/player_api.php') {
             json_out([['category_id' => '30', 'category_name' => 'Shows', 'parent_id' => 0]]);
 
         case 'get_live_streams':
+            // Honors category_id like a real panel — Aurora refreshes per
+            // category to keep memory flat on big catalogs.
+            $want = $_GET['category_id'] ?? null;
             $rows = [];
             $num = 1;
             foreach ($GLOBALS['LIVE'] as $id => $ch) {
+                if ($want !== null && $want !== '1') continue;
                 $rows[] = [
                     'num' => $num++, 'name' => $ch['name'], 'stream_type' => 'live',
                     'stream_id' => $id, 'stream_icon' => '',
@@ -149,9 +153,11 @@ if ($path === '/player_api.php') {
             json_out($rows);
 
         case 'get_vod_streams':
+            $want = $_GET['category_id'] ?? null;
             $rows = [];
             $num = 1;
             foreach ($GLOBALS['MOVIES'] as $id => $m) {
+                if ($want !== null && $m['cat'] !== $want) continue;
                 $rows[] = [
                     'num' => $num++, 'name' => $m['name'], 'stream_type' => 'movie',
                     'stream_id' => $id,
@@ -189,6 +195,10 @@ if ($path === '/player_api.php') {
             ]);
 
         case 'get_series':
+            $want = $_GET['category_id'] ?? null;
+            if ($want !== null && $want !== '30') {
+                json_out([]);
+            }
             $rows = [];
             $num = 1;
             foreach ($GLOBALS['SERIES'] as $id => $s) {

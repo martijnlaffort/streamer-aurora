@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,6 +47,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   late final Player _player;
   late final VideoController _controller;
   final List<StreamSubscription<dynamic>> _subs = [];
+
+  /// iOS/Android audio session, activated with the `.playback` category so
+  /// audio can legally continue when the app is backgrounded (Task 2.3).
+  /// Without an active playback session iOS revokes the `audio` background
+  /// assertion and terminates the app.
+  AudioSession? _audioSession;
 
   /// Grabbed once so dispose-time saving never touches `ref` late.
   late final WatchProgressRepository _progressRepo =
@@ -118,6 +125,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       configuration: const VideoControllerConfiguration(
           enableHardwareAcceleration: !_forceSoftwareDecode),
     );
+    unawaited(_configureAudioSession());
 
     ref.read(preferencesRepositoryProvider).get().then((prefs) {
       if (mounted) _prefs = prefs;
@@ -191,6 +199,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _openCurrent(resumeFrom: widget.request.resumeFromSeconds);
   }
 
+  /// Configures and activates the platform audio session with the `.playback`
+  /// category so playback owns the output route and can continue in the
+  /// background (Task 2.3). Mobile-only; desktop has no session to manage.
+  Future<void> _configureAudioSession() async {
+    if (!_isMobile) return;
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.music());
+      await session.setActive(true);
+      _audioSession = session;
+    } catch (_) {
+      // Never fatal — playback still works; we just don't own the session.
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -206,6 +229,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       sub.cancel();
     }
     _player.dispose();
+    // Release the session so other apps' audio can resume.
+    final session = _audioSession;
+    if (session != null) unawaited(session.setActive(false));
     _restoreBrightness();
     if (_isMobile) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);

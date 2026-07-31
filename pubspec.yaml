@@ -38,6 +38,7 @@ dependencies:
   # Models
   equatable: ^2.1.0
   meta: ^1.18.0 # @visibleForTesting in flutter-free data layer
+  audio_session: ^0.2.4
 
 dev_dependencies:
   flutter_test:

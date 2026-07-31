@@ -73,6 +73,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           CachedNetworkImage(
             imageUrl: image,
             fit: BoxFit.cover,
+            memCacheWidth: 1080,
             placeholder: (context, url) =>
                 const ColoredBox(color: AppColors.surfaceElevated),
             errorWidget: (context, url, error) =>
@@ -255,6 +256,7 @@ class _EpisodeTile extends StatelessWidget {
                   CachedNetworkImage(
                     imageUrl: image,
                     fit: BoxFit.cover,
+                    memCacheWidth: 720,
                     placeholder: (context, url) =>
                         const ColoredBox(color: AppColors.surfaceElevated),
                     errorWidget: (context, url, error) =>

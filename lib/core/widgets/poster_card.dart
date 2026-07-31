@@ -43,6 +43,12 @@ class _PosterCardState extends State<PosterCard> {
 
   @override
   Widget build(BuildContext context) {
+    // Cap the decoded bitmap to the on-screen size. Without this every poster
+    // decodes at full source resolution (a 1000×1500 poster ≈ 6 MB of RAM),
+    // and a few rails' worth is enough to trip iOS's per-app memory limit and
+    // kill the app while scrolling.
+    final decodeWidth =
+        (widget.width * MediaQuery.devicePixelRatioOf(context)).round();
     return SizedBox(
       width: widget.width,
       child: MouseRegion(
@@ -77,6 +83,7 @@ class _PosterCardState extends State<PosterCard> {
                                   ? CachedNetworkImage(
                                       imageUrl: widget.imageUrl!,
                                       fit: BoxFit.cover,
+                                      memCacheWidth: decodeWidth,
                                       fadeInDuration:
                                           const Duration(milliseconds: 180),
                                       placeholder: (context, url) =>

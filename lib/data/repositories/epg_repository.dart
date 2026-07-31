@@ -1,6 +1,7 @@
 import 'dart:async';
+import 'dart:convert' show Utf8Decoder;
 import 'dart:developer' as developer;
-import 'dart:io' show gzip;
+import 'dart:io' show Directory, File, gzip;
 
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
@@ -78,28 +79,55 @@ class EpgRepository {
     return future;
   }
 
+  /// Streams the guide through disk instead of memory. Real-provider XMLTV
+  /// runs to hundreds of MB; the old approach (bytes → gunzip copy → String
+  /// copy → full parse) held several copies at once, which is enough to get
+  /// the whole app killed by iOS mid-browse. Now: download to a temp file,
+  /// stream-decode + stream-parse it, and insert in small batches — peak
+  /// memory is one chunk regardless of guide size.
   Future<void> _ingest(Account account, String url) async {
+    Directory? tmpDir;
     try {
-      final response = await _dio.get<List<int>>(url,
-          options: Options(responseType: ResponseType.bytes));
-      var bytes = response.data ?? const <int>[];
-      // Some panels serve gzipped XMLTV regardless of extension.
-      if (bytes.length > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b) {
-        bytes = gzip.decode(bytes);
+      tmpDir = await Directory.systemTemp.createTemp('aurora_epg');
+      final file = File('${tmpDir.path}/guide.xml');
+      await _dio.download(url, file.path);
+
+      // Some panels serve gzipped XMLTV regardless of extension — sniff the
+      // magic bytes and decompress as part of the stream when present.
+      final head = await file.openRead(0, 2).fold<List<int>>(
+          <int>[], (acc, chunk) => acc..addAll(chunk));
+      Stream<List<int>> bytes = file.openRead();
+      if (head.length == 2 && head[0] == 0x1f && head[1] == 0x8b) {
+        bytes = bytes.transform(gzip.decoder);
       }
-      final text = String.fromCharCodes(bytes);
+      final chunks =
+          bytes.transform(const Utf8Decoder(allowMalformed: true));
+
       final now = _clock();
       final from = now.subtract(_pastWindow);
       final to = now.add(_futureWindow);
       final nowMillis = utcMillis(now);
 
-      final rows = <EpgCacheTableCompanion>[];
-      for (final e in parseXmltv(text,
-          onSkip: (m) =>
-              developer.log('xmltv: $m', name: 'EpgRepository'))) {
+      // Old rows are cleared just before the first insert, so a failed or
+      // empty download keeps the previous guide (stale EPG beats none).
+      var clearedOld = false;
+      Future<void> flush(List<EpgCacheTableCompanion> rows) async {
+        if (!clearedOld) {
+          clearedOld = true;
+          await (_db.epgCacheTable.delete()
+                ..where((t) => t.accountId.equals(account.id)))
+              .go();
+        }
+        await _db.batch((b) => b.insertAll(_db.epgCacheTable, rows,
+            mode: InsertMode.insertOrReplace));
+      }
+
+      var batch = <EpgCacheTableCompanion>[];
+      await for (final e in parseXmltvStream(chunks,
+          onSkip: (m) => developer.log('xmltv: $m', name: 'EpgRepository'))) {
         // Keep only the useful window to bound the table size.
         if (e.stop.isBefore(from) || e.start.isAfter(to)) continue;
-        rows.add(EpgCacheTableCompanion.insert(
+        batch.add(EpgCacheTableCompanion.insert(
           accountId: account.id,
           channelId: e.channelId,
           startMillisUtc: utcMillis(e.start),
@@ -108,24 +136,21 @@ class EpgRepository {
           description: Value(e.description),
           cachedAtMillisUtc: nowMillis,
         ));
-      }
-      if (rows.isEmpty) return;
-
-      await _db.transaction(() async {
-        await (_db.epgCacheTable.delete()
-              ..where((t) => t.accountId.equals(account.id)))
-            .go();
-        // Insert in chunks — full guides can be tens of thousands of rows.
-        const chunk = 500;
-        for (var i = 0; i < rows.length; i += chunk) {
-          final end = (i + chunk < rows.length) ? i + chunk : rows.length;
-          await _db.batch((b) => b.insertAll(
-              _db.epgCacheTable, rows.sublist(i, end),
-              mode: InsertMode.insertOrReplace));
+        if (batch.length >= 500) {
+          await flush(batch);
+          batch = <EpgCacheTableCompanion>[];
         }
-      });
+      }
+      if (batch.isNotEmpty) await flush(batch);
     } on Object catch (e) {
       developer.log('guide refresh failed: $e', name: 'EpgRepository');
+    } finally {
+      // Best-effort cleanup of the temp download.
+      try {
+        await tmpDir?.delete(recursive: true);
+      } on Object {
+        // Ignore — the OS reclaims temp space eventually.
+      }
     }
   }
 

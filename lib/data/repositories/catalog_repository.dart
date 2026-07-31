@@ -194,6 +194,68 @@ class CatalogRepository {
     return (await query.get()).map((r) => r.toModel()).toList();
   }
 
+  /// Newest movies, sorted and limited in SQL (for the Home hero +
+  /// "Recently Added" rail). Restricted to [categoryIds] when the
+  /// content-language filter is on. Sorting/limiting here — rather than
+  /// loading the whole catalog into Dart and sorting in memory — keeps Home's
+  /// footprint tiny on large playlists. NULL `addedAt` sorts last (as before).
+  Future<List<Movie>> recentMovies(
+    Account account, {
+    required int limit,
+    Set<String>? categoryIds,
+  }) async {
+    if (categoryIds != null && categoryIds.isEmpty) return [];
+    await _ensureFresh(account, CatalogKind.vod);
+    final query = _db.moviesTable.select()
+      ..where((t) => t.accountId.equals(account.id))
+      ..orderBy([(t) => OrderingTerm.desc(t.addedAtMillisUtc)])
+      ..limit(limit);
+    if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
+    }
+    return (await query.get()).map((r) => r.toModel()).toList();
+  }
+
+  /// Highest-rated movies, sorted and limited in SQL (the Home "Popular"
+  /// rail). Only rated titles (rating > 0) qualify; empty when the panel
+  /// provides no ratings.
+  Future<List<Movie>> topRatedMovies(
+    Account account, {
+    required int limit,
+    Set<String>? categoryIds,
+  }) async {
+    if (categoryIds != null && categoryIds.isEmpty) return [];
+    await _ensureFresh(account, CatalogKind.vod);
+    final query = _db.moviesTable.select()
+      ..where((t) =>
+          t.accountId.equals(account.id) & t.rating.isBiggerThanValue(0.0))
+      ..orderBy([(t) => OrderingTerm.desc(t.rating)])
+      ..limit(limit);
+    if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
+    }
+    return (await query.get()).map((r) => r.toModel()).toList();
+  }
+
+  /// Highest-rated series, sorted and limited in SQL (the Home "Popular" rail).
+  Future<List<Series>> topRatedSeries(
+    Account account, {
+    required int limit,
+    Set<String>? categoryIds,
+  }) async {
+    if (categoryIds != null && categoryIds.isEmpty) return [];
+    await _ensureFresh(account, CatalogKind.series);
+    final query = _db.seriesTable.select()
+      ..where((t) =>
+          t.accountId.equals(account.id) & t.rating.isBiggerThanValue(0.0))
+      ..orderBy([(t) => OrderingTerm.desc(t.rating)])
+      ..limit(limit);
+    if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
+    }
+    return (await query.get()).map((r) => r.toModel()).toList();
+  }
+
   /// Cache-only single-row lookup (no source contact) — for resolving
   /// content keys (Continue Watching, favorites) and detail routes.
   Future<Movie?> movieById(Account account, String movieId) async {

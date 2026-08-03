@@ -184,6 +184,7 @@ class _ChannelLogo extends StatelessWidget {
           ? CachedNetworkImage(
               imageUrl: url!,
               fit: BoxFit.contain,
+              memCacheWidth: 200,
               errorWidget: (context, u, e) =>
                   const Icon(Icons.live_tv, color: AppColors.textSecondary),
             )

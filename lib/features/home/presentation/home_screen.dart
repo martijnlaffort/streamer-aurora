@@ -229,6 +229,9 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
                       key: ValueKey(movie.id),
                       imageUrl: image,
                       fit: BoxFit.cover,
+                      // Full-width hero backdrop — decode at ~1080px, not the
+                      // source's full resolution (often 1920+).
+                      memCacheWidth: 1080,
                       placeholder: (context, url) =>
                           const ColoredBox(color: AppColors.surfaceElevated),
                       errorWidget: (context, url, error) =>
@@ -328,6 +331,7 @@ class _ContinueCard extends StatelessWidget {
                       CachedNetworkImage(
                         imageUrl: entry.imageUrl!,
                         fit: BoxFit.cover,
+                        memCacheWidth: 720,
                         placeholder: (context, url) =>
                             const ColoredBox(color: AppColors.surfaceElevated),
                         errorWidget: (context, url, error) =>

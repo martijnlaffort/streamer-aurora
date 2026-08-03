@@ -28,6 +28,9 @@ class XtreamSource implements PlaylistSource {
   final Account account;
   final Dio _dio;
 
+  @override
+  bool get supportsCategoryFetch => true;
+
   /// Injectable clock so tests get deterministic `cachedAt` values (UTC).
   final DateTime Function() _clock;
   final void Function(String message) _onSkippedRow;

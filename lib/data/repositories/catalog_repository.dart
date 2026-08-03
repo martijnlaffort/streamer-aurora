@@ -9,6 +9,12 @@ import '../db/app_database.dart';
 import '../db/mappers.dart';
 import '../sources/playlist_source.dart';
 
+/// DB-side ordering for paged movie reads (the browse grid).
+enum MovieOrder { nameAsc, addedDesc, ratingDesc }
+
+/// DB-side ordering for paged series reads.
+enum SeriesOrder { nameAsc, ratingDesc }
+
 /// Local-first catalog access (PRD §5, §7, §9): reads are served from drift,
 /// the source is only hit when a slice was never fetched or its TTL expired —
 /// and TTL refreshes happen in the background while the stale cache is served
@@ -31,56 +37,140 @@ class CatalogRepository {
   @visibleForTesting
   Future<void>? lastBackgroundRefresh;
 
+  /// De-dupes concurrent refreshes of the same slice. A single Home load calls
+  /// [_ensureFresh] for the same [CatalogKind] many times (categories, the
+  /// Popular/Recently rails, every category rail). Without this each call would
+  /// kick off its own full-catalog download + parse, and a handful running at
+  /// once exhausts memory and gets the app killed by the OS.
+  final Map<(String, CatalogKind), Future<void>> _refreshesInFlight = {};
+
   // --- Refresh machinery -----------------------------------------------------
 
   /// Force-refreshes catalog slices from the source (all three by default).
   /// Throws [SourceException] on failure — callers decide how to surface it.
   Future<void> refreshCatalog(Account account, {Set<CatalogKind>? kinds}) async {
-    final source = _sourceFactory(account);
     for (final kind in kinds ?? CatalogKind.values.toSet()) {
-      await _refresh(account, source, kind);
+      await _refreshOnce(account, kind);
     }
   }
 
+  /// Refreshes one slice **incrementally**: fetch per category when the source
+  /// supports it (Xtream), upsert as we go, and delete no-longer-present rows
+  /// at the end. Two hard-won properties on large playlists (tens of
+  /// thousands of titles):
+  ///
+  /// 1. Memory stays flat. A whole-catalog `get_vod_streams` response is tens
+  ///    of MB of JSON that balloons ~10× when parsed — a transient spike that
+  ///    got the app killed by iOS mid-browse. Per-category responses are small.
+  /// 2. The DB is never locked for long. The old delete-all + insert-all
+  ///    transaction held drift's connection for 10s+ ("database has been
+  ///    locked" warnings), stalling every read — the app felt frozen. Chunked
+  ///    upserts release the connection between chunks, and the catalog stays
+  ///    complete and browsable throughout (no delete-then-reinsert window).
   Future<void> _refresh(
       Account account, PlaylistSource source, CatalogKind kind) async {
     switch (kind) {
       case CatalogKind.live:
         final categories = await source.getLiveCategories();
-        final channels = await source.getLiveStreams();
-        await _db.transaction(() async {
-          await _replaceCategories(account, CategoryType.live, categories);
-          await (_db.channelsTable.delete()
-                ..where((t) => t.accountId.equals(account.id)))
-              .go();
-          await _db.batch((b) => b.insertAll(
-              _db.channelsTable, channels.map((c) => c.toCompanion())));
-          await _touchMeta(account, kind);
-        });
+        await _replaceCategories(account, CategoryType.live, categories);
+        final seen = <String>{};
+        if (source.supportsCategoryFetch && categories.isNotEmpty) {
+          for (final category in categories) {
+            final channels =
+                await source.getLiveStreams(categoryId: category.id);
+            seen.addAll(channels.map((c) => c.id));
+            await _upsertChunked(_db.channelsTable,
+                [for (final c in channels) c.toCompanion()]);
+          }
+        } else {
+          final channels = await source.getLiveStreams();
+          seen.addAll(channels.map((c) => c.id));
+          await _upsertChunked(
+              _db.channelsTable, [for (final c in channels) c.toCompanion()]);
+        }
+        await _deleteMissing(
+            _db.channelsTable, _db.channelsTable.id, account.id, seen);
+        await _touchMeta(account, kind);
       case CatalogKind.vod:
         final categories = await source.getVodCategories();
-        final movies = await source.getVodStreams();
-        await _db.transaction(() async {
-          await _replaceCategories(account, CategoryType.vod, categories);
-          await (_db.moviesTable.delete()
-                ..where((t) => t.accountId.equals(account.id)))
-              .go();
-          await _db.batch((b) => b.insertAll(
-              _db.moviesTable, movies.map((m) => m.toCompanion())));
-          await _touchMeta(account, kind);
-        });
+        await _replaceCategories(account, CategoryType.vod, categories);
+        final seen = <String>{};
+        if (source.supportsCategoryFetch && categories.isNotEmpty) {
+          for (final category in categories) {
+            final movies = await source.getVodStreams(categoryId: category.id);
+            seen.addAll(movies.map((m) => m.id));
+            await _upsertChunked(
+                _db.moviesTable, [for (final m in movies) m.toCompanion()]);
+          }
+        } else {
+          final movies = await source.getVodStreams();
+          seen.addAll(movies.map((m) => m.id));
+          await _upsertChunked(
+              _db.moviesTable, [for (final m in movies) m.toCompanion()]);
+        }
+        await _deleteMissing(
+            _db.moviesTable, _db.moviesTable.id, account.id, seen);
+        await _touchMeta(account, kind);
       case CatalogKind.series:
         final categories = await source.getSeriesCategories();
-        final series = await source.getSeries();
-        await _db.transaction(() async {
-          await _replaceCategories(account, CategoryType.series, categories);
-          await (_db.seriesTable.delete()
-                ..where((t) => t.accountId.equals(account.id)))
-              .go();
-          await _db.batch((b) => b.insertAll(
-              _db.seriesTable, series.map((s) => s.toCompanion())));
-          await _touchMeta(account, kind);
-        });
+        await _replaceCategories(account, CategoryType.series, categories);
+        final seen = <String>{};
+        if (source.supportsCategoryFetch && categories.isNotEmpty) {
+          for (final category in categories) {
+            final series = await source.getSeries(categoryId: category.id);
+            seen.addAll(series.map((s) => s.id));
+            await _upsertChunked(
+                _db.seriesTable, [for (final s in series) s.toCompanion()]);
+          }
+        } else {
+          final series = await source.getSeries();
+          seen.addAll(series.map((s) => s.id));
+          await _upsertChunked(
+              _db.seriesTable, [for (final s in series) s.toCompanion()]);
+        }
+        await _deleteMissing(
+            _db.seriesTable, _db.seriesTable.id, account.id, seen);
+        await _touchMeta(account, kind);
+    }
+  }
+
+  /// Upserts rows in chunks, each in its own short transaction, so catalog
+  /// reads interleave instead of queueing behind one giant write.
+  Future<void> _upsertChunked<T extends Table, D>(
+      TableInfo<T, D> table, List<Insertable<D>> rows) async {
+    const chunk = 1000;
+    for (var i = 0; i < rows.length; i += chunk) {
+      final end = i + chunk < rows.length ? i + chunk : rows.length;
+      await _db.batch((b) => b.insertAll(table, rows.sublist(i, end),
+          mode: InsertMode.insertOrReplace));
+    }
+  }
+
+  /// Deletes the account's rows whose id was NOT part of this refresh —
+  /// the incremental equivalent of the old delete-all + insert-all, applied
+  /// only after all fresh data has landed.
+  Future<void> _deleteMissing(TableInfo<Table, dynamic> table,
+      GeneratedColumn<String> idColumn, String accountId, Set<String> seen) async {
+    final accountCol = _db.moviesTable.accountId.name; // same name on all
+    final existing = await _db.customSelect(
+      'SELECT ${idColumn.name} AS id FROM ${table.actualTableName} '
+      'WHERE $accountCol = ?',
+      variables: [Variable.withString(accountId)],
+    ).get();
+    final stale = [
+      for (final row in existing)
+        if (!seen.contains(row.read<String>('id'))) row.read<String>('id'),
+    ];
+    const chunk = 500;
+    for (var i = 0; i < stale.length; i += chunk) {
+      final end = i + chunk < stale.length ? i + chunk : stale.length;
+      final slice = stale.sublist(i, end);
+      final placeholders = List.filled(slice.length, '?').join(', ');
+      await _db.customStatement(
+        'DELETE FROM ${table.actualTableName} '
+        'WHERE $accountCol = ? AND ${idColumn.name} IN ($placeholders)',
+        [accountId, ...slice],
+      );
     }
   }
 
@@ -111,18 +201,52 @@ class CatalogRepository {
               t.accountId.equals(account.id) & t.kind.equalsValue(kind)))
         .getSingleOrNull();
     if (meta == null) {
-      await _refresh(account, _sourceFactory(account), kind);
+      // Never fetched: block on the (de-duped) refresh — there's nothing to
+      // serve until it lands.
+      await _refreshOnce(account, kind);
       return;
     }
     final age = _clock().difference(fromUtcMillis(meta.refreshedAtMillisUtc));
     if (age > catalogTtl) {
-      final refresh = _refresh(account, _sourceFactory(account), kind)
-          .catchError((Object e) => developer.log(
-              'background refresh of $kind failed: $e',
+      final refresh = _refreshOnce(account, kind).catchError((Object e) =>
+          developer.log('background refresh of $kind failed: $e',
               name: 'CatalogRepository'));
       lastBackgroundRefresh = refresh;
       unawaited(refresh);
     }
+  }
+
+  /// Runs at most one [_refresh] per (account, slice) at a time; concurrent
+  /// callers share the single in-flight future instead of each starting their
+  /// own full-catalog download. Cleared on completion (success or failure) so
+  /// the next post-TTL refresh can run.
+  Future<void> _refreshOnce(Account account, CatalogKind kind) {
+    final key = (account.id, kind);
+    final existing = _refreshesInFlight[key];
+    if (existing != null) return existing;
+    final future = _serialized(() =>
+            _refresh(account, _sourceFactory(account), kind))
+        .whenComplete(() {
+      // MUST stay a block body. `() => map.remove(key)` RETURNS the removed
+      // value — this very future — and whenComplete awaits a returned future,
+      // so the future would wait on itself and never complete. That exact
+      // deadlock shipped once: every awaiting read hung forever while the
+      // refresh work still ran ("the app is really slow").
+      _refreshesInFlight.remove(key);
+    });
+    _refreshesInFlight[key] = future;
+    return future;
+  }
+
+  /// Serializes refreshes ACROSS slices too: at Home load, live/vod/series can
+  /// all go stale together, and even per-category downloads for two slices at
+  /// once doubles the transient memory. One at a time keeps the peak flat.
+  Future<void> _refreshTail = Future<void>.value();
+  Future<void> _serialized(Future<void> Function() job) {
+    final run = _refreshTail.then((_) => job());
+    // The chain must survive failures; errors still reach this job's awaiters.
+    _refreshTail = run.catchError((Object _) {});
+    return run;
   }
 
   // --- Reads (cache-backed, paged) -------------------------------------------
@@ -163,15 +287,31 @@ class CatalogRepository {
   Future<List<Movie>> movies(
     Account account, {
     String? categoryId,
+    Set<String>? categoryIds,
+    MovieOrder order = MovieOrder.nameAsc,
     int? limit,
     int offset = 0,
   }) async {
+    // Content-language filter on the unscoped list with no allowed categories
+    // → nothing (skip the query).
+    if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
+      return [];
+    }
     await _ensureFresh(account, CatalogKind.vod);
     final query = _db.moviesTable.select()
-      ..where((t) => t.accountId.equals(account.id))
-      ..orderBy([(t) => OrderingTerm.asc(t.name)]);
+      ..where((t) => t.accountId.equals(account.id));
+    switch (order) {
+      case MovieOrder.nameAsc:
+        query.orderBy([(t) => OrderingTerm.asc(t.name)]);
+      case MovieOrder.addedDesc:
+        query.orderBy([(t) => OrderingTerm.desc(t.addedAtMillisUtc)]);
+      case MovieOrder.ratingDesc:
+        query.orderBy([(t) => OrderingTerm.desc(t.rating)]);
+    }
     if (categoryId != null) {
       query.where((t) => t.categoryId.equals(categoryId));
+    } else if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
     }
     if (limit != null) query.limit(limit, offset: offset);
     return (await query.get()).map((r) => r.toModel()).toList();
@@ -180,17 +320,91 @@ class CatalogRepository {
   Future<List<Series>> series(
     Account account, {
     String? categoryId,
+    Set<String>? categoryIds,
+    SeriesOrder order = SeriesOrder.nameAsc,
     int? limit,
     int offset = 0,
   }) async {
+    if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
+      return [];
+    }
     await _ensureFresh(account, CatalogKind.series);
     final query = _db.seriesTable.select()
-      ..where((t) => t.accountId.equals(account.id))
-      ..orderBy([(t) => OrderingTerm.asc(t.name)]);
+      ..where((t) => t.accountId.equals(account.id));
+    switch (order) {
+      case SeriesOrder.nameAsc:
+        query.orderBy([(t) => OrderingTerm.asc(t.name)]);
+      case SeriesOrder.ratingDesc:
+        query.orderBy([(t) => OrderingTerm.desc(t.rating)]);
+    }
     if (categoryId != null) {
       query.where((t) => t.categoryId.equals(categoryId));
+    } else if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
     }
     if (limit != null) query.limit(limit, offset: offset);
+    return (await query.get()).map((r) => r.toModel()).toList();
+  }
+
+  /// Newest movies, sorted and limited in SQL (for the Home hero +
+  /// "Recently Added" rail). Restricted to [categoryIds] when the
+  /// content-language filter is on. Sorting/limiting here — rather than
+  /// loading the whole catalog into Dart and sorting in memory — keeps Home's
+  /// footprint tiny on large playlists. NULL `addedAt` sorts last (as before).
+  Future<List<Movie>> recentMovies(
+    Account account, {
+    required int limit,
+    Set<String>? categoryIds,
+  }) async {
+    if (categoryIds != null && categoryIds.isEmpty) return [];
+    await _ensureFresh(account, CatalogKind.vod);
+    final query = _db.moviesTable.select()
+      ..where((t) => t.accountId.equals(account.id))
+      ..orderBy([(t) => OrderingTerm.desc(t.addedAtMillisUtc)])
+      ..limit(limit);
+    if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
+    }
+    return (await query.get()).map((r) => r.toModel()).toList();
+  }
+
+  /// Highest-rated movies, sorted and limited in SQL (the Home "Popular"
+  /// rail). Only rated titles (rating > 0) qualify; empty when the panel
+  /// provides no ratings.
+  Future<List<Movie>> topRatedMovies(
+    Account account, {
+    required int limit,
+    Set<String>? categoryIds,
+  }) async {
+    if (categoryIds != null && categoryIds.isEmpty) return [];
+    await _ensureFresh(account, CatalogKind.vod);
+    final query = _db.moviesTable.select()
+      ..where((t) =>
+          t.accountId.equals(account.id) & t.rating.isBiggerThanValue(0.0))
+      ..orderBy([(t) => OrderingTerm.desc(t.rating)])
+      ..limit(limit);
+    if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
+    }
+    return (await query.get()).map((r) => r.toModel()).toList();
+  }
+
+  /// Highest-rated series, sorted and limited in SQL (the Home "Popular" rail).
+  Future<List<Series>> topRatedSeries(
+    Account account, {
+    required int limit,
+    Set<String>? categoryIds,
+  }) async {
+    if (categoryIds != null && categoryIds.isEmpty) return [];
+    await _ensureFresh(account, CatalogKind.series);
+    final query = _db.seriesTable.select()
+      ..where((t) =>
+          t.accountId.equals(account.id) & t.rating.isBiggerThanValue(0.0))
+      ..orderBy([(t) => OrderingTerm.desc(t.rating)])
+      ..limit(limit);
+    if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
+    }
     return (await query.get()).map((r) => r.toModel()).toList();
   }
 
@@ -381,3 +595,4 @@ class CatalogRepository {
   }
 
 }
+

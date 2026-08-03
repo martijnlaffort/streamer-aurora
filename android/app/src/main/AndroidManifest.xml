@@ -2,10 +2,22 @@
     <!-- Streaming app: release builds need INTERNET explicitly (debug builds
          inject it, which hides its absence until a release build). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Android TV (Google TV Streamer): declare leanback support and that the
+         app works without a touchscreen, both non-required so the same APK
+         still installs on phones/tablets. -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false"/>
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false"/>
+
     <application
         android:label="Aurora"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
@@ -27,6 +39,8 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+                <!-- Makes Aurora appear on the Android TV / Google TV home. -->
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

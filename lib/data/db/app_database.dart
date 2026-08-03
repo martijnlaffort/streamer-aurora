@@ -284,5 +284,31 @@ class AppDatabase extends _$AppDatabase {
                 preferencesTable, preferencesTable.contentLanguages);
           }
         },
+        beforeOpen: (details) async {
+          // Indexes for the hot catalog queries. Without them every Home rail
+          // and browse-grid page does a full table scan + sort of the whole
+          // catalog, which makes a large playlist (tens of thousands of items)
+          // feel very slow. Created idempotently — no schema bump needed — and
+          // built once against whatever is already cached. Column/table names
+          // come from drift's getters so they can't drift out of sync.
+          final mv = moviesTable, sr = seriesTable;
+          Future<void> ix(String name, String table, List<String> cols) =>
+              customStatement('CREATE INDEX IF NOT EXISTS $name ON $table '
+                  '(${cols.join(', ')})');
+          await ix('idx_mv_acct_cat', mv.actualTableName,
+              [mv.accountId.name, mv.categoryId.name, mv.name.name]);
+          await ix('idx_mv_acct_name', mv.actualTableName,
+              [mv.accountId.name, mv.name.name]);
+          await ix('idx_mv_acct_rating', mv.actualTableName,
+              [mv.accountId.name, mv.rating.name]);
+          await ix('idx_mv_acct_added', mv.actualTableName,
+              [mv.accountId.name, mv.addedAtMillisUtc.name]);
+          await ix('idx_sr_acct_cat', sr.actualTableName,
+              [sr.accountId.name, sr.categoryId.name, sr.name.name]);
+          await ix('idx_sr_acct_name', sr.actualTableName,
+              [sr.accountId.name, sr.name.name]);
+          await ix('idx_sr_acct_rating', sr.actualTableName,
+              [sr.accountId.name, sr.rating.name]);
+        },
       );
 }

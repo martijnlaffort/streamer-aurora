@@ -79,35 +79,21 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
           .where((c) => enabled.contains(detectContentLanguage(c.name).code))
           .map((c) => c.id)
           .toSet();
-  List<Movie> keepMovies(List<Movie> m) => allowedVod == null
-      ? m
-      : m.where((x) => allowedVod.contains(x.categoryId)).toList();
-  List<Series> keepSeries(List<Series> s) => allowedSeries == null
-      ? s
-      : s.where((x) => allowedSeries.contains(x.categoryId)).toList();
+  // Home's rails are sorted and limited in SQL (see CatalogRepository) — the
+  // whole catalog is never pulled into memory, which is what let large
+  // playlists push a sideloaded build past iOS's memory limit. A `null`
+  // allowed-set means the content-language filter is off (show all).
 
   // Recently added drives the hero + first rail.
-  final all = keepMovies(await catalog.movies(account));
-  final recent = [...all]..sort((a, b) {
-      final at = a.addedAt?.millisecondsSinceEpoch ?? 0;
-      final bt = b.addedAt?.millisecondsSinceEpoch ?? 0;
-      return bt.compareTo(at);
-    });
-  final recentlyAdded = recent.take(_railLength).toList();
+  final recentlyAdded = await catalog.recentMovies(account,
+      limit: _railLength, categoryIds: allowedVod);
 
   // "Popular" = top-rated (no true trending signal exists for IPTV; the
   // panel's rating is the honest proxy). Hidden entirely when unrated.
-  final popularMovies = ([...all]
-        ..removeWhere((m) => (m.rating ?? 0) <= 0)
-        ..sort((a, b) => b.rating!.compareTo(a.rating!)))
-      .take(_railLength)
-      .toList();
-  final allSeries = keepSeries(await catalog.series(account));
-  final popularSeries = ([...allSeries]
-        ..removeWhere((s) => (s.rating ?? 0) <= 0)
-        ..sort((a, b) => b.rating!.compareTo(a.rating!)))
-      .take(_railLength)
-      .toList();
+  final popularMovies = await catalog.topRatedMovies(account,
+      limit: _railLength, categoryIds: allowedVod);
+  final popularSeries = await catalog.topRatedSeries(account,
+      limit: _railLength, categoryIds: allowedSeries);
 
   // Featured heroes: the newest few, enriched with backdrops when the panel
   // is up (cached rows are fine offline) — the Home hero rotates through them.

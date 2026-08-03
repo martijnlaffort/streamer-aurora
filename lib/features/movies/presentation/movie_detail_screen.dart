@@ -117,6 +117,7 @@ class _MovieDetail extends ConsumerWidget {
                 CachedNetworkImage(
                   imageUrl: image,
                   fit: BoxFit.cover,
+                  memCacheWidth: 1080,
                   placeholder: (context, url) =>
                       const ColoredBox(color: AppColors.surfaceElevated),
                   errorWidget: (context, url, error) =>

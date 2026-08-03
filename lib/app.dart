@@ -13,10 +13,12 @@ class AuroraApp extends ConsumerStatefulWidget {
   ConsumerState<AuroraApp> createState() => _AuroraAppState();
 }
 
-class _AuroraAppState extends ConsumerState<AuroraApp> {
+class _AuroraAppState extends ConsumerState<AuroraApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Reconcile with the sync backend once on launch (no-op when sync is off).
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final result = await runSync(ref);
@@ -24,6 +26,21 @@ class _AuroraAppState extends ConsumerState<AuroraApp> {
         ref.invalidate(homeDataProvider);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// iOS warns shortly before it kills a memory-heavy app. Decoded poster
+  /// bitmaps are the biggest reclaimable block — dropping them here is the
+  /// difference between a brief stutter and the app disappearing.
+  @override
+  void didHaveMemoryPressure() {
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
   }
 
   @override

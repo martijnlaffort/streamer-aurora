@@ -108,10 +108,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       setState(() => p.status = _KindStatus.running);
       try {
         await catalog.refreshCatalog(account, kinds: {p.kind});
+        // COUNT in SQL — loading the rows just to count them held the whole
+        // catalog in memory, which on a big playlist was enough to get the
+        // app killed right here during onboarding.
+        final stats = await catalog.cacheStats(account);
         p.count = switch (p.kind) {
-          CatalogKind.live => (await catalog.channels(account)).length,
-          CatalogKind.vod => (await catalog.movies(account)).length,
-          CatalogKind.series => (await catalog.series(account)).length,
+          CatalogKind.live => stats.channels,
+          CatalogKind.vod => stats.movies,
+          CatalogKind.series => stats.series,
         };
         setState(() => p.status = _KindStatus.done);
       } on SourceException catch (e) {

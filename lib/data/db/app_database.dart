@@ -226,6 +226,31 @@ class CatalogMetaTable extends Table {
   Set<Column> get primaryKey => {accountId, kind};
 }
 
+/// Per-category TTL bookkeeping: when each category's *items* were last
+/// fetched. [CatalogMetaTable] above tracks the slice's category *list*; this
+/// tracks the contents of each category, because refreshes are per-category and
+/// on demand (see `CatalogRepository`). Sweeping a whole slice is not viable on
+/// a large line — 200k+ items is minutes of network that starves every read.
+///
+/// A separate table rather than a `categoryId` column on [CatalogMetaTable]:
+/// that would change its primary key, and adding a table is a migration that
+/// cannot lose the existing TTL state.
+@DataClassName('CatalogCategoryMetaRow')
+class CatalogCategoryMetaTable extends Table {
+  @override
+  String get tableName => 'catalog_category_meta';
+
+  TextColumn get accountId => text()();
+
+  /// One of [CatalogKind] (stored as enum name).
+  TextColumn get kind => textEnum<CatalogKind>()();
+  TextColumn get categoryId => text()();
+  IntColumn get refreshedAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {accountId, kind, categoryId};
+}
+
 /// Catalog slices tracked for TTL purposes.
 enum CatalogKind { live, vod, series }
 
@@ -255,6 +280,7 @@ class SearchHistoryTable extends Table {
   FavoritesTable,
   EpgCacheTable,
   CatalogMetaTable,
+  CatalogCategoryMetaTable,
   SearchHistoryTable,
 ])
 class AppDatabase extends _$AppDatabase {
@@ -264,7 +290,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -283,6 +309,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(
                 preferencesTable, preferencesTable.contentLanguages);
           }
+          // v5: per-category TTLs, for on-demand per-category refreshes.
+          if (from < 5) {
+            await m.createTable(catalogCategoryMetaTable);
+          }
         },
         beforeOpen: (details) async {
           // Indexes for the hot catalog queries. Without them every Home rail
@@ -291,7 +321,7 @@ class AppDatabase extends _$AppDatabase {
           // feel very slow. Created idempotently — no schema bump needed — and
           // built once against whatever is already cached. Column/table names
           // come from drift's getters so they can't drift out of sync.
-          final mv = moviesTable, sr = seriesTable;
+          final mv = moviesTable, sr = seriesTable, ch = channelsTable;
           Future<void> ix(String name, String table, List<String> cols) =>
               customStatement('CREATE INDEX IF NOT EXISTS $name ON $table '
                   '(${cols.join(', ')})');
@@ -309,6 +339,13 @@ class AppDatabase extends _$AppDatabase {
               [sr.accountId.name, sr.name.name]);
           await ix('idx_sr_acct_rating', sr.actualTableName,
               [sr.accountId.name, sr.rating.name]);
+          // Channels had no index at all: a line with tens of thousands of
+          // channels made every Live read a full scan plus a sort. These let a
+          // paged read touch only the rows it returns.
+          await ix('idx_ch_acct_sort', ch.actualTableName,
+              [ch.accountId.name, ch.sortOrder.name]);
+          await ix('idx_ch_acct_cat_sort', ch.actualTableName,
+              [ch.accountId.name, ch.categoryId.name, ch.sortOrder.name]);
         },
       );
 }

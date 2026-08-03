@@ -5639,6 +5639,351 @@ class CatalogMetaTableCompanion extends UpdateCompanion<CatalogMetaRow> {
   }
 }
 
+class $CatalogCategoryMetaTableTable extends CatalogCategoryMetaTable
+    with TableInfo<$CatalogCategoryMetaTableTable, CatalogCategoryMetaRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CatalogCategoryMetaTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<CatalogKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<CatalogKind>(
+        $CatalogCategoryMetaTableTable.$converterkind,
+      );
+  static const VerificationMeta _categoryIdMeta = const VerificationMeta(
+    'categoryId',
+  );
+  @override
+  late final GeneratedColumn<String> categoryId = GeneratedColumn<String>(
+    'category_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _refreshedAtMillisUtcMeta =
+      const VerificationMeta('refreshedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> refreshedAtMillisUtc = GeneratedColumn<int>(
+    'refreshed_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    accountId,
+    kind,
+    categoryId,
+    refreshedAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'catalog_category_meta';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CatalogCategoryMetaRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('category_id')) {
+      context.handle(
+        _categoryIdMeta,
+        categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_categoryIdMeta);
+    }
+    if (data.containsKey('refreshed_at_millis_utc')) {
+      context.handle(
+        _refreshedAtMillisUtcMeta,
+        refreshedAtMillisUtc.isAcceptableOrUnknown(
+          data['refreshed_at_millis_utc']!,
+          _refreshedAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_refreshedAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {accountId, kind, categoryId};
+  @override
+  CatalogCategoryMetaRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CatalogCategoryMetaRow(
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      kind: $CatalogCategoryMetaTableTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      categoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category_id'],
+      )!,
+      refreshedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}refreshed_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $CatalogCategoryMetaTableTable createAlias(String alias) {
+    return $CatalogCategoryMetaTableTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<CatalogKind, String, String> $converterkind =
+      const EnumNameConverter<CatalogKind>(CatalogKind.values);
+}
+
+class CatalogCategoryMetaRow extends DataClass
+    implements Insertable<CatalogCategoryMetaRow> {
+  final String accountId;
+
+  /// One of [CatalogKind] (stored as enum name).
+  final CatalogKind kind;
+  final String categoryId;
+  final int refreshedAtMillisUtc;
+  const CatalogCategoryMetaRow({
+    required this.accountId,
+    required this.kind,
+    required this.categoryId,
+    required this.refreshedAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['account_id'] = Variable<String>(accountId);
+    {
+      map['kind'] = Variable<String>(
+        $CatalogCategoryMetaTableTable.$converterkind.toSql(kind),
+      );
+    }
+    map['category_id'] = Variable<String>(categoryId);
+    map['refreshed_at_millis_utc'] = Variable<int>(refreshedAtMillisUtc);
+    return map;
+  }
+
+  CatalogCategoryMetaTableCompanion toCompanion(bool nullToAbsent) {
+    return CatalogCategoryMetaTableCompanion(
+      accountId: Value(accountId),
+      kind: Value(kind),
+      categoryId: Value(categoryId),
+      refreshedAtMillisUtc: Value(refreshedAtMillisUtc),
+    );
+  }
+
+  factory CatalogCategoryMetaRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CatalogCategoryMetaRow(
+      accountId: serializer.fromJson<String>(json['accountId']),
+      kind: $CatalogCategoryMetaTableTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      categoryId: serializer.fromJson<String>(json['categoryId']),
+      refreshedAtMillisUtc: serializer.fromJson<int>(
+        json['refreshedAtMillisUtc'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'accountId': serializer.toJson<String>(accountId),
+      'kind': serializer.toJson<String>(
+        $CatalogCategoryMetaTableTable.$converterkind.toJson(kind),
+      ),
+      'categoryId': serializer.toJson<String>(categoryId),
+      'refreshedAtMillisUtc': serializer.toJson<int>(refreshedAtMillisUtc),
+    };
+  }
+
+  CatalogCategoryMetaRow copyWith({
+    String? accountId,
+    CatalogKind? kind,
+    String? categoryId,
+    int? refreshedAtMillisUtc,
+  }) => CatalogCategoryMetaRow(
+    accountId: accountId ?? this.accountId,
+    kind: kind ?? this.kind,
+    categoryId: categoryId ?? this.categoryId,
+    refreshedAtMillisUtc: refreshedAtMillisUtc ?? this.refreshedAtMillisUtc,
+  );
+  CatalogCategoryMetaRow copyWithCompanion(
+    CatalogCategoryMetaTableCompanion data,
+  ) {
+    return CatalogCategoryMetaRow(
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      categoryId: data.categoryId.present
+          ? data.categoryId.value
+          : this.categoryId,
+      refreshedAtMillisUtc: data.refreshedAtMillisUtc.present
+          ? data.refreshedAtMillisUtc.value
+          : this.refreshedAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CatalogCategoryMetaRow(')
+          ..write('accountId: $accountId, ')
+          ..write('kind: $kind, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('refreshedAtMillisUtc: $refreshedAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(accountId, kind, categoryId, refreshedAtMillisUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CatalogCategoryMetaRow &&
+          other.accountId == this.accountId &&
+          other.kind == this.kind &&
+          other.categoryId == this.categoryId &&
+          other.refreshedAtMillisUtc == this.refreshedAtMillisUtc);
+}
+
+class CatalogCategoryMetaTableCompanion
+    extends UpdateCompanion<CatalogCategoryMetaRow> {
+  final Value<String> accountId;
+  final Value<CatalogKind> kind;
+  final Value<String> categoryId;
+  final Value<int> refreshedAtMillisUtc;
+  final Value<int> rowid;
+  const CatalogCategoryMetaTableCompanion({
+    this.accountId = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.categoryId = const Value.absent(),
+    this.refreshedAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CatalogCategoryMetaTableCompanion.insert({
+    required String accountId,
+    required CatalogKind kind,
+    required String categoryId,
+    required int refreshedAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : accountId = Value(accountId),
+       kind = Value(kind),
+       categoryId = Value(categoryId),
+       refreshedAtMillisUtc = Value(refreshedAtMillisUtc);
+  static Insertable<CatalogCategoryMetaRow> custom({
+    Expression<String>? accountId,
+    Expression<String>? kind,
+    Expression<String>? categoryId,
+    Expression<int>? refreshedAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (accountId != null) 'account_id': accountId,
+      if (kind != null) 'kind': kind,
+      if (categoryId != null) 'category_id': categoryId,
+      if (refreshedAtMillisUtc != null)
+        'refreshed_at_millis_utc': refreshedAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CatalogCategoryMetaTableCompanion copyWith({
+    Value<String>? accountId,
+    Value<CatalogKind>? kind,
+    Value<String>? categoryId,
+    Value<int>? refreshedAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return CatalogCategoryMetaTableCompanion(
+      accountId: accountId ?? this.accountId,
+      kind: kind ?? this.kind,
+      categoryId: categoryId ?? this.categoryId,
+      refreshedAtMillisUtc: refreshedAtMillisUtc ?? this.refreshedAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $CatalogCategoryMetaTableTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (categoryId.present) {
+      map['category_id'] = Variable<String>(categoryId.value);
+    }
+    if (refreshedAtMillisUtc.present) {
+      map['refreshed_at_millis_utc'] = Variable<int>(
+        refreshedAtMillisUtc.value,
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CatalogCategoryMetaTableCompanion(')
+          ..write('accountId: $accountId, ')
+          ..write('kind: $kind, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('refreshedAtMillisUtc: $refreshedAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SearchHistoryTableTable extends SearchHistoryTable
     with TableInfo<$SearchHistoryTableTable, SearchHistoryRow> {
   @override
@@ -5887,6 +6232,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CatalogMetaTableTable catalogMetaTable = $CatalogMetaTableTable(
     this,
   );
+  late final $CatalogCategoryMetaTableTable catalogCategoryMetaTable =
+      $CatalogCategoryMetaTableTable(this);
   late final $SearchHistoryTableTable searchHistoryTable =
       $SearchHistoryTableTable(this);
   @override
@@ -5905,6 +6252,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     favoritesTable,
     epgCacheTable,
     catalogMetaTable,
+    catalogCategoryMetaTable,
     searchHistoryTable,
   ];
 }
@@ -8748,6 +9096,211 @@ typedef $$CatalogMetaTableTableProcessedTableManager =
       CatalogMetaRow,
       PrefetchHooks Function()
     >;
+typedef $$CatalogCategoryMetaTableTableCreateCompanionBuilder =
+    CatalogCategoryMetaTableCompanion Function({
+      required String accountId,
+      required CatalogKind kind,
+      required String categoryId,
+      required int refreshedAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$CatalogCategoryMetaTableTableUpdateCompanionBuilder =
+    CatalogCategoryMetaTableCompanion Function({
+      Value<String> accountId,
+      Value<CatalogKind> kind,
+      Value<String> categoryId,
+      Value<int> refreshedAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$CatalogCategoryMetaTableTableFilterComposer
+    extends Composer<_$AppDatabase, $CatalogCategoryMetaTableTable> {
+  $$CatalogCategoryMetaTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<CatalogKind, CatalogKind, String> get kind =>
+      $composableBuilder(
+        column: $table.kind,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get refreshedAtMillisUtc => $composableBuilder(
+    column: $table.refreshedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CatalogCategoryMetaTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $CatalogCategoryMetaTableTable> {
+  $$CatalogCategoryMetaTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get refreshedAtMillisUtc => $composableBuilder(
+    column: $table.refreshedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CatalogCategoryMetaTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CatalogCategoryMetaTableTable> {
+  $$CatalogCategoryMetaTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<CatalogKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get refreshedAtMillisUtc => $composableBuilder(
+    column: $table.refreshedAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$CatalogCategoryMetaTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CatalogCategoryMetaTableTable,
+          CatalogCategoryMetaRow,
+          $$CatalogCategoryMetaTableTableFilterComposer,
+          $$CatalogCategoryMetaTableTableOrderingComposer,
+          $$CatalogCategoryMetaTableTableAnnotationComposer,
+          $$CatalogCategoryMetaTableTableCreateCompanionBuilder,
+          $$CatalogCategoryMetaTableTableUpdateCompanionBuilder,
+          (
+            CatalogCategoryMetaRow,
+            BaseReferences<
+              _$AppDatabase,
+              $CatalogCategoryMetaTableTable,
+              CatalogCategoryMetaRow
+            >,
+          ),
+          CatalogCategoryMetaRow,
+          PrefetchHooks Function()
+        > {
+  $$CatalogCategoryMetaTableTableTableManager(
+    _$AppDatabase db,
+    $CatalogCategoryMetaTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CatalogCategoryMetaTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CatalogCategoryMetaTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CatalogCategoryMetaTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> accountId = const Value.absent(),
+                Value<CatalogKind> kind = const Value.absent(),
+                Value<String> categoryId = const Value.absent(),
+                Value<int> refreshedAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CatalogCategoryMetaTableCompanion(
+                accountId: accountId,
+                kind: kind,
+                categoryId: categoryId,
+                refreshedAtMillisUtc: refreshedAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String accountId,
+                required CatalogKind kind,
+                required String categoryId,
+                required int refreshedAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => CatalogCategoryMetaTableCompanion.insert(
+                accountId: accountId,
+                kind: kind,
+                categoryId: categoryId,
+                refreshedAtMillisUtc: refreshedAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CatalogCategoryMetaTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CatalogCategoryMetaTableTable,
+      CatalogCategoryMetaRow,
+      $$CatalogCategoryMetaTableTableFilterComposer,
+      $$CatalogCategoryMetaTableTableOrderingComposer,
+      $$CatalogCategoryMetaTableTableAnnotationComposer,
+      $$CatalogCategoryMetaTableTableCreateCompanionBuilder,
+      $$CatalogCategoryMetaTableTableUpdateCompanionBuilder,
+      (
+        CatalogCategoryMetaRow,
+        BaseReferences<
+          _$AppDatabase,
+          $CatalogCategoryMetaTableTable,
+          CatalogCategoryMetaRow
+        >,
+      ),
+      CatalogCategoryMetaRow,
+      PrefetchHooks Function()
+    >;
 typedef $$SearchHistoryTableTableCreateCompanionBuilder =
     SearchHistoryTableCompanion Function({
       required String query,
@@ -8932,6 +9485,11 @@ class $AppDatabaseManager {
       $$EpgCacheTableTableTableManager(_db, _db.epgCacheTable);
   $$CatalogMetaTableTableTableManager get catalogMetaTable =>
       $$CatalogMetaTableTableTableManager(_db, _db.catalogMetaTable);
+  $$CatalogCategoryMetaTableTableTableManager get catalogCategoryMetaTable =>
+      $$CatalogCategoryMetaTableTableTableManager(
+        _db,
+        _db.catalogCategoryMetaTable,
+      );
   $$SearchHistoryTableTableTableManager get searchHistoryTable =>
       $$SearchHistoryTableTableTableManager(_db, _db.searchHistoryTable);
 }

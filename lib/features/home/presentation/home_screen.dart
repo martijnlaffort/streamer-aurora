@@ -212,7 +212,6 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
   @override
   Widget build(BuildContext context) {
     final movie = widget.movies[_index];
-    final image = movie.backdropUrl ?? movie.posterUrl;
     return GestureDetector(
       onTap: () => context.push('/movie/${movie.id}'),
       child: SizedBox(
@@ -220,26 +219,38 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 700),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              child: image != null
-                  ? CachedNetworkImage(
-                      key: ValueKey(movie.id),
-                      imageUrl: image,
-                      fit: BoxFit.cover,
-                      // Full-width hero backdrop — decode at ~1080px, not the
-                      // source's full resolution (often 1920+).
-                      memCacheWidth: 1080,
-                      placeholder: (context, url) =>
-                          const ColoredBox(color: AppColors.surfaceElevated),
-                      errorWidget: (context, url, error) =>
-                          const ColoredBox(color: AppColors.surfaceElevated),
-                    )
-                  : ColoredBox(
-                      key: ValueKey('empty-${movie.id}'),
-                      color: AppColors.surfaceElevated),
+            // The poster renders immediately from the cached row; the wider
+            // backdrop is fetched off Home's critical path and cross-fades in
+            // when it arrives (see heroBackdropProvider).
+            Consumer(
+              builder: (context, ref, _) {
+                // Both "still loading" and "no backdrop" collapse to null here,
+                // which is what we want: keep showing the poster.
+                final backdrop = movie.backdropUrl ??
+                    ref.watch(heroBackdropProvider(movie.id)).value;
+                final image = backdrop ?? movie.posterUrl;
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 700),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  child: image != null
+                      ? CachedNetworkImage(
+                          key: ValueKey('${movie.id}-$image'),
+                          imageUrl: image,
+                          fit: BoxFit.cover,
+                          // Full-width hero backdrop — decode at ~1080px, not
+                          // the source's full resolution (often 1920+).
+                          memCacheWidth: 1080,
+                          placeholder: (context, url) =>
+                              const ColoredBox(color: AppColors.surfaceElevated),
+                          errorWidget: (context, url, error) =>
+                              const ColoredBox(color: AppColors.surfaceElevated),
+                        )
+                      : ColoredBox(
+                          key: ValueKey('empty-${movie.id}'),
+                          color: AppColors.surfaceElevated),
+                );
+              },
             ),
             const DecoratedBox(
                 decoration: BoxDecoration(gradient: AppColors.scrim)),

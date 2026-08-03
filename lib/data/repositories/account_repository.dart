@@ -54,6 +54,9 @@ class AccountRepository {
       await (_db.catalogMetaTable.delete()
             ..where((t) => t.accountId.equals(id)))
           .go();
+      await (_db.catalogCategoryMetaTable.delete()
+            ..where((t) => t.accountId.equals(id)))
+          .go();
       await (_db.watchProgressTable.delete()
             ..where((t) => t.contentKey.like('$id:%')))
           .go();

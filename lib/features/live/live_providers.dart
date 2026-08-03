@@ -17,21 +17,12 @@ final liveCategoriesProvider = FutureProvider<List<Category>>((ref) async {
       .toList();
 });
 
-/// Channels for one category (null = all). The unscoped list honours the
-/// content-language filter.
-final channelsListProvider =
-    FutureProvider.family<List<Channel>, String?>((ref, categoryId) async {
-  final account = await ref.watch(activeAccountProvider.future);
-  if (account == null) return [];
-  final channels = await ref
-      .watch(catalogRepositoryProvider)
-      .channels(account, categoryId: categoryId);
-  if (categoryId != null) return channels;
-  final allowed =
-      await ref.watch(allowedCategoryIdsProvider(CategoryType.live).future);
-  if (allowed == null) return channels;
-  return channels.where((c) => allowed.contains(c.categoryId)).toList();
-});
+/// Page size for the Live channel list. The list used to load every channel at
+/// once and filter in Dart; on a line with tens of thousands of channels that
+/// materialised the whole lot into models on every read of the tab. LiveScreen
+/// pages against the repository instead, and the language filter is applied in
+/// SQL so pages come back full.
+const channelsPageSize = 90;
 
 /// Now/Next for a channel (PRD §8.5), from the ingested XMLTV guide (or a
 /// per-channel fallback for Xtream). Empty for accounts without any EPG.

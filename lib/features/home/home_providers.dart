@@ -55,6 +55,26 @@ class HomeData {
 const _railLength = 15;
 const _maxCategoryRails = 6;
 
+/// The backdrop for one featured hero, resolved lazily off Home's critical
+/// path. Home paints from the cache immediately (the hero falls back to the
+/// poster) and swaps in the wider backdrop if and when this lands; a panel that
+/// is slow or down just means the poster stays. Not autoDispose: the hero
+/// rotates every few seconds and returns, and refetching each time it comes
+/// back around would be pointless traffic.
+final heroBackdropProvider =
+    FutureProvider.family<String?, String>((ref, movieId) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return null;
+  try {
+    final detail = await ref
+        .watch(catalogRepositoryProvider)
+        .movieDetail(account, movieId);
+    return detail.backdropUrl;
+  } on Exception {
+    return null; // Cosmetic only — never surface this as an error.
+  }
+});
+
 final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return null;
@@ -95,20 +115,13 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   final popularSeries = await catalog.topRatedSeries(account,
       limit: _railLength, categoryIds: allowedSeries);
 
-  // Featured heroes: the newest few, enriched with backdrops when the panel
-  // is up (cached rows are fine offline) — the Home hero rotates through them.
-  final heroes = <Movie>[];
-  for (final candidate in recentlyAdded.take(5)) {
-    if (candidate.backdropUrl != null) {
-      heroes.add(candidate);
-      continue;
-    }
-    try {
-      heroes.add(await catalog.movieDetail(account, candidate.id));
-    } on Exception {
-      heroes.add(candidate);
-    }
-  }
+  // Featured heroes: the newest few, straight from the cache. Backdrops are
+  // NOT resolved here — see [heroBackdropProvider]. This used to await
+  // `movieDetail` per hero, i.e. up to five sequential `get_vod_info`
+  // round-trips before Home rendered anything; on a real panel that is seconds
+  // of spinner for a cosmetic upgrade the hero already falls back from (it
+  // shows the poster when there is no backdrop).
+  final heroes = recentlyAdded.take(5).toList();
 
   // Continue Watching (PRD §8.9): movies play directly; episodes resolve back
   // to their series (one card per series — the most-recent episode, since the

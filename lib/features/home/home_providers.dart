@@ -60,18 +60,56 @@ final discoveryRailsProvider =
   ref.watch(preferencesProvider);
   await repo.refresh(account);
 
+  final region = ref.watch(discoveryRegionProvider);
   final rails = <DiscoveryRail<Object>>[];
   for (final list in DiscoveryRepository.lists) {
-    final items = list.kind == DiscoveryKind.movie
+    var items = list.kind == DiscoveryKind.movie
         ? await repo.railMovies(account, list.id)
         : await repo.railSeries(account, list.id);
     // A rail with one or two hits looks broken; below this the playlist simply
     // does not carry enough of that list to be worth a row.
-    if (items.length >= 3) {
-      rails.add(DiscoveryRail<Object>(label: list.label, items: items));
-    }
+    if (items.length < 3) continue;
+    if (list.numbered) items = items.take(10).toList();
+    rails.add(DiscoveryRail<Object>(
+      // A rank is only meaningful if you know what it ranks — say the region.
+      label: list.numbered ? 'Top 10 in $region' : list.label,
+      items: items,
+      numbered: list.numbered,
+    ));
   }
   return rails;
+});
+
+/// "My List" — favourites resolved to catalogue rows.
+///
+/// Netflix and HBO both give this a top-level row; Aurora already had the data
+/// but only exposed it behind Settings, so it was effectively invisible.
+///
+/// Live channels are deliberately left out: a 2:3 poster rail of channel logos
+/// looks broken, and they stay reachable from the Live tab and Settings →
+/// Favorites. Series are keyed by episode (there is no series-level
+/// StreamType), so an episode favourite surfaces its series, de-duplicated.
+final myListProvider = FutureProvider<List<Object>>((ref) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return const [];
+  final catalog = ref.watch(catalogRepositoryProvider);
+  final favorites = await ref.watch(favoritesRepositoryProvider).all();
+  final out = <Object>[];
+  final seenSeries = <String>{};
+  for (final (contentKey, _) in favorites) {
+    final key = parseContentKey(contentKey);
+    if (key == null || key.accountId != account.id) continue;
+    if (key.type == StreamType.movie.name) {
+      final movie = await catalog.movieById(account, key.id);
+      if (movie != null) out.add(movie);
+    } else if (key.type == StreamType.episode.name) {
+      final episode = await catalog.episodeById(account, key.id);
+      if (episode == null || !seenSeries.add(episode.seriesId)) continue;
+      final series = await catalog.seriesById(account, episode.seriesId);
+      if (series != null) out.add(series);
+    }
+  }
+  return out;
 });
 
 /// The backdrop for one featured hero, resolved lazily off Home's critical

@@ -116,7 +116,24 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
     final guide = ref.watch(guideProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('TV Guide')),
+      appBar: AppBar(
+        title: const Text('TV Guide'),
+        // Say so when the grid is bounded, rather than quietly omitting rows.
+        bottom: (guide.value?.truncated ?? false)
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(22),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(left: 16, bottom: 6),
+                  child: Text(
+                    'Showing the first $guideChannelLimit channels with a guide',
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 11),
+                  ),
+                ),
+              )
+            : null,
+      ),
       body: guide.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(

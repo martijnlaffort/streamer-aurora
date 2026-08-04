@@ -57,9 +57,11 @@ class DiscoveryRepository {
         needsApiKey: true),
     DiscoveryList(
         id: 'tmdb-popular-movie',
-        label: 'Popular Right Now',
+        // Relabelled per-region at render time — see discoveryRailsProvider.
+        label: 'Top 10 Movies',
         kind: DiscoveryKind.movie,
-        needsApiKey: true),
+        needsApiKey: true,
+        numbered: true),
     DiscoveryList(
         id: 'tmdb-new-movie',
         label: 'New Releases',

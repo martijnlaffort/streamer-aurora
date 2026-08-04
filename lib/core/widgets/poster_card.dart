@@ -16,12 +16,18 @@ class PosterCard extends StatefulWidget {
     this.width = 128,
     this.heroTag,
     this.rating,
+    this.rank,
   });
 
   final String title;
   final String? imageUrl;
   final VoidCallback? onTap;
   final double width;
+
+  /// 1-based position in a Top 10 rail. Drawn as a large numeral over the
+  /// poster's lower-left — the rank is the point of such a rail, so it has to
+  /// read at a glance rather than sit in the caption.
+  final int? rank;
 
   /// Shared-element tag: the detail header carries the same tag so the
   /// artwork flies poster → detail (PRD §10).
@@ -108,6 +114,12 @@ class _PosterCardState extends State<PosterCard> {
                             right: 6,
                             child: _RatingBadge(widget.rating!),
                           ),
+                        if (widget.rank != null)
+                          Positioned(
+                            left: 4,
+                            bottom: 0,
+                            child: _RankNumeral(widget.rank!),
+                          ),
                       ],
                     ),
                   ),
@@ -124,6 +136,42 @@ class _PosterCardState extends State<PosterCard> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A large rank numeral for Top 10 rails: filled glyph with a dark stroke so it
+/// stays legible over both bright and dark artwork.
+class _RankNumeral extends StatelessWidget {
+  const _RankNumeral(this.rank);
+
+  final int rank;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = '$rank';
+    // Stroke drawn as a second Text underneath — cheaper and sharper than a
+    // shadow, and readable on white posters where a shadow washes out.
+    return Stack(
+      children: [
+        Text(text,
+            style: TextStyle(
+              fontSize: 56,
+              height: 1.0,
+              fontWeight: FontWeight.w800,
+              foreground: Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 4
+                ..color = Colors.black.withValues(alpha: 0.85),
+            )),
+        Text(text,
+            style: const TextStyle(
+              fontSize: 56,
+              height: 1.0,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            )),
+      ],
     );
   }
 }

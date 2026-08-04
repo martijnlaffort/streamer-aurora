@@ -768,6 +768,23 @@ class CatalogRepository {
     return row?.toModel();
   }
 
+  /// Channels whose EPG key is in [keys], cache-only, in list order.
+  ///
+  /// A channel's guide key is `epgChannelId ?? id`, so both columns are matched.
+  /// Used by the guide, which starts from the channels that *have* EPG rather
+  /// than from the full 25k channel list.
+  Future<List<Channel>> channelsByEpgKeys(
+      Account account, Set<String> keys) async {
+    if (keys.isEmpty) return const [];
+    final rows = await (_db.channelsTable.select()
+          ..where((t) =>
+              t.accountId.equals(account.id) &
+              (t.epgChannelId.isIn(keys) | t.id.isIn(keys)))
+          ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+        .get();
+    return rows.map((r) => r.toModel()).toList();
+  }
+
   /// Cache-only single-row lookup (no source contact).
   Future<Channel?> channelById(Account account, String channelId) async {
     final row = await (_db.channelsTable.select()

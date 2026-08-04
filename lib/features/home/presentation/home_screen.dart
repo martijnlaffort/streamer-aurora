@@ -11,6 +11,7 @@ import '../../../core/widgets/poster_card.dart';
 import '../../../data/db/app_database.dart' show CatalogKind;
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
+import '../../movies/movies_providers.dart' show isFavoriteProvider;
 import '../home_providers.dart';
 import 'widgets/media_rail.dart';
 
@@ -101,8 +102,9 @@ class _HomeContent extends ConsumerWidget {
                     _ContinueCard(entry: data.continueWatching[i]),
               ),
             ),
-          // Externally-ranked rails (Trending, Popular here, New Releases,
-          // Award Winners). Separate provider — Home never waits on them.
+          ..._myListSlivers(context, ref),
+          // Externally-ranked rails (Top 10, Trending, New Releases, Award
+          // Winners). Separate provider — Home never waits on them.
           ..._discoverySlivers(context, ref),
           // The Top Rated rails are gone: they were the panel's own rating with
           // no vote count behind it, which is the exact signal the discovery
@@ -132,6 +134,74 @@ class _HomeContent extends ConsumerWidget {
   }
 }
 
+/// Add/remove the featured hero from My List without leaving Home — the
+/// shortcut Netflix and HBO both put on the spotlight.
+class _HeroMyListButton extends ConsumerWidget {
+  const _HeroMyListButton({required this.movie});
+
+  final Movie movie;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final key = contentKeyFor(
+        accountId: movie.accountId, type: StreamType.movie, id: movie.id);
+    final saved = ref.watch(isFavoriteProvider(key)).value ?? false;
+    return FilledButton.tonalIcon(
+      onPressed: () async {
+        await ref.read(favoritesRepositoryProvider).toggle(key);
+        ref.invalidate(isFavoriteProvider(key));
+        ref.invalidate(myListProvider);
+      },
+      icon: Icon(saved ? Icons.check : Icons.add, size: 18),
+      label: Text(saved ? 'In My List' : 'My List'),
+    );
+  }
+}
+
+/// A poster for a Movie **or** Series. Discovery rails and My List both hold
+/// mixed model types, so the branch lives in one place.
+Widget _posterFor(BuildContext context, Object item, String tagPrefix,
+    {int? rank, bool showRating = true}) {
+  if (item is Movie) {
+    final tag = '$tagPrefix-m-${item.id}';
+    return PosterCard(
+      title: item.name,
+      imageUrl: item.posterUrl,
+      rating: showRating ? item.rating : null,
+      rank: rank,
+      heroTag: tag,
+      onTap: () => context.push('/movie/${item.id}', extra: tag),
+    );
+  }
+  final series = item as Series;
+  final tag = '$tagPrefix-s-${series.id}';
+  return PosterCard(
+    title: series.name,
+    imageUrl: series.posterUrl,
+    rating: showRating ? series.rating : null,
+    rank: rank,
+    heroTag: tag,
+    onTap: () => context.push('/series/${series.id}', extra: tag),
+  );
+}
+
+/// "My List" rail — hidden entirely when empty rather than showing a bald
+/// heading over nothing.
+List<Widget> _myListSlivers(BuildContext context, WidgetRef ref) {
+  final items = ref.watch(myListProvider).value ?? const [];
+  if (items.isEmpty) return const [];
+  return [
+    SliverToBoxAdapter(
+      child: MediaRail(
+        title: 'My List',
+        itemCount: items.length,
+        itemBuilder: (context, i) =>
+            _posterFor(context, items[i], 'mylist'),
+      ),
+    ),
+  ];
+}
+
 /// Slivers for the discovery rails. Renders nothing at all while they load or
 /// if none resolved — an empty gap is better than a spinner for content that is
 /// a bonus on top of what Home already shows.
@@ -143,30 +213,15 @@ List<Widget> _discoverySlivers(BuildContext context, WidgetRef ref) {
         child: MediaRail(
           title: rail.label,
           itemCount: rail.items.length,
-          itemBuilder: (context, i) {
-            final item = rail.items[i];
-            // One rail type, two model types — a discovery list is either
-            // movies or series, never mixed.
-            if (item is Movie) {
-              final tag = 'disc-${rail.label}-m-${item.id}';
-              return PosterCard(
-                title: item.name,
-                imageUrl: item.posterUrl,
-                rating: item.rating,
-                heroTag: tag,
-                onTap: () => context.push('/movie/${item.id}', extra: tag),
-              );
-            }
-            final series = item as Series;
-            final tag = 'disc-${rail.label}-s-${series.id}';
-            return PosterCard(
-              title: series.name,
-              imageUrl: series.posterUrl,
-              rating: series.rating,
-              heroTag: tag,
-              onTap: () => context.push('/series/${series.id}', extra: tag),
-            );
-          },
+          // The numeral needs room, and a rating badge next to a rank is noise.
+          height: rail.numbered ? 252 : 236,
+          itemBuilder: (context, i) => _posterFor(
+            context,
+            rail.items[i],
+            'disc-${rail.label}',
+            rank: rail.numbered ? i + 1 : null,
+            showRating: !rail.numbered,
+          ),
         ),
       ),
   ];
@@ -279,6 +334,8 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
                         icon: const Icon(Icons.info_outline, size: 18),
                         label: const Text('Details'),
                       ),
+                      const SizedBox(width: 8),
+                      _HeroMyListButton(movie: movie),
                       const Spacer(),
                       if (widget.movies.length > 1)
                         Row(

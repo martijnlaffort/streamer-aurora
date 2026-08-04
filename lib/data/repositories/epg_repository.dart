@@ -255,14 +255,52 @@ class EpgRepository {
     return rows.map((r) => r.toModel()).toList();
   }
 
-  /// All programmes overlapping [from, to] for the account, grouped by channel
-  /// key — one query for the whole guide grid. Refreshes the guide first.
-  Future<Map<String, List<EpgEntry>>> guideWindow(
-      Account account, DateTime from, DateTime to) async {
+  /// The channel keys that actually have programmes in [from, to], at most
+  /// [limit] of them. Refreshes the guide first.
+  ///
+  /// The guide is built from this rather than from the channel list because the
+  /// two differ wildly: a line can carry 25k channels and provide EPG for a few
+  /// hundred. Loading every channel and filtering in Dart meant reading every
+  /// programme in the window — order 300k rows — to render a screenful.
+  ///
+  /// Returns one extra key beyond [limit] when more exist, so the caller can
+  /// tell the user the guide is truncated instead of silently hiding channels.
+  Future<List<String>> channelKeysWithEpg(
+    Account account,
+    DateTime from,
+    DateTime to, {
+    required int limit,
+  }) async {
     await refreshGuide(account);
+    final t = _db.epgCacheTable;
+    final rows = await _db.customSelect(
+      'SELECT DISTINCT ${t.channelId.name} AS key FROM ${t.actualTableName} '
+      'WHERE ${t.accountId.name} = ? AND ${t.stopMillisUtc.name} > ? '
+      'AND ${t.startMillisUtc.name} < ? ORDER BY ${t.channelId.name} '
+      'LIMIT ${limit + 1}',
+      variables: [
+        Variable.withString(account.id),
+        Variable.withInt(utcMillis(from)),
+        Variable.withInt(utcMillis(to)),
+      ],
+    ).get();
+    return [for (final row in rows) row.read<String>('key')];
+  }
+
+  /// Programmes overlapping [from, to] for [channelKeys] only, grouped by key.
+  ///
+  /// Scoping by channel is what keeps this bounded — see [channelKeysWithEpg].
+  Future<Map<String, List<EpgEntry>>> guideWindow(
+    Account account,
+    DateTime from,
+    DateTime to, {
+    required Set<String> channelKeys,
+  }) async {
+    if (channelKeys.isEmpty) return const {};
     final rows = await (_db.epgCacheTable.select()
           ..where((t) =>
               t.accountId.equals(account.id) &
+              t.channelId.isIn(channelKeys) &
               t.stopMillisUtc.isBiggerThanValue(utcMillis(from)) &
               t.startMillisUtc.isSmallerThanValue(utcMillis(to)))
           ..orderBy([(t) => OrderingTerm.asc(t.startMillisUtc)]))

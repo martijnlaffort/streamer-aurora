@@ -76,6 +76,10 @@ String _resolveRegion(String? configured) {
   return 'NL';
 }
 
+/// The resolved discovery region, exposed so the UI can name it ("Top 10 in NL").
+final discoveryRegionProvider = Provider<String>((ref) =>
+    _resolveRegion(ref.watch(preferencesProvider).value?.discoveryRegion));
+
 final discoveryRepositoryProvider = Provider<DiscoveryRepository>((ref) {
   // Watched, not read: saving a key in Settings must rebuild this so the TMDB
   // rails light up without a restart.

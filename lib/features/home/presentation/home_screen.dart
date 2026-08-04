@@ -104,46 +104,9 @@ class _HomeContent extends ConsumerWidget {
           // Externally-ranked rails (Trending, Popular here, New Releases,
           // Award Winners). Separate provider — Home never waits on them.
           ..._discoverySlivers(context, ref),
-          if (data.popularMovies.isNotEmpty)
-            SliverToBoxAdapter(
-              child: MediaRail(
-                // "Top Rated", not "Popular": this rail is the panel's own
-                // rating with no vote count behind it, which is exactly why it
-                // surfaces titles nobody has heard of. The honest label keeps it
-                // useful without pretending it measures popularity.
-                title: 'Top Rated Movies',
-                itemCount: data.popularMovies.length,
-                itemBuilder: (context, i) {
-                  final movie = data.popularMovies[i];
-                  final tag = 'pop-m-${movie.id}';
-                  return PosterCard(
-                    title: movie.name,
-                    imageUrl: movie.posterUrl,
-                    rating: movie.rating,
-                    heroTag: tag,
-                    onTap: () => context.push('/movie/${movie.id}', extra: tag),
-                  );
-                },
-              ),
-            ),
-          if (data.popularSeries.isNotEmpty)
-            SliverToBoxAdapter(
-              child: MediaRail(
-                title: 'Top Rated Series',
-                itemCount: data.popularSeries.length,
-                itemBuilder: (context, i) {
-                  final series = data.popularSeries[i];
-                  final tag = 'pop-s-${series.id}';
-                  return PosterCard(
-                    title: series.name,
-                    imageUrl: series.posterUrl,
-                    rating: series.rating,
-                    heroTag: tag,
-                    onTap: () => context.push('/series/${series.id}', extra: tag),
-                  );
-                },
-              ),
-            ),
+          // The Top Rated rails are gone: they were the panel's own rating with
+          // no vote count behind it, which is the exact signal the discovery
+          // rails above replaced.
           if (data.recentlyAdded.isNotEmpty)
             SliverToBoxAdapter(
               child: MediaRail(
@@ -161,23 +124,7 @@ class _HomeContent extends ConsumerWidget {
                 },
               ),
             ),
-          for (final (category, movies) in data.categoryRails)
-            SliverToBoxAdapter(
-              child: MediaRail(
-                title: category.name,
-                itemCount: movies.length,
-                itemBuilder: (context, i) {
-                  final movie = movies[i];
-                  final tag = 'cat-${category.id}-m-${movie.id}';
-                  return PosterCard(
-                    title: movie.name,
-                    imageUrl: movie.posterUrl,
-                    heroTag: tag,
-                    onTap: () => context.push('/movie/${movie.id}', extra: tag),
-                  );
-                },
-              ),
-            ),
+          // Per-category rails moved to the Movies and Series tabs.
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),

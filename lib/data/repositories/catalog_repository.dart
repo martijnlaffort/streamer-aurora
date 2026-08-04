@@ -284,6 +284,41 @@ class CatalogRepository {
     return future;
   }
 
+  /// Most categories that may be queued for a warm before further requests are
+  /// dropped. A category-rails screen can ask for hundreds as the user scrolls;
+  /// beyond a handful the user has already scrolled past them, and warming a
+  /// category is not cheap — the panel has no per-category limit, so it pulls
+  /// the *whole* category (megabytes on a large line) to fill one rail.
+  static const _maxQueuedWarms = 4;
+
+  /// Fetches one category into the cache if it is missing or stale, for a caller
+  /// that will NOT wait on it (the rails). Returns immediately when the category
+  /// is already fresh, or when too many warms are already queued.
+  ///
+  /// Awaiting the returned future is fine and is what a rail with nothing to
+  /// show does; a rail that already has cached rows fires and forgets.
+  Future<void> warmCategory(
+      Account account, CatalogKind kind, String categoryId) async {
+    if (!_supportsCategoryFetch(account)) return;
+    final key = (account.id, kind, categoryId);
+    // Already running → join it rather than dropping; it costs nothing extra.
+    final inFlight = _categoryRefreshesInFlight[key];
+    if (inFlight != null) return inFlight;
+    final meta = await (_db.catalogCategoryMetaTable.select()
+          ..where((t) =>
+              t.accountId.equals(account.id) &
+              t.kind.equalsValue(kind) &
+              t.categoryId.equals(categoryId)))
+        .getSingleOrNull();
+    if (meta != null &&
+        _clock().difference(fromUtcMillis(meta.refreshedAtMillisUtc)) <=
+            catalogTtl) {
+      return; // Fresh.
+    }
+    if (_categoryRefreshesInFlight.length >= _maxQueuedWarms) return;
+    await _refreshCategoryOnce(account, kind, categoryId);
+  }
+
   /// Whether this account's panel can fetch a single category. Cached because
   /// every read consults it and building a source allocates an HTTP client.
   final Map<String, bool> _categoryFetchSupport = {};
@@ -607,13 +642,18 @@ class CatalogRepository {
     MovieOrder order = MovieOrder.nameAsc,
     int? limit,
     int offset = 0,
+    bool refresh = true,
   }) async {
     // Content-language filter on the unscoped list with no allowed categories
     // → nothing (skip the query).
     if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
       return [];
     }
-    if (categoryId != null) {
+    if (!refresh) {
+      // Cache only. The category-rail screens read this way so that building a
+      // screenful of rails can never block on the network — they decide
+      // separately, and sparingly, which categories are worth warming.
+    } else if (categoryId != null) {
       await _ensureCategoryFresh(account, CatalogKind.vod, categoryId);
     } else {
       await _ensureSliceBootstrapped(account, CatalogKind.vod);
@@ -644,11 +684,14 @@ class CatalogRepository {
     SeriesOrder order = SeriesOrder.nameAsc,
     int? limit,
     int offset = 0,
+    bool refresh = true,
   }) async {
     if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
       return [];
     }
-    if (categoryId != null) {
+    if (!refresh) {
+      // Cache only — see the note in [movies].
+    } else if (categoryId != null) {
       await _ensureCategoryFresh(account, CatalogKind.series, categoryId);
     } else {
       await _ensureSliceBootstrapped(account, CatalogKind.series);
@@ -692,45 +735,10 @@ class CatalogRepository {
     return (await query.get()).map((r) => r.toModel()).toList();
   }
 
-  /// Highest-rated movies, sorted and limited in SQL (the Home "Popular"
-  /// rail). Only rated titles (rating > 0) qualify; empty when the panel
-  /// provides no ratings.
-  Future<List<Movie>> topRatedMovies(
-    Account account, {
-    required int limit,
-    Set<String>? categoryIds,
-  }) async {
-    if (categoryIds != null && categoryIds.isEmpty) return [];
-    await _ensureSliceBootstrapped(account, CatalogKind.vod);
-    final query = _db.moviesTable.select()
-      ..where((t) =>
-          t.accountId.equals(account.id) & t.rating.isBiggerThanValue(0.0))
-      ..orderBy([(t) => OrderingTerm.desc(t.rating)])
-      ..limit(limit);
-    if (categoryIds != null) {
-      query.where((t) => t.categoryId.isIn(categoryIds));
-    }
-    return (await query.get()).map((r) => r.toModel()).toList();
-  }
-
-  /// Highest-rated series, sorted and limited in SQL (the Home "Popular" rail).
-  Future<List<Series>> topRatedSeries(
-    Account account, {
-    required int limit,
-    Set<String>? categoryIds,
-  }) async {
-    if (categoryIds != null && categoryIds.isEmpty) return [];
-    await _ensureSliceBootstrapped(account, CatalogKind.series);
-    final query = _db.seriesTable.select()
-      ..where((t) =>
-          t.accountId.equals(account.id) & t.rating.isBiggerThanValue(0.0))
-      ..orderBy([(t) => OrderingTerm.desc(t.rating)])
-      ..limit(limit);
-    if (categoryIds != null) {
-      query.where((t) => t.categoryId.isIn(categoryIds));
-    }
-    return (await query.get()).map((r) => r.toModel()).toList();
-  }
+  // `topRatedMovies` / `topRatedSeries` used to live here, powering Home's
+  // "Popular" rails. Removed with those rails: a rating with no vote count
+  // behind it ranks a film four people liked above one four million liked,
+  // which is the whole reason the discovery rails exist.
 
   /// Cache-only single-row lookup (no source contact) — for resolving
   /// content keys (Continue Watching, favorites) and detail routes.

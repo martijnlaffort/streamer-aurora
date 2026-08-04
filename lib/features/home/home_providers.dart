@@ -34,9 +34,6 @@ class HomeData {
     required this.heroes,
     required this.recentlyAdded,
     required this.continueWatching,
-    required this.popularMovies,
-    required this.popularSeries,
-    required this.categoryRails,
   });
 
   /// Rotating featured hero candidates (newest first).
@@ -45,16 +42,9 @@ class HomeData {
 
   /// Continue Watching (PRD §8.9): movies and series, most-recent first.
   final List<ContinueEntry> continueWatching;
-
-  /// "Popular" = highest-rated (IPTV has no real trending signal, so the
-  /// panel's rating is the proxy). Empty when the panel provides no ratings.
-  final List<Movie> popularMovies;
-  final List<Series> popularSeries;
-  final List<(Category, List<Movie>)> categoryRails;
 }
 
 const _railLength = 15;
-const _maxCategoryRails = 6;
 
 /// The discovery rails (PRD §8.2): externally-ranked lists filtered to what the
 /// playlist carries. Kept in their OWN provider, deliberately separate from
@@ -113,18 +103,9 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   // categories whose detected language is enabled. Category IDs are resolved
   // once here; `null` sets mean the filter is off (show all).
   final enabled = await ref.watch(contentLanguageFilterProvider.future);
-  final vodCategories = await catalog.categories(account, CategoryType.vod);
-  final seriesCategories =
-      await catalog.categories(account, CategoryType.series);
   final Set<String>? allowedVod = enabled == null
       ? null
-      : vodCategories
-          .where((c) => enabled.contains(detectContentLanguage(c.name).code))
-          .map((c) => c.id)
-          .toSet();
-  final Set<String>? allowedSeries = enabled == null
-      ? null
-      : seriesCategories
+      : (await catalog.categories(account, CategoryType.vod))
           .where((c) => enabled.contains(detectContentLanguage(c.name).code))
           .map((c) => c.id)
           .toSet();
@@ -133,16 +114,9 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   // playlists push a sideloaded build past iOS's memory limit. A `null`
   // allowed-set means the content-language filter is off (show all).
 
-  // Recently added drives the hero + first rail.
+  // Recently added drives the hero + the one rail.
   final recentlyAdded = await catalog.recentMovies(account,
       limit: _railLength, categoryIds: allowedVod);
-
-  // "Popular" = top-rated (no true trending signal exists for IPTV; the
-  // panel's rating is the honest proxy). Hidden entirely when unrated.
-  final popularMovies = await catalog.topRatedMovies(account,
-      limit: _railLength, categoryIds: allowedVod);
-  final popularSeries = await catalog.topRatedSeries(account,
-      limit: _railLength, categoryIds: allowedSeries);
 
   // Featured heroes: the newest few, straight from the cache. Backdrops are
   // NOT resolved here — see [heroBackdropProvider]. This used to await
@@ -187,24 +161,13 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
     }
   }
 
-  // Per-category rails via paged reads — no full-catalog loads per rail.
-  // Reuses the language-filtered VOD categories resolved above.
-  final railCategories = allowedVod == null
-      ? vodCategories
-      : vodCategories.where((c) => allowedVod.contains(c.id)).toList();
-  final rails = <(Category, List<Movie>)>[];
-  for (final category in railCategories.take(_maxCategoryRails)) {
-    final movies =
-        await catalog.movies(account, categoryId: category.id, limit: _railLength);
-    if (movies.isNotEmpty) rails.add((category, movies));
-  }
-
+  // Per-category rails used to live here. They moved to the Movies and Series
+  // tabs, which are now category-first — Home linking to six arbitrary
+  // categories was both redundant and the thing that made every cold start
+  // refresh six categories before it could paint.
   return HomeData(
     heroes: heroes,
     recentlyAdded: recentlyAdded,
     continueWatching: continueWatching,
-    popularMovies: popularMovies,
-    popularSeries: popularSeries,
-    categoryRails: rails,
   );
 });

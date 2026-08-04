@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
 /// A titled, horizontally scrolling rail (PRD §8.2/§10). Builder-based so
@@ -11,6 +12,7 @@ class MediaRail extends StatelessWidget {
     required this.itemCount,
     required this.itemBuilder,
     this.height = 236,
+    this.onSeeAll,
   });
 
   final String title;
@@ -18,14 +20,33 @@ class MediaRail extends StatelessWidget {
   final IndexedWidgetBuilder itemBuilder;
   final double height;
 
+  /// When set, the heading gets a trailing "See all" that opens the full,
+  /// paged grid for this rail. Home's rails pass nothing.
+  final VoidCallback? onSeeAll;
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
-          child: Text(title, style: AppTypography.title),
+          padding: EdgeInsets.fromLTRB(16, 20, onSeeAll == null ? 16 : 4, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(title,
+                    style: AppTypography.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+              ),
+              if (onSeeAll != null)
+                TextButton(
+                  onPressed: onSeeAll,
+                  child: const Text('See all',
+                      style: TextStyle(color: AppColors.accentAlt)),
+                ),
+            ],
+          ),
         ),
         SizedBox(
           height: height,

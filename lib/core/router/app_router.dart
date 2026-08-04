@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/live/presentation/guide_screen.dart';
 import '../../features/live/presentation/live_screen.dart';
+import '../../features/movies/presentation/movie_category_screen.dart';
 import '../../features/movies/presentation/movie_detail_screen.dart';
 import '../../features/movies/presentation/movies_screen.dart';
 import '../../features/player/player_request.dart';
 import '../../features/player/presentation/player_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
+import '../../features/series/presentation/series_category_screen.dart';
 import '../../features/series/presentation/series_detail_screen.dart';
 import '../../features/series/presentation/series_screen.dart';
 import '../../features/settings/presentation/accounts_screen.dart';
@@ -41,17 +43,43 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'live',
                 builder: (context, state) => const LiveScreen()),
           ]),
+          // The category grids are CHILD routes, not root-level ones, so the
+          // bottom navigation stays visible while browsing into a category.
           StatefulShellBranch(routes: [
             GoRoute(
-                path: '/movies',
-                name: 'movies',
-                builder: (context, state) => const MoviesScreen()),
+              path: '/movies',
+              name: 'movies',
+              builder: (context, state) => const MoviesScreen(),
+              routes: [
+                GoRoute(
+                  path: 'category/:id',
+                  name: 'movieCategory',
+                  builder: (context, state) => MovieCategoryScreen(
+                    categoryId:
+                        Uri.decodeComponent(state.pathParameters['id']!),
+                    categoryName: state.extra as String?,
+                  ),
+                ),
+              ],
+            ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
-                path: '/series',
-                name: 'series',
-                builder: (context, state) => const SeriesScreen()),
+              path: '/series',
+              name: 'series',
+              builder: (context, state) => const SeriesScreen(),
+              routes: [
+                GoRoute(
+                  path: 'category/:id',
+                  name: 'seriesCategory',
+                  builder: (context, state) => SeriesCategoryScreen(
+                    categoryId:
+                        Uri.decodeComponent(state.pathParameters['id']!),
+                    categoryName: state.extra as String?,
+                  ),
+                ),
+              ],
+            ),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

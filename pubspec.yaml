@@ -64,3 +64,6 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+  assets:
+    # Award canon for the offline discovery rails (see canon_source.dart).
+    - assets/canon/canon.json

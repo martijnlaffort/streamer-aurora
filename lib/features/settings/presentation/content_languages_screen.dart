@@ -31,13 +31,9 @@ class ContentLanguagesScreen extends ConsumerWidget {
       }
       // Everything on → store null so future new languages stay visible too.
       final save = current.length >= allCodes.length ? null : current.toList();
-      await ref.read(preferencesRepositoryProvider).save(Preferences(
-            preferredAudioLang: prefs.preferredAudioLang,
-            preferredSubtitleLang: prefs.preferredSubtitleLang,
-            autoplayNext: prefs.autoplayNext,
-            backgroundPlayback: prefs.backgroundPlayback,
-            contentLanguages: save,
-          ));
+      await ref.read(preferencesRepositoryProvider).save(save == null
+          ? prefs.copyWith(clearContentLanguages: true)
+          : prefs.copyWith(contentLanguages: save));
       ref.invalidate(preferencesProvider);
     }
 
@@ -48,12 +44,9 @@ class ContentLanguagesScreen extends ConsumerWidget {
           if (prefs.contentLanguages != null)
             TextButton(
               onPressed: () async {
-                await ref.read(preferencesRepositoryProvider).save(Preferences(
-                      preferredAudioLang: prefs.preferredAudioLang,
-                      preferredSubtitleLang: prefs.preferredSubtitleLang,
-                      autoplayNext: prefs.autoplayNext,
-                      backgroundPlayback: prefs.backgroundPlayback,
-                    ));
+                await ref
+                    .read(preferencesRepositoryProvider)
+                    .save(prefs.copyWith(clearContentLanguages: true));
                 ref.invalidate(preferencesProvider);
               },
               child: const Text('Show all'),

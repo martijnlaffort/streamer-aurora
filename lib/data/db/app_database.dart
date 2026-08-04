@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import '../../domain/models/discovery.dart' show DiscoveryKind;
 import '../../domain/models/enums.dart';
 
 part 'app_database.g.dart';
@@ -172,6 +173,17 @@ class PreferencesTable extends Table {
   /// for "all languages" (added in schema v4).
   TextColumn get contentLanguages => text().nullable()();
 
+  /// TMDB v3 API key for the discovery rails, or null when not configured —
+  /// in which case only the bundled award rails appear (added in schema v6).
+  /// Kept here rather than in secure storage deliberately: it is a personal
+  /// read-only key for public list data, not a credential granting access to
+  /// anything of the user's.
+  TextColumn get tmdbApiKey => text().nullable()();
+
+  /// ISO 3166-1 country for region-aware discovery ("what's popular/new *here*").
+  /// Null → derived from the device locale (added in schema v6).
+  TextColumn get discoveryRegion => text().nullable()();
+
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
 
@@ -251,6 +263,52 @@ class CatalogCategoryMetaTable extends Table {
   Set<Column> get primaryKey => {accountId, kind, categoryId};
 }
 
+/// One entry of an external ranked list (TMDB trending/popular/top-rated, or
+/// the bundled award canon). Global, not account-scoped: the lists describe the
+/// world, not a playlist. [DiscoveryMatchesTable] is what ties them to an
+/// account's catalogue.
+@DataClassName('DiscoveryTitleRow')
+class DiscoveryTitlesTable extends Table {
+  @override
+  String get tableName => 'discovery_titles';
+
+  TextColumn get listId => text()();
+
+  /// Position in the source list. This IS the ranking we render — it already
+  /// encodes popularity far better than any panel rating.
+  IntColumn get rank => integer()();
+  TextColumn get kind => textEnum<DiscoveryKind>()();
+  TextColumn get title => text()();
+  IntColumn get tmdbId => integer().nullable()();
+  IntColumn get year => integer().nullable()();
+  RealColumn get voteAverage => real().nullable()();
+  IntColumn get voteCount => integer().nullable()();
+  IntColumn get fetchedAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {listId, rank};
+}
+
+/// A discovery entry resolved to a row in one account's catalogue. Written by a
+/// single streaming pass over the catalogue (see `DiscoveryRepository`), so a
+/// rail read afterwards is one indexed join rather than 150k normalisations.
+@DataClassName('DiscoveryMatchRow')
+class DiscoveryMatchesTable extends Table {
+  @override
+  String get tableName => 'discovery_matches';
+
+  TextColumn get accountId => text()();
+  TextColumn get listId => text()();
+  IntColumn get rank => integer()();
+
+  /// `movies.id` or `series.id`, per the list's kind.
+  TextColumn get localId => text()();
+  IntColumn get resolvedAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {accountId, listId, rank};
+}
+
 /// Catalog slices tracked for TTL purposes.
 enum CatalogKind { live, vod, series }
 
@@ -281,6 +339,8 @@ class SearchHistoryTable extends Table {
   EpgCacheTable,
   CatalogMetaTable,
   CatalogCategoryMetaTable,
+  DiscoveryTitlesTable,
+  DiscoveryMatchesTable,
   SearchHistoryTable,
 ])
 class AppDatabase extends _$AppDatabase {
@@ -290,7 +350,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -312,6 +372,14 @@ class AppDatabase extends _$AppDatabase {
           // v5: per-category TTLs, for on-demand per-category refreshes.
           if (from < 5) {
             await m.createTable(catalogCategoryMetaTable);
+          }
+          // v6: discovery rails (TMDB lists + the bundled award canon).
+          if (from < 6) {
+            await m.createTable(discoveryTitlesTable);
+            await m.createTable(discoveryMatchesTable);
+            await m.addColumn(preferencesTable, preferencesTable.tmdbApiKey);
+            await m.addColumn(
+                preferencesTable, preferencesTable.discoveryRegion);
           }
         },
         beforeOpen: (details) async {

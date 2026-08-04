@@ -4201,6 +4201,28 @@ class $PreferencesTableTable extends PreferencesTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tmdbApiKeyMeta = const VerificationMeta(
+    'tmdbApiKey',
+  );
+  @override
+  late final GeneratedColumn<String> tmdbApiKey = GeneratedColumn<String>(
+    'tmdb_api_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _discoveryRegionMeta = const VerificationMeta(
+    'discoveryRegion',
+  );
+  @override
+  late final GeneratedColumn<String> discoveryRegion = GeneratedColumn<String>(
+    'discovery_region',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _activeAccountIdMeta = const VerificationMeta(
     'activeAccountId',
   );
@@ -4220,6 +4242,8 @@ class $PreferencesTableTable extends PreferencesTable
     autoplayNext,
     backgroundPlayback,
     contentLanguages,
+    tmdbApiKey,
+    discoveryRegion,
     activeAccountId,
   ];
   @override
@@ -4282,6 +4306,24 @@ class $PreferencesTableTable extends PreferencesTable
         ),
       );
     }
+    if (data.containsKey('tmdb_api_key')) {
+      context.handle(
+        _tmdbApiKeyMeta,
+        tmdbApiKey.isAcceptableOrUnknown(
+          data['tmdb_api_key']!,
+          _tmdbApiKeyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('discovery_region')) {
+      context.handle(
+        _discoveryRegionMeta,
+        discoveryRegion.isAcceptableOrUnknown(
+          data['discovery_region']!,
+          _discoveryRegionMeta,
+        ),
+      );
+    }
     if (data.containsKey('active_account_id')) {
       context.handle(
         _activeAccountIdMeta,
@@ -4324,6 +4366,14 @@ class $PreferencesTableTable extends PreferencesTable
         DriftSqlType.string,
         data['${effectivePrefix}content_languages'],
       ),
+      tmdbApiKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tmdb_api_key'],
+      ),
+      discoveryRegion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}discovery_region'],
+      ),
       activeAccountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}active_account_id'],
@@ -4351,6 +4401,17 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
   /// for "all languages" (added in schema v4).
   final String? contentLanguages;
 
+  /// TMDB v3 API key for the discovery rails, or null when not configured —
+  /// in which case only the bundled award rails appear (added in schema v6).
+  /// Kept here rather than in secure storage deliberately: it is a personal
+  /// read-only key for public list data, not a credential granting access to
+  /// anything of the user's.
+  final String? tmdbApiKey;
+
+  /// ISO 3166-1 country for region-aware discovery ("what's popular/new *here*").
+  /// Null → derived from the device locale (added in schema v6).
+  final String? discoveryRegion;
+
   /// App state, not a user preference — which account the UI is showing.
   final String? activeAccountId;
   const PreferencesRow({
@@ -4360,6 +4421,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     required this.autoplayNext,
     required this.backgroundPlayback,
     this.contentLanguages,
+    this.tmdbApiKey,
+    this.discoveryRegion,
     this.activeAccountId,
   });
   @override
@@ -4376,6 +4439,12 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     map['background_playback'] = Variable<bool>(backgroundPlayback);
     if (!nullToAbsent || contentLanguages != null) {
       map['content_languages'] = Variable<String>(contentLanguages);
+    }
+    if (!nullToAbsent || tmdbApiKey != null) {
+      map['tmdb_api_key'] = Variable<String>(tmdbApiKey);
+    }
+    if (!nullToAbsent || discoveryRegion != null) {
+      map['discovery_region'] = Variable<String>(discoveryRegion);
     }
     if (!nullToAbsent || activeAccountId != null) {
       map['active_account_id'] = Variable<String>(activeAccountId);
@@ -4397,6 +4466,12 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       contentLanguages: contentLanguages == null && nullToAbsent
           ? const Value.absent()
           : Value(contentLanguages),
+      tmdbApiKey: tmdbApiKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tmdbApiKey),
+      discoveryRegion: discoveryRegion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(discoveryRegion),
       activeAccountId: activeAccountId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeAccountId),
@@ -4419,6 +4494,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       autoplayNext: serializer.fromJson<bool>(json['autoplayNext']),
       backgroundPlayback: serializer.fromJson<bool>(json['backgroundPlayback']),
       contentLanguages: serializer.fromJson<String?>(json['contentLanguages']),
+      tmdbApiKey: serializer.fromJson<String?>(json['tmdbApiKey']),
+      discoveryRegion: serializer.fromJson<String?>(json['discoveryRegion']),
       activeAccountId: serializer.fromJson<String?>(json['activeAccountId']),
     );
   }
@@ -4434,6 +4511,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       'autoplayNext': serializer.toJson<bool>(autoplayNext),
       'backgroundPlayback': serializer.toJson<bool>(backgroundPlayback),
       'contentLanguages': serializer.toJson<String?>(contentLanguages),
+      'tmdbApiKey': serializer.toJson<String?>(tmdbApiKey),
+      'discoveryRegion': serializer.toJson<String?>(discoveryRegion),
       'activeAccountId': serializer.toJson<String?>(activeAccountId),
     };
   }
@@ -4445,6 +4524,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     bool? autoplayNext,
     bool? backgroundPlayback,
     Value<String?> contentLanguages = const Value.absent(),
+    Value<String?> tmdbApiKey = const Value.absent(),
+    Value<String?> discoveryRegion = const Value.absent(),
     Value<String?> activeAccountId = const Value.absent(),
   }) => PreferencesRow(
     id: id ?? this.id,
@@ -4459,6 +4540,10 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     contentLanguages: contentLanguages.present
         ? contentLanguages.value
         : this.contentLanguages,
+    tmdbApiKey: tmdbApiKey.present ? tmdbApiKey.value : this.tmdbApiKey,
+    discoveryRegion: discoveryRegion.present
+        ? discoveryRegion.value
+        : this.discoveryRegion,
     activeAccountId: activeAccountId.present
         ? activeAccountId.value
         : this.activeAccountId,
@@ -4481,6 +4566,12 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       contentLanguages: data.contentLanguages.present
           ? data.contentLanguages.value
           : this.contentLanguages,
+      tmdbApiKey: data.tmdbApiKey.present
+          ? data.tmdbApiKey.value
+          : this.tmdbApiKey,
+      discoveryRegion: data.discoveryRegion.present
+          ? data.discoveryRegion.value
+          : this.discoveryRegion,
       activeAccountId: data.activeAccountId.present
           ? data.activeAccountId.value
           : this.activeAccountId,
@@ -4496,6 +4587,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           ..write('autoplayNext: $autoplayNext, ')
           ..write('backgroundPlayback: $backgroundPlayback, ')
           ..write('contentLanguages: $contentLanguages, ')
+          ..write('tmdbApiKey: $tmdbApiKey, ')
+          ..write('discoveryRegion: $discoveryRegion, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -4509,6 +4602,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     autoplayNext,
     backgroundPlayback,
     contentLanguages,
+    tmdbApiKey,
+    discoveryRegion,
     activeAccountId,
   );
   @override
@@ -4521,6 +4616,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           other.autoplayNext == this.autoplayNext &&
           other.backgroundPlayback == this.backgroundPlayback &&
           other.contentLanguages == this.contentLanguages &&
+          other.tmdbApiKey == this.tmdbApiKey &&
+          other.discoveryRegion == this.discoveryRegion &&
           other.activeAccountId == this.activeAccountId);
 }
 
@@ -4531,6 +4628,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
   final Value<bool> autoplayNext;
   final Value<bool> backgroundPlayback;
   final Value<String?> contentLanguages;
+  final Value<String?> tmdbApiKey;
+  final Value<String?> discoveryRegion;
   final Value<String?> activeAccountId;
   const PreferencesTableCompanion({
     this.id = const Value.absent(),
@@ -4539,6 +4638,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.autoplayNext = const Value.absent(),
     this.backgroundPlayback = const Value.absent(),
     this.contentLanguages = const Value.absent(),
+    this.tmdbApiKey = const Value.absent(),
+    this.discoveryRegion = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   PreferencesTableCompanion.insert({
@@ -4548,6 +4649,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.autoplayNext = const Value.absent(),
     this.backgroundPlayback = const Value.absent(),
     this.contentLanguages = const Value.absent(),
+    this.tmdbApiKey = const Value.absent(),
+    this.discoveryRegion = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   static Insertable<PreferencesRow> custom({
@@ -4557,6 +4660,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Expression<bool>? autoplayNext,
     Expression<bool>? backgroundPlayback,
     Expression<String>? contentLanguages,
+    Expression<String>? tmdbApiKey,
+    Expression<String>? discoveryRegion,
     Expression<String>? activeAccountId,
   }) {
     return RawValuesInsertable({
@@ -4568,6 +4673,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       if (autoplayNext != null) 'autoplay_next': autoplayNext,
       if (backgroundPlayback != null) 'background_playback': backgroundPlayback,
       if (contentLanguages != null) 'content_languages': contentLanguages,
+      if (tmdbApiKey != null) 'tmdb_api_key': tmdbApiKey,
+      if (discoveryRegion != null) 'discovery_region': discoveryRegion,
       if (activeAccountId != null) 'active_account_id': activeAccountId,
     });
   }
@@ -4579,6 +4686,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Value<bool>? autoplayNext,
     Value<bool>? backgroundPlayback,
     Value<String?>? contentLanguages,
+    Value<String?>? tmdbApiKey,
+    Value<String?>? discoveryRegion,
     Value<String?>? activeAccountId,
   }) {
     return PreferencesTableCompanion(
@@ -4589,6 +4698,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       autoplayNext: autoplayNext ?? this.autoplayNext,
       backgroundPlayback: backgroundPlayback ?? this.backgroundPlayback,
       contentLanguages: contentLanguages ?? this.contentLanguages,
+      tmdbApiKey: tmdbApiKey ?? this.tmdbApiKey,
+      discoveryRegion: discoveryRegion ?? this.discoveryRegion,
       activeAccountId: activeAccountId ?? this.activeAccountId,
     );
   }
@@ -4616,6 +4727,12 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     if (contentLanguages.present) {
       map['content_languages'] = Variable<String>(contentLanguages.value);
     }
+    if (tmdbApiKey.present) {
+      map['tmdb_api_key'] = Variable<String>(tmdbApiKey.value);
+    }
+    if (discoveryRegion.present) {
+      map['discovery_region'] = Variable<String>(discoveryRegion.value);
+    }
     if (activeAccountId.present) {
       map['active_account_id'] = Variable<String>(activeAccountId.value);
     }
@@ -4631,6 +4748,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
           ..write('autoplayNext: $autoplayNext, ')
           ..write('backgroundPlayback: $backgroundPlayback, ')
           ..write('contentLanguages: $contentLanguages, ')
+          ..write('tmdbApiKey: $tmdbApiKey, ')
+          ..write('discoveryRegion: $discoveryRegion, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -5984,6 +6103,957 @@ class CatalogCategoryMetaTableCompanion
   }
 }
 
+class $DiscoveryTitlesTableTable extends DiscoveryTitlesTable
+    with TableInfo<$DiscoveryTitlesTableTable, DiscoveryTitleRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DiscoveryTitlesTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _listIdMeta = const VerificationMeta('listId');
+  @override
+  late final GeneratedColumn<String> listId = GeneratedColumn<String>(
+    'list_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rankMeta = const VerificationMeta('rank');
+  @override
+  late final GeneratedColumn<int> rank = GeneratedColumn<int>(
+    'rank',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DiscoveryKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<DiscoveryKind>($DiscoveryTitlesTableTable.$converterkind);
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tmdbIdMeta = const VerificationMeta('tmdbId');
+  @override
+  late final GeneratedColumn<int> tmdbId = GeneratedColumn<int>(
+    'tmdb_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _yearMeta = const VerificationMeta('year');
+  @override
+  late final GeneratedColumn<int> year = GeneratedColumn<int>(
+    'year',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _voteAverageMeta = const VerificationMeta(
+    'voteAverage',
+  );
+  @override
+  late final GeneratedColumn<double> voteAverage = GeneratedColumn<double>(
+    'vote_average',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _voteCountMeta = const VerificationMeta(
+    'voteCount',
+  );
+  @override
+  late final GeneratedColumn<int> voteCount = GeneratedColumn<int>(
+    'vote_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fetchedAtMillisUtcMeta =
+      const VerificationMeta('fetchedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> fetchedAtMillisUtc = GeneratedColumn<int>(
+    'fetched_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    listId,
+    rank,
+    kind,
+    title,
+    tmdbId,
+    year,
+    voteAverage,
+    voteCount,
+    fetchedAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'discovery_titles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DiscoveryTitleRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('list_id')) {
+      context.handle(
+        _listIdMeta,
+        listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_listIdMeta);
+    }
+    if (data.containsKey('rank')) {
+      context.handle(
+        _rankMeta,
+        rank.isAcceptableOrUnknown(data['rank']!, _rankMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rankMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('tmdb_id')) {
+      context.handle(
+        _tmdbIdMeta,
+        tmdbId.isAcceptableOrUnknown(data['tmdb_id']!, _tmdbIdMeta),
+      );
+    }
+    if (data.containsKey('year')) {
+      context.handle(
+        _yearMeta,
+        year.isAcceptableOrUnknown(data['year']!, _yearMeta),
+      );
+    }
+    if (data.containsKey('vote_average')) {
+      context.handle(
+        _voteAverageMeta,
+        voteAverage.isAcceptableOrUnknown(
+          data['vote_average']!,
+          _voteAverageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('vote_count')) {
+      context.handle(
+        _voteCountMeta,
+        voteCount.isAcceptableOrUnknown(data['vote_count']!, _voteCountMeta),
+      );
+    }
+    if (data.containsKey('fetched_at_millis_utc')) {
+      context.handle(
+        _fetchedAtMillisUtcMeta,
+        fetchedAtMillisUtc.isAcceptableOrUnknown(
+          data['fetched_at_millis_utc']!,
+          _fetchedAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fetchedAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {listId, rank};
+  @override
+  DiscoveryTitleRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DiscoveryTitleRow(
+      listId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}list_id'],
+      )!,
+      rank: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rank'],
+      )!,
+      kind: $DiscoveryTitlesTableTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      tmdbId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}tmdb_id'],
+      ),
+      year: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}year'],
+      ),
+      voteAverage: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}vote_average'],
+      ),
+      voteCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}vote_count'],
+      ),
+      fetchedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fetched_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $DiscoveryTitlesTableTable createAlias(String alias) {
+    return $DiscoveryTitlesTableTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<DiscoveryKind, String, String> $converterkind =
+      const EnumNameConverter<DiscoveryKind>(DiscoveryKind.values);
+}
+
+class DiscoveryTitleRow extends DataClass
+    implements Insertable<DiscoveryTitleRow> {
+  final String listId;
+
+  /// Position in the source list. This IS the ranking we render — it already
+  /// encodes popularity far better than any panel rating.
+  final int rank;
+  final DiscoveryKind kind;
+  final String title;
+  final int? tmdbId;
+  final int? year;
+  final double? voteAverage;
+  final int? voteCount;
+  final int fetchedAtMillisUtc;
+  const DiscoveryTitleRow({
+    required this.listId,
+    required this.rank,
+    required this.kind,
+    required this.title,
+    this.tmdbId,
+    this.year,
+    this.voteAverage,
+    this.voteCount,
+    required this.fetchedAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['list_id'] = Variable<String>(listId);
+    map['rank'] = Variable<int>(rank);
+    {
+      map['kind'] = Variable<String>(
+        $DiscoveryTitlesTableTable.$converterkind.toSql(kind),
+      );
+    }
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || tmdbId != null) {
+      map['tmdb_id'] = Variable<int>(tmdbId);
+    }
+    if (!nullToAbsent || year != null) {
+      map['year'] = Variable<int>(year);
+    }
+    if (!nullToAbsent || voteAverage != null) {
+      map['vote_average'] = Variable<double>(voteAverage);
+    }
+    if (!nullToAbsent || voteCount != null) {
+      map['vote_count'] = Variable<int>(voteCount);
+    }
+    map['fetched_at_millis_utc'] = Variable<int>(fetchedAtMillisUtc);
+    return map;
+  }
+
+  DiscoveryTitlesTableCompanion toCompanion(bool nullToAbsent) {
+    return DiscoveryTitlesTableCompanion(
+      listId: Value(listId),
+      rank: Value(rank),
+      kind: Value(kind),
+      title: Value(title),
+      tmdbId: tmdbId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tmdbId),
+      year: year == null && nullToAbsent ? const Value.absent() : Value(year),
+      voteAverage: voteAverage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(voteAverage),
+      voteCount: voteCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(voteCount),
+      fetchedAtMillisUtc: Value(fetchedAtMillisUtc),
+    );
+  }
+
+  factory DiscoveryTitleRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DiscoveryTitleRow(
+      listId: serializer.fromJson<String>(json['listId']),
+      rank: serializer.fromJson<int>(json['rank']),
+      kind: $DiscoveryTitlesTableTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      title: serializer.fromJson<String>(json['title']),
+      tmdbId: serializer.fromJson<int?>(json['tmdbId']),
+      year: serializer.fromJson<int?>(json['year']),
+      voteAverage: serializer.fromJson<double?>(json['voteAverage']),
+      voteCount: serializer.fromJson<int?>(json['voteCount']),
+      fetchedAtMillisUtc: serializer.fromJson<int>(json['fetchedAtMillisUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'listId': serializer.toJson<String>(listId),
+      'rank': serializer.toJson<int>(rank),
+      'kind': serializer.toJson<String>(
+        $DiscoveryTitlesTableTable.$converterkind.toJson(kind),
+      ),
+      'title': serializer.toJson<String>(title),
+      'tmdbId': serializer.toJson<int?>(tmdbId),
+      'year': serializer.toJson<int?>(year),
+      'voteAverage': serializer.toJson<double?>(voteAverage),
+      'voteCount': serializer.toJson<int?>(voteCount),
+      'fetchedAtMillisUtc': serializer.toJson<int>(fetchedAtMillisUtc),
+    };
+  }
+
+  DiscoveryTitleRow copyWith({
+    String? listId,
+    int? rank,
+    DiscoveryKind? kind,
+    String? title,
+    Value<int?> tmdbId = const Value.absent(),
+    Value<int?> year = const Value.absent(),
+    Value<double?> voteAverage = const Value.absent(),
+    Value<int?> voteCount = const Value.absent(),
+    int? fetchedAtMillisUtc,
+  }) => DiscoveryTitleRow(
+    listId: listId ?? this.listId,
+    rank: rank ?? this.rank,
+    kind: kind ?? this.kind,
+    title: title ?? this.title,
+    tmdbId: tmdbId.present ? tmdbId.value : this.tmdbId,
+    year: year.present ? year.value : this.year,
+    voteAverage: voteAverage.present ? voteAverage.value : this.voteAverage,
+    voteCount: voteCount.present ? voteCount.value : this.voteCount,
+    fetchedAtMillisUtc: fetchedAtMillisUtc ?? this.fetchedAtMillisUtc,
+  );
+  DiscoveryTitleRow copyWithCompanion(DiscoveryTitlesTableCompanion data) {
+    return DiscoveryTitleRow(
+      listId: data.listId.present ? data.listId.value : this.listId,
+      rank: data.rank.present ? data.rank.value : this.rank,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      title: data.title.present ? data.title.value : this.title,
+      tmdbId: data.tmdbId.present ? data.tmdbId.value : this.tmdbId,
+      year: data.year.present ? data.year.value : this.year,
+      voteAverage: data.voteAverage.present
+          ? data.voteAverage.value
+          : this.voteAverage,
+      voteCount: data.voteCount.present ? data.voteCount.value : this.voteCount,
+      fetchedAtMillisUtc: data.fetchedAtMillisUtc.present
+          ? data.fetchedAtMillisUtc.value
+          : this.fetchedAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiscoveryTitleRow(')
+          ..write('listId: $listId, ')
+          ..write('rank: $rank, ')
+          ..write('kind: $kind, ')
+          ..write('title: $title, ')
+          ..write('tmdbId: $tmdbId, ')
+          ..write('year: $year, ')
+          ..write('voteAverage: $voteAverage, ')
+          ..write('voteCount: $voteCount, ')
+          ..write('fetchedAtMillisUtc: $fetchedAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    listId,
+    rank,
+    kind,
+    title,
+    tmdbId,
+    year,
+    voteAverage,
+    voteCount,
+    fetchedAtMillisUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DiscoveryTitleRow &&
+          other.listId == this.listId &&
+          other.rank == this.rank &&
+          other.kind == this.kind &&
+          other.title == this.title &&
+          other.tmdbId == this.tmdbId &&
+          other.year == this.year &&
+          other.voteAverage == this.voteAverage &&
+          other.voteCount == this.voteCount &&
+          other.fetchedAtMillisUtc == this.fetchedAtMillisUtc);
+}
+
+class DiscoveryTitlesTableCompanion extends UpdateCompanion<DiscoveryTitleRow> {
+  final Value<String> listId;
+  final Value<int> rank;
+  final Value<DiscoveryKind> kind;
+  final Value<String> title;
+  final Value<int?> tmdbId;
+  final Value<int?> year;
+  final Value<double?> voteAverage;
+  final Value<int?> voteCount;
+  final Value<int> fetchedAtMillisUtc;
+  final Value<int> rowid;
+  const DiscoveryTitlesTableCompanion({
+    this.listId = const Value.absent(),
+    this.rank = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.title = const Value.absent(),
+    this.tmdbId = const Value.absent(),
+    this.year = const Value.absent(),
+    this.voteAverage = const Value.absent(),
+    this.voteCount = const Value.absent(),
+    this.fetchedAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DiscoveryTitlesTableCompanion.insert({
+    required String listId,
+    required int rank,
+    required DiscoveryKind kind,
+    required String title,
+    this.tmdbId = const Value.absent(),
+    this.year = const Value.absent(),
+    this.voteAverage = const Value.absent(),
+    this.voteCount = const Value.absent(),
+    required int fetchedAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : listId = Value(listId),
+       rank = Value(rank),
+       kind = Value(kind),
+       title = Value(title),
+       fetchedAtMillisUtc = Value(fetchedAtMillisUtc);
+  static Insertable<DiscoveryTitleRow> custom({
+    Expression<String>? listId,
+    Expression<int>? rank,
+    Expression<String>? kind,
+    Expression<String>? title,
+    Expression<int>? tmdbId,
+    Expression<int>? year,
+    Expression<double>? voteAverage,
+    Expression<int>? voteCount,
+    Expression<int>? fetchedAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (listId != null) 'list_id': listId,
+      if (rank != null) 'rank': rank,
+      if (kind != null) 'kind': kind,
+      if (title != null) 'title': title,
+      if (tmdbId != null) 'tmdb_id': tmdbId,
+      if (year != null) 'year': year,
+      if (voteAverage != null) 'vote_average': voteAverage,
+      if (voteCount != null) 'vote_count': voteCount,
+      if (fetchedAtMillisUtc != null)
+        'fetched_at_millis_utc': fetchedAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DiscoveryTitlesTableCompanion copyWith({
+    Value<String>? listId,
+    Value<int>? rank,
+    Value<DiscoveryKind>? kind,
+    Value<String>? title,
+    Value<int?>? tmdbId,
+    Value<int?>? year,
+    Value<double?>? voteAverage,
+    Value<int?>? voteCount,
+    Value<int>? fetchedAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return DiscoveryTitlesTableCompanion(
+      listId: listId ?? this.listId,
+      rank: rank ?? this.rank,
+      kind: kind ?? this.kind,
+      title: title ?? this.title,
+      tmdbId: tmdbId ?? this.tmdbId,
+      year: year ?? this.year,
+      voteAverage: voteAverage ?? this.voteAverage,
+      voteCount: voteCount ?? this.voteCount,
+      fetchedAtMillisUtc: fetchedAtMillisUtc ?? this.fetchedAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (listId.present) {
+      map['list_id'] = Variable<String>(listId.value);
+    }
+    if (rank.present) {
+      map['rank'] = Variable<int>(rank.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $DiscoveryTitlesTableTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (tmdbId.present) {
+      map['tmdb_id'] = Variable<int>(tmdbId.value);
+    }
+    if (year.present) {
+      map['year'] = Variable<int>(year.value);
+    }
+    if (voteAverage.present) {
+      map['vote_average'] = Variable<double>(voteAverage.value);
+    }
+    if (voteCount.present) {
+      map['vote_count'] = Variable<int>(voteCount.value);
+    }
+    if (fetchedAtMillisUtc.present) {
+      map['fetched_at_millis_utc'] = Variable<int>(fetchedAtMillisUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiscoveryTitlesTableCompanion(')
+          ..write('listId: $listId, ')
+          ..write('rank: $rank, ')
+          ..write('kind: $kind, ')
+          ..write('title: $title, ')
+          ..write('tmdbId: $tmdbId, ')
+          ..write('year: $year, ')
+          ..write('voteAverage: $voteAverage, ')
+          ..write('voteCount: $voteCount, ')
+          ..write('fetchedAtMillisUtc: $fetchedAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DiscoveryMatchesTableTable extends DiscoveryMatchesTable
+    with TableInfo<$DiscoveryMatchesTableTable, DiscoveryMatchRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DiscoveryMatchesTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _listIdMeta = const VerificationMeta('listId');
+  @override
+  late final GeneratedColumn<String> listId = GeneratedColumn<String>(
+    'list_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rankMeta = const VerificationMeta('rank');
+  @override
+  late final GeneratedColumn<int> rank = GeneratedColumn<int>(
+    'rank',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _localIdMeta = const VerificationMeta(
+    'localId',
+  );
+  @override
+  late final GeneratedColumn<String> localId = GeneratedColumn<String>(
+    'local_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _resolvedAtMillisUtcMeta =
+      const VerificationMeta('resolvedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> resolvedAtMillisUtc = GeneratedColumn<int>(
+    'resolved_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    accountId,
+    listId,
+    rank,
+    localId,
+    resolvedAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'discovery_matches';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DiscoveryMatchRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('list_id')) {
+      context.handle(
+        _listIdMeta,
+        listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_listIdMeta);
+    }
+    if (data.containsKey('rank')) {
+      context.handle(
+        _rankMeta,
+        rank.isAcceptableOrUnknown(data['rank']!, _rankMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rankMeta);
+    }
+    if (data.containsKey('local_id')) {
+      context.handle(
+        _localIdMeta,
+        localId.isAcceptableOrUnknown(data['local_id']!, _localIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_localIdMeta);
+    }
+    if (data.containsKey('resolved_at_millis_utc')) {
+      context.handle(
+        _resolvedAtMillisUtcMeta,
+        resolvedAtMillisUtc.isAcceptableOrUnknown(
+          data['resolved_at_millis_utc']!,
+          _resolvedAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_resolvedAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {accountId, listId, rank};
+  @override
+  DiscoveryMatchRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DiscoveryMatchRow(
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      listId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}list_id'],
+      )!,
+      rank: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rank'],
+      )!,
+      localId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_id'],
+      )!,
+      resolvedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}resolved_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $DiscoveryMatchesTableTable createAlias(String alias) {
+    return $DiscoveryMatchesTableTable(attachedDatabase, alias);
+  }
+}
+
+class DiscoveryMatchRow extends DataClass
+    implements Insertable<DiscoveryMatchRow> {
+  final String accountId;
+  final String listId;
+  final int rank;
+
+  /// `movies.id` or `series.id`, per the list's kind.
+  final String localId;
+  final int resolvedAtMillisUtc;
+  const DiscoveryMatchRow({
+    required this.accountId,
+    required this.listId,
+    required this.rank,
+    required this.localId,
+    required this.resolvedAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['account_id'] = Variable<String>(accountId);
+    map['list_id'] = Variable<String>(listId);
+    map['rank'] = Variable<int>(rank);
+    map['local_id'] = Variable<String>(localId);
+    map['resolved_at_millis_utc'] = Variable<int>(resolvedAtMillisUtc);
+    return map;
+  }
+
+  DiscoveryMatchesTableCompanion toCompanion(bool nullToAbsent) {
+    return DiscoveryMatchesTableCompanion(
+      accountId: Value(accountId),
+      listId: Value(listId),
+      rank: Value(rank),
+      localId: Value(localId),
+      resolvedAtMillisUtc: Value(resolvedAtMillisUtc),
+    );
+  }
+
+  factory DiscoveryMatchRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DiscoveryMatchRow(
+      accountId: serializer.fromJson<String>(json['accountId']),
+      listId: serializer.fromJson<String>(json['listId']),
+      rank: serializer.fromJson<int>(json['rank']),
+      localId: serializer.fromJson<String>(json['localId']),
+      resolvedAtMillisUtc: serializer.fromJson<int>(
+        json['resolvedAtMillisUtc'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'accountId': serializer.toJson<String>(accountId),
+      'listId': serializer.toJson<String>(listId),
+      'rank': serializer.toJson<int>(rank),
+      'localId': serializer.toJson<String>(localId),
+      'resolvedAtMillisUtc': serializer.toJson<int>(resolvedAtMillisUtc),
+    };
+  }
+
+  DiscoveryMatchRow copyWith({
+    String? accountId,
+    String? listId,
+    int? rank,
+    String? localId,
+    int? resolvedAtMillisUtc,
+  }) => DiscoveryMatchRow(
+    accountId: accountId ?? this.accountId,
+    listId: listId ?? this.listId,
+    rank: rank ?? this.rank,
+    localId: localId ?? this.localId,
+    resolvedAtMillisUtc: resolvedAtMillisUtc ?? this.resolvedAtMillisUtc,
+  );
+  DiscoveryMatchRow copyWithCompanion(DiscoveryMatchesTableCompanion data) {
+    return DiscoveryMatchRow(
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      listId: data.listId.present ? data.listId.value : this.listId,
+      rank: data.rank.present ? data.rank.value : this.rank,
+      localId: data.localId.present ? data.localId.value : this.localId,
+      resolvedAtMillisUtc: data.resolvedAtMillisUtc.present
+          ? data.resolvedAtMillisUtc.value
+          : this.resolvedAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiscoveryMatchRow(')
+          ..write('accountId: $accountId, ')
+          ..write('listId: $listId, ')
+          ..write('rank: $rank, ')
+          ..write('localId: $localId, ')
+          ..write('resolvedAtMillisUtc: $resolvedAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(accountId, listId, rank, localId, resolvedAtMillisUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DiscoveryMatchRow &&
+          other.accountId == this.accountId &&
+          other.listId == this.listId &&
+          other.rank == this.rank &&
+          other.localId == this.localId &&
+          other.resolvedAtMillisUtc == this.resolvedAtMillisUtc);
+}
+
+class DiscoveryMatchesTableCompanion
+    extends UpdateCompanion<DiscoveryMatchRow> {
+  final Value<String> accountId;
+  final Value<String> listId;
+  final Value<int> rank;
+  final Value<String> localId;
+  final Value<int> resolvedAtMillisUtc;
+  final Value<int> rowid;
+  const DiscoveryMatchesTableCompanion({
+    this.accountId = const Value.absent(),
+    this.listId = const Value.absent(),
+    this.rank = const Value.absent(),
+    this.localId = const Value.absent(),
+    this.resolvedAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DiscoveryMatchesTableCompanion.insert({
+    required String accountId,
+    required String listId,
+    required int rank,
+    required String localId,
+    required int resolvedAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : accountId = Value(accountId),
+       listId = Value(listId),
+       rank = Value(rank),
+       localId = Value(localId),
+       resolvedAtMillisUtc = Value(resolvedAtMillisUtc);
+  static Insertable<DiscoveryMatchRow> custom({
+    Expression<String>? accountId,
+    Expression<String>? listId,
+    Expression<int>? rank,
+    Expression<String>? localId,
+    Expression<int>? resolvedAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (accountId != null) 'account_id': accountId,
+      if (listId != null) 'list_id': listId,
+      if (rank != null) 'rank': rank,
+      if (localId != null) 'local_id': localId,
+      if (resolvedAtMillisUtc != null)
+        'resolved_at_millis_utc': resolvedAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DiscoveryMatchesTableCompanion copyWith({
+    Value<String>? accountId,
+    Value<String>? listId,
+    Value<int>? rank,
+    Value<String>? localId,
+    Value<int>? resolvedAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return DiscoveryMatchesTableCompanion(
+      accountId: accountId ?? this.accountId,
+      listId: listId ?? this.listId,
+      rank: rank ?? this.rank,
+      localId: localId ?? this.localId,
+      resolvedAtMillisUtc: resolvedAtMillisUtc ?? this.resolvedAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (listId.present) {
+      map['list_id'] = Variable<String>(listId.value);
+    }
+    if (rank.present) {
+      map['rank'] = Variable<int>(rank.value);
+    }
+    if (localId.present) {
+      map['local_id'] = Variable<String>(localId.value);
+    }
+    if (resolvedAtMillisUtc.present) {
+      map['resolved_at_millis_utc'] = Variable<int>(resolvedAtMillisUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiscoveryMatchesTableCompanion(')
+          ..write('accountId: $accountId, ')
+          ..write('listId: $listId, ')
+          ..write('rank: $rank, ')
+          ..write('localId: $localId, ')
+          ..write('resolvedAtMillisUtc: $resolvedAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SearchHistoryTableTable extends SearchHistoryTable
     with TableInfo<$SearchHistoryTableTable, SearchHistoryRow> {
   @override
@@ -6234,6 +7304,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $CatalogCategoryMetaTableTable catalogCategoryMetaTable =
       $CatalogCategoryMetaTableTable(this);
+  late final $DiscoveryTitlesTableTable discoveryTitlesTable =
+      $DiscoveryTitlesTableTable(this);
+  late final $DiscoveryMatchesTableTable discoveryMatchesTable =
+      $DiscoveryMatchesTableTable(this);
   late final $SearchHistoryTableTable searchHistoryTable =
       $SearchHistoryTableTable(this);
   @override
@@ -6253,6 +7327,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     epgCacheTable,
     catalogMetaTable,
     catalogCategoryMetaTable,
+    discoveryTitlesTable,
+    discoveryMatchesTable,
     searchHistoryTable,
   ];
 }
@@ -8294,6 +9370,8 @@ typedef $$PreferencesTableTableCreateCompanionBuilder =
       Value<bool> autoplayNext,
       Value<bool> backgroundPlayback,
       Value<String?> contentLanguages,
+      Value<String?> tmdbApiKey,
+      Value<String?> discoveryRegion,
       Value<String?> activeAccountId,
     });
 typedef $$PreferencesTableTableUpdateCompanionBuilder =
@@ -8304,6 +9382,8 @@ typedef $$PreferencesTableTableUpdateCompanionBuilder =
       Value<bool> autoplayNext,
       Value<bool> backgroundPlayback,
       Value<String?> contentLanguages,
+      Value<String?> tmdbApiKey,
+      Value<String?> discoveryRegion,
       Value<String?> activeAccountId,
     });
 
@@ -8343,6 +9423,16 @@ class $$PreferencesTableTableFilterComposer
 
   ColumnFilters<String> get contentLanguages => $composableBuilder(
     column: $table.contentLanguages,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tmdbApiKey => $composableBuilder(
+    column: $table.tmdbApiKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get discoveryRegion => $composableBuilder(
+    column: $table.discoveryRegion,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8391,6 +9481,16 @@ class $$PreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get tmdbApiKey => $composableBuilder(
+    column: $table.tmdbApiKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get discoveryRegion => $composableBuilder(
+    column: $table.discoveryRegion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get activeAccountId => $composableBuilder(
     column: $table.activeAccountId,
     builder: (column) => ColumnOrderings(column),
@@ -8431,6 +9531,16 @@ class $$PreferencesTableTableAnnotationComposer
 
   GeneratedColumn<String> get contentLanguages => $composableBuilder(
     column: $table.contentLanguages,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get tmdbApiKey => $composableBuilder(
+    column: $table.tmdbApiKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get discoveryRegion => $composableBuilder(
+    column: $table.discoveryRegion,
     builder: (column) => column,
   );
 
@@ -8483,6 +9593,8 @@ class $$PreferencesTableTableTableManager
                 Value<bool> autoplayNext = const Value.absent(),
                 Value<bool> backgroundPlayback = const Value.absent(),
                 Value<String?> contentLanguages = const Value.absent(),
+                Value<String?> tmdbApiKey = const Value.absent(),
+                Value<String?> discoveryRegion = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion(
                 id: id,
@@ -8491,6 +9603,8 @@ class $$PreferencesTableTableTableManager
                 autoplayNext: autoplayNext,
                 backgroundPlayback: backgroundPlayback,
                 contentLanguages: contentLanguages,
+                tmdbApiKey: tmdbApiKey,
+                discoveryRegion: discoveryRegion,
                 activeAccountId: activeAccountId,
               ),
           createCompanionCallback:
@@ -8501,6 +9615,8 @@ class $$PreferencesTableTableTableManager
                 Value<bool> autoplayNext = const Value.absent(),
                 Value<bool> backgroundPlayback = const Value.absent(),
                 Value<String?> contentLanguages = const Value.absent(),
+                Value<String?> tmdbApiKey = const Value.absent(),
+                Value<String?> discoveryRegion = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion.insert(
                 id: id,
@@ -8509,6 +9625,8 @@ class $$PreferencesTableTableTableManager
                 autoplayNext: autoplayNext,
                 backgroundPlayback: backgroundPlayback,
                 contentLanguages: contentLanguages,
+                tmdbApiKey: tmdbApiKey,
+                discoveryRegion: discoveryRegion,
                 activeAccountId: activeAccountId,
               ),
           withReferenceMapper: (p0) => p0
@@ -9301,6 +10419,524 @@ typedef $$CatalogCategoryMetaTableTableProcessedTableManager =
       CatalogCategoryMetaRow,
       PrefetchHooks Function()
     >;
+typedef $$DiscoveryTitlesTableTableCreateCompanionBuilder =
+    DiscoveryTitlesTableCompanion Function({
+      required String listId,
+      required int rank,
+      required DiscoveryKind kind,
+      required String title,
+      Value<int?> tmdbId,
+      Value<int?> year,
+      Value<double?> voteAverage,
+      Value<int?> voteCount,
+      required int fetchedAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$DiscoveryTitlesTableTableUpdateCompanionBuilder =
+    DiscoveryTitlesTableCompanion Function({
+      Value<String> listId,
+      Value<int> rank,
+      Value<DiscoveryKind> kind,
+      Value<String> title,
+      Value<int?> tmdbId,
+      Value<int?> year,
+      Value<double?> voteAverage,
+      Value<int?> voteCount,
+      Value<int> fetchedAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$DiscoveryTitlesTableTableFilterComposer
+    extends Composer<_$AppDatabase, $DiscoveryTitlesTableTable> {
+  $$DiscoveryTitlesTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get listId => $composableBuilder(
+    column: $table.listId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rank => $composableBuilder(
+    column: $table.rank,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DiscoveryKind, DiscoveryKind, String>
+  get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get tmdbId => $composableBuilder(
+    column: $table.tmdbId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get voteAverage => $composableBuilder(
+    column: $table.voteAverage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get voteCount => $composableBuilder(
+    column: $table.voteCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DiscoveryTitlesTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $DiscoveryTitlesTableTable> {
+  $$DiscoveryTitlesTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get listId => $composableBuilder(
+    column: $table.listId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rank => $composableBuilder(
+    column: $table.rank,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get tmdbId => $composableBuilder(
+    column: $table.tmdbId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get voteAverage => $composableBuilder(
+    column: $table.voteAverage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get voteCount => $composableBuilder(
+    column: $table.voteCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DiscoveryTitlesTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DiscoveryTitlesTableTable> {
+  $$DiscoveryTitlesTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get listId =>
+      $composableBuilder(column: $table.listId, builder: (column) => column);
+
+  GeneratedColumn<int> get rank =>
+      $composableBuilder(column: $table.rank, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DiscoveryKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<int> get tmdbId =>
+      $composableBuilder(column: $table.tmdbId, builder: (column) => column);
+
+  GeneratedColumn<int> get year =>
+      $composableBuilder(column: $table.year, builder: (column) => column);
+
+  GeneratedColumn<double> get voteAverage => $composableBuilder(
+    column: $table.voteAverage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get voteCount =>
+      $composableBuilder(column: $table.voteCount, builder: (column) => column);
+
+  GeneratedColumn<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$DiscoveryTitlesTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DiscoveryTitlesTableTable,
+          DiscoveryTitleRow,
+          $$DiscoveryTitlesTableTableFilterComposer,
+          $$DiscoveryTitlesTableTableOrderingComposer,
+          $$DiscoveryTitlesTableTableAnnotationComposer,
+          $$DiscoveryTitlesTableTableCreateCompanionBuilder,
+          $$DiscoveryTitlesTableTableUpdateCompanionBuilder,
+          (
+            DiscoveryTitleRow,
+            BaseReferences<
+              _$AppDatabase,
+              $DiscoveryTitlesTableTable,
+              DiscoveryTitleRow
+            >,
+          ),
+          DiscoveryTitleRow,
+          PrefetchHooks Function()
+        > {
+  $$DiscoveryTitlesTableTableTableManager(
+    _$AppDatabase db,
+    $DiscoveryTitlesTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DiscoveryTitlesTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DiscoveryTitlesTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$DiscoveryTitlesTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> listId = const Value.absent(),
+                Value<int> rank = const Value.absent(),
+                Value<DiscoveryKind> kind = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<int?> tmdbId = const Value.absent(),
+                Value<int?> year = const Value.absent(),
+                Value<double?> voteAverage = const Value.absent(),
+                Value<int?> voteCount = const Value.absent(),
+                Value<int> fetchedAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DiscoveryTitlesTableCompanion(
+                listId: listId,
+                rank: rank,
+                kind: kind,
+                title: title,
+                tmdbId: tmdbId,
+                year: year,
+                voteAverage: voteAverage,
+                voteCount: voteCount,
+                fetchedAtMillisUtc: fetchedAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String listId,
+                required int rank,
+                required DiscoveryKind kind,
+                required String title,
+                Value<int?> tmdbId = const Value.absent(),
+                Value<int?> year = const Value.absent(),
+                Value<double?> voteAverage = const Value.absent(),
+                Value<int?> voteCount = const Value.absent(),
+                required int fetchedAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => DiscoveryTitlesTableCompanion.insert(
+                listId: listId,
+                rank: rank,
+                kind: kind,
+                title: title,
+                tmdbId: tmdbId,
+                year: year,
+                voteAverage: voteAverage,
+                voteCount: voteCount,
+                fetchedAtMillisUtc: fetchedAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DiscoveryTitlesTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DiscoveryTitlesTableTable,
+      DiscoveryTitleRow,
+      $$DiscoveryTitlesTableTableFilterComposer,
+      $$DiscoveryTitlesTableTableOrderingComposer,
+      $$DiscoveryTitlesTableTableAnnotationComposer,
+      $$DiscoveryTitlesTableTableCreateCompanionBuilder,
+      $$DiscoveryTitlesTableTableUpdateCompanionBuilder,
+      (
+        DiscoveryTitleRow,
+        BaseReferences<
+          _$AppDatabase,
+          $DiscoveryTitlesTableTable,
+          DiscoveryTitleRow
+        >,
+      ),
+      DiscoveryTitleRow,
+      PrefetchHooks Function()
+    >;
+typedef $$DiscoveryMatchesTableTableCreateCompanionBuilder =
+    DiscoveryMatchesTableCompanion Function({
+      required String accountId,
+      required String listId,
+      required int rank,
+      required String localId,
+      required int resolvedAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$DiscoveryMatchesTableTableUpdateCompanionBuilder =
+    DiscoveryMatchesTableCompanion Function({
+      Value<String> accountId,
+      Value<String> listId,
+      Value<int> rank,
+      Value<String> localId,
+      Value<int> resolvedAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$DiscoveryMatchesTableTableFilterComposer
+    extends Composer<_$AppDatabase, $DiscoveryMatchesTableTable> {
+  $$DiscoveryMatchesTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get listId => $composableBuilder(
+    column: $table.listId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rank => $composableBuilder(
+    column: $table.rank,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get resolvedAtMillisUtc => $composableBuilder(
+    column: $table.resolvedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DiscoveryMatchesTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $DiscoveryMatchesTableTable> {
+  $$DiscoveryMatchesTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get listId => $composableBuilder(
+    column: $table.listId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rank => $composableBuilder(
+    column: $table.rank,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get resolvedAtMillisUtc => $composableBuilder(
+    column: $table.resolvedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DiscoveryMatchesTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DiscoveryMatchesTableTable> {
+  $$DiscoveryMatchesTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get listId =>
+      $composableBuilder(column: $table.listId, builder: (column) => column);
+
+  GeneratedColumn<int> get rank =>
+      $composableBuilder(column: $table.rank, builder: (column) => column);
+
+  GeneratedColumn<String> get localId =>
+      $composableBuilder(column: $table.localId, builder: (column) => column);
+
+  GeneratedColumn<int> get resolvedAtMillisUtc => $composableBuilder(
+    column: $table.resolvedAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$DiscoveryMatchesTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DiscoveryMatchesTableTable,
+          DiscoveryMatchRow,
+          $$DiscoveryMatchesTableTableFilterComposer,
+          $$DiscoveryMatchesTableTableOrderingComposer,
+          $$DiscoveryMatchesTableTableAnnotationComposer,
+          $$DiscoveryMatchesTableTableCreateCompanionBuilder,
+          $$DiscoveryMatchesTableTableUpdateCompanionBuilder,
+          (
+            DiscoveryMatchRow,
+            BaseReferences<
+              _$AppDatabase,
+              $DiscoveryMatchesTableTable,
+              DiscoveryMatchRow
+            >,
+          ),
+          DiscoveryMatchRow,
+          PrefetchHooks Function()
+        > {
+  $$DiscoveryMatchesTableTableTableManager(
+    _$AppDatabase db,
+    $DiscoveryMatchesTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DiscoveryMatchesTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$DiscoveryMatchesTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$DiscoveryMatchesTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> accountId = const Value.absent(),
+                Value<String> listId = const Value.absent(),
+                Value<int> rank = const Value.absent(),
+                Value<String> localId = const Value.absent(),
+                Value<int> resolvedAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DiscoveryMatchesTableCompanion(
+                accountId: accountId,
+                listId: listId,
+                rank: rank,
+                localId: localId,
+                resolvedAtMillisUtc: resolvedAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String accountId,
+                required String listId,
+                required int rank,
+                required String localId,
+                required int resolvedAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => DiscoveryMatchesTableCompanion.insert(
+                accountId: accountId,
+                listId: listId,
+                rank: rank,
+                localId: localId,
+                resolvedAtMillisUtc: resolvedAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DiscoveryMatchesTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DiscoveryMatchesTableTable,
+      DiscoveryMatchRow,
+      $$DiscoveryMatchesTableTableFilterComposer,
+      $$DiscoveryMatchesTableTableOrderingComposer,
+      $$DiscoveryMatchesTableTableAnnotationComposer,
+      $$DiscoveryMatchesTableTableCreateCompanionBuilder,
+      $$DiscoveryMatchesTableTableUpdateCompanionBuilder,
+      (
+        DiscoveryMatchRow,
+        BaseReferences<
+          _$AppDatabase,
+          $DiscoveryMatchesTableTable,
+          DiscoveryMatchRow
+        >,
+      ),
+      DiscoveryMatchRow,
+      PrefetchHooks Function()
+    >;
 typedef $$SearchHistoryTableTableCreateCompanionBuilder =
     SearchHistoryTableCompanion Function({
       required String query,
@@ -9490,6 +11126,10 @@ class $AppDatabaseManager {
         _db,
         _db.catalogCategoryMetaTable,
       );
+  $$DiscoveryTitlesTableTableTableManager get discoveryTitlesTable =>
+      $$DiscoveryTitlesTableTableTableManager(_db, _db.discoveryTitlesTable);
+  $$DiscoveryMatchesTableTableTableManager get discoveryMatchesTable =>
+      $$DiscoveryMatchesTableTableTableManager(_db, _db.discoveryMatchesTable);
   $$SearchHistoryTableTableTableManager get searchHistoryTable =>
       $$SearchHistoryTableTableTableManager(_db, _db.searchHistoryTable);
 }

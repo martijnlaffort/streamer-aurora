@@ -226,6 +226,8 @@ extension PreferencesRowMapper on PreferencesRow {
                 contentLanguages!.isEmpty)
             ? null
             : contentLanguages!.split(','),
+        tmdbApiKey: tmdbApiKey,
+        discoveryRegion: discoveryRegion,
       );
 }
 

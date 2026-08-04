@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/language/content_language.dart';
@@ -6,13 +8,16 @@ import 'db/app_database.dart';
 import 'db/credential_store.dart';
 import 'repositories/account_repository.dart';
 import 'repositories/catalog_repository.dart';
+import 'repositories/discovery_repository.dart';
 import 'repositories/epg_repository.dart';
 import 'repositories/favorites_repository.dart';
 import 'repositories/preferences_repository.dart';
 import 'repositories/search_history_repository.dart';
 import 'repositories/watch_progress_repository.dart';
+import 'sources/canon_source.dart';
 import 'sources/m3u_source.dart';
 import 'sources/playlist_source.dart';
+import 'sources/tmdb_source.dart';
 import 'sources/xtream_source.dart';
 
 /// Riverpod wiring for the data layer. The UI depends on these providers and
@@ -54,6 +59,36 @@ final epgRepositoryProvider = Provider<EpgRepository>((ref) {
   return EpgRepository(
     db: ref.watch(appDatabaseProvider),
     sourceFactory: ref.watch(sourceFactoryProvider),
+  );
+});
+
+// --- Discovery (PRD §8.2 "Popular") -----------------------------------------
+
+final canonSourceProvider = Provider<CanonSource>((ref) => CanonSource());
+
+/// The region used for "popular/new *here*" — the user's explicit choice, else
+/// the device locale's country, else NL.
+String _resolveRegion(String? configured) {
+  if (configured != null && configured.length == 2) return configured;
+  final locale = PlatformDispatcher.instance.locale;
+  final country = locale.countryCode;
+  if (country != null && country.length == 2) return country.toUpperCase();
+  return 'NL';
+}
+
+final discoveryRepositoryProvider = Provider<DiscoveryRepository>((ref) {
+  // Watched, not read: saving a key in Settings must rebuild this so the TMDB
+  // rails light up without a restart.
+  final prefs = ref.watch(preferencesProvider).value;
+  return DiscoveryRepository(
+    db: ref.watch(appDatabaseProvider),
+    canon: ref.watch(canonSourceProvider),
+    tmdbFactory: () {
+      final key = prefs?.tmdbApiKey;
+      if (key == null || key.isEmpty) return null;
+      return TmdbSource(
+          apiKey: key, region: _resolveRegion(prefs?.discoveryRegion));
+    },
   );
 });
 

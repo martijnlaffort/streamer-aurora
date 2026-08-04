@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/language/content_language.dart';
 import '../../data/providers.dart';
+import '../../data/repositories/discovery_repository.dart';
 import '../../domain/models/models.dart';
 
 /// One Continue Watching card — a movie, or a series (represented by its
@@ -54,6 +55,34 @@ class HomeData {
 
 const _railLength = 15;
 const _maxCategoryRails = 6;
+
+/// The discovery rails (PRD §8.2): externally-ranked lists filtered to what the
+/// playlist carries. Kept in their OWN provider, deliberately separate from
+/// [homeDataProvider]: they touch the network and walk the catalogue, and Home
+/// must never wait on either — that is the mistake the hero enrichment made.
+/// Home renders its cached rails first and these appear underneath when ready.
+final discoveryRailsProvider =
+    FutureProvider<List<DiscoveryRail<Object>>>((ref) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return const [];
+  final repo = ref.watch(discoveryRepositoryProvider);
+  // Rebuild when the key or region changes so new rails appear immediately.
+  ref.watch(preferencesProvider);
+  await repo.refresh(account);
+
+  final rails = <DiscoveryRail<Object>>[];
+  for (final list in DiscoveryRepository.lists) {
+    final items = list.kind == DiscoveryKind.movie
+        ? await repo.railMovies(account, list.id)
+        : await repo.railSeries(account, list.id);
+    // A rail with one or two hits looks broken; below this the playlist simply
+    // does not carry enough of that list to be worth a row.
+    if (items.length >= 3) {
+      rails.add(DiscoveryRail<Object>(label: list.label, items: items));
+    }
+  }
+  return rails;
+});
 
 /// The backdrop for one featured hero, resolved lazily off Home's critical
 /// path. Home paints from the cache immediately (the hero falls back to the

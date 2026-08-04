@@ -82,6 +82,8 @@ class _HomeContent extends ConsumerWidget {
             .read(catalogRepositoryProvider)
             .refreshCatalog(account, kinds: {CatalogKind.vod});
         ref.invalidate(homeDataProvider);
+        // The catalogue just changed, so the discovery matches are stale.
+        ref.invalidate(discoveryRailsProvider);
       },
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -99,10 +101,17 @@ class _HomeContent extends ConsumerWidget {
                     _ContinueCard(entry: data.continueWatching[i]),
               ),
             ),
+          // Externally-ranked rails (Trending, Popular here, New Releases,
+          // Award Winners). Separate provider — Home never waits on them.
+          ..._discoverySlivers(context, ref),
           if (data.popularMovies.isNotEmpty)
             SliverToBoxAdapter(
               child: MediaRail(
-                title: 'Popular Movies',
+                // "Top Rated", not "Popular": this rail is the panel's own
+                // rating with no vote count behind it, which is exactly why it
+                // surfaces titles nobody has heard of. The honest label keeps it
+                // useful without pretending it measures popularity.
+                title: 'Top Rated Movies',
                 itemCount: data.popularMovies.length,
                 itemBuilder: (context, i) {
                   final movie = data.popularMovies[i];
@@ -120,7 +129,7 @@ class _HomeContent extends ConsumerWidget {
           if (data.popularSeries.isNotEmpty)
             SliverToBoxAdapter(
               child: MediaRail(
-                title: 'Popular Series',
+                title: 'Top Rated Series',
                 itemCount: data.popularSeries.length,
                 itemBuilder: (context, i) {
                   final series = data.popularSeries[i];
@@ -174,6 +183,46 @@ class _HomeContent extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Slivers for the discovery rails. Renders nothing at all while they load or
+/// if none resolved — an empty gap is better than a spinner for content that is
+/// a bonus on top of what Home already shows.
+List<Widget> _discoverySlivers(BuildContext context, WidgetRef ref) {
+  final rails = ref.watch(discoveryRailsProvider).value ?? const [];
+  return [
+    for (final rail in rails)
+      SliverToBoxAdapter(
+        child: MediaRail(
+          title: rail.label,
+          itemCount: rail.items.length,
+          itemBuilder: (context, i) {
+            final item = rail.items[i];
+            // One rail type, two model types — a discovery list is either
+            // movies or series, never mixed.
+            if (item is Movie) {
+              final tag = 'disc-${rail.label}-m-${item.id}';
+              return PosterCard(
+                title: item.name,
+                imageUrl: item.posterUrl,
+                rating: item.rating,
+                heroTag: tag,
+                onTap: () => context.push('/movie/${item.id}', extra: tag),
+              );
+            }
+            final series = item as Series;
+            final tag = 'disc-${rail.label}-s-${series.id}';
+            return PosterCard(
+              title: series.name,
+              imageUrl: series.posterUrl,
+              rating: series.rating,
+              heroTag: tag,
+              onTap: () => context.push('/series/${series.id}', extra: tag),
+            );
+          },
+        ),
+      ),
+  ];
 }
 
 /// Rotating featured hero (PRD §8.2/§10): gentle cross-fades through the

@@ -91,7 +91,13 @@ class SyncService {
     await _preferences.push(local, changedAt);
     final winner = await _preferences.pull();
     if (winner != null) {
-      await _preferencesRepo.save(winner.prefs);
+      // The TMDB key and discovery region are device-local and are not part of
+      // the sync payload, so carry the local values across — saving the remote
+      // winner verbatim would clear them on every sync.
+      await _preferencesRepo.save(winner.prefs.copyWith(
+        tmdbApiKey: local.tmdbApiKey,
+        discoveryRegion: local.discoveryRegion,
+      ));
       await _configStore.setPreferencesChangedAt(winner.updatedAt);
     }
   }

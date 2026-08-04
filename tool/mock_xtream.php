@@ -89,10 +89,52 @@ function mock_channel(int $i): array
     ];
 }
 
+/**
+ * Real award-winning titles, formatted the messy way a real panel does, so the
+ * discovery rails (which match against TMDB lists and the bundled award canon)
+ * have something to resolve against. The generated `Silent Harbor 12` names
+ * match nothing by design, which would make an empty rail look like a bug.
+ * These occupy the first indices; everything after is generated as before.
+ */
+const CANON_SAMPLE = [
+    ['Oppenheimer 2023 4K', 2023],
+    ['EN - Parasite (2019)', 2019],
+    ['The Godfather 1972 1080p', 1972],
+    ['Casablanca', 1943],
+    ['NL| Forrest Gump 1994 MULTi', 1994],
+    ['Gladiator 2000 WEB-DL', 2000],
+    ['Titanic 1997', 1997],
+    ['Schindlers List 1993', 1993],
+    ['Everything Everywhere All at Once 2022', 2022],
+    ['Anora 2024', 2024],
+    ['Nomadland 2020', 2020],
+    ['Moonlight 2016 x265', 2016],
+    ['Argo 2012', 2012],
+    ['Amadeus 1984', 1984],
+    ['Rocky 1976', 1976],
+    ['Platoon 1986', 1986],
+    ['Braveheart 1995 HDR', 1995],
+    ['The Departed 2006', 2006],
+    ['Spotlight 2015', 2015],
+    ['One Flew Over the Cuckoos Nest 1975', 1975],
+];
+
 /** Movie by index (0-based). Ids start at 1001. */
 function mock_movie(int $i): array
 {
     $catCount = count($GLOBALS['VOD_CATEGORIES']);
+    if ($i < count(CANON_SAMPLE)) {
+        [$realName, $realYear] = CANON_SAMPLE[$i];
+        return [
+            'id'     => 1001 + $i,
+            'name'   => $realName,
+            'cat'    => (string) (20 + $i % $catCount),
+            'year'   => $realYear,
+            'rating' => number_format(7.5 + ($i % 25) / 10, 1, '.', ''),
+            'added'  => time() - $i * 3600,
+            'url'    => $GLOBALS['MOVIE_CLIP_URLS'][$i % 2],
+        ];
+    }
     return [
         'id'     => 1001 + $i,
         'name'   => $GLOBALS['adjectives'][$i % 12] . ' '
@@ -105,10 +147,28 @@ function mock_movie(int $i): array
     ];
 }
 
+/** Emmy-winning series, likewise so the series award rail has real matches. */
+const CANON_SAMPLE_SERIES = [
+    ['Breaking Bad', 2008], ['Game of Thrones', 2011], ['The Sopranos', 1999],
+    ['Succession', 2018], ['Mad Men', 2007], ['Friends', 1994],
+    ['Seinfeld', 1989], ['Ted Lasso', 2020], ['The Bear', 2022],
+    ['Fleabag', 2016], ['The Crown', 2016], ['Shogun', 2024],
+];
+
 /** Series by index (0-based). Ids start at 15. */
 function mock_series(int $i): array
 {
     $catCount = count($GLOBALS['SERIES_CATEGORIES']);
+    if ($i < count(CANON_SAMPLE_SERIES)) {
+        [$realName, $realYear] = CANON_SAMPLE_SERIES[$i];
+        return [
+            'id'     => 15 + $i,
+            'name'   => $realName,
+            'cat'    => (string) (300 + $i % $catCount),
+            'year'   => $realYear,
+            'rating' => number_format(8.0 + ($i % 20) / 10, 1, '.', ''),
+        ];
+    }
     return [
         'id'     => 15 + $i,
         'name'   => $GLOBALS['adjectives'][($i * 5 + 2) % 12] . ' '

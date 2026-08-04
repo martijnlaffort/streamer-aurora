@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/poster_card.dart';
@@ -91,7 +92,14 @@ class _HomeContent extends ConsumerWidget {
             parent: BouncingScrollPhysics()),
         slivers: [
           if (data.heroes.isNotEmpty)
-            SliverToBoxAdapter(child: _FeaturedHero(movies: data.heroes)),
+            SliverToBoxAdapter(
+              child: _FeaturedHero(
+                movies: data.heroes,
+                // A TV must have something focused or the remote has nowhere to
+                // start; the spotlight is the natural place.
+                autofocus: isTelevisionOf(ref),
+              ),
+            ),
           if (data.continueWatching.isNotEmpty)
             SliverToBoxAdapter(
               child: MediaRail(
@@ -230,9 +238,10 @@ List<Widget> _discoverySlivers(BuildContext context, WidgetRef ref) {
 /// Rotating featured hero (PRD §8.2/§10): gentle cross-fades through the
 /// newest additions every few seconds.
 class _FeaturedHero extends StatefulWidget {
-  const _FeaturedHero({required this.movies});
+  const _FeaturedHero({required this.movies, this.autofocus = false});
 
   final List<Movie> movies;
+  final bool autofocus;
 
   @override
   State<_FeaturedHero> createState() => _FeaturedHeroState();
@@ -327,18 +336,25 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Row(
+                  // Wrap, not Row: the TV shell's navigation rail takes a slice
+                  // of the width, and two buttons plus the page dots overflowed
+                  // a Row outright. Wrap moves the dots to their own line when
+                  // the space is not there instead of clipping.
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       FilledButton.icon(
+                        autofocus: widget.autofocus,
                         onPressed: () => context.push('/movie/${movie.id}'),
                         icon: const Icon(Icons.info_outline, size: 18),
                         label: const Text('Details'),
                       ),
-                      const SizedBox(width: 8),
                       _HeroMyListButton(movie: movie),
-                      const Spacer(),
                       if (widget.movies.length > 1)
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             for (final (i, _) in widget.movies.indexed)
                               Container(

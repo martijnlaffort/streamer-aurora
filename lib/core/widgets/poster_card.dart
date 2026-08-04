@@ -17,7 +17,12 @@ class PosterCard extends StatefulWidget {
     this.heroTag,
     this.rating,
     this.rank,
+    this.autofocus = false,
   });
+
+  /// Takes focus when first built — a TV needs *something* focused or the remote
+  /// has nowhere to start. Set on the first card of the first rail only.
+  final bool autofocus;
 
   final String title;
   final String? imageUrl;
@@ -60,11 +65,34 @@ class _PosterCardState extends State<PosterCard> {
       child: MouseRegion(
         onEnter: (_) => setState(() => _engaged = true),
         onExit: (_) => setState(() => _engaged = false),
-        child: Focus(
-          onFocusChange: (focused) => setState(() => _engaged = focused),
-          child: GestureDetector(
-            onTap: widget.onTap,
-            child: AnimatedScale(
+        // InkWell, NOT GestureDetector: a D-pad OK press arrives as an
+        // ActivateIntent, which only widgets that register an Actions handler
+        // respond to. With GestureDetector the card highlighted on focus but
+        // pressing OK did nothing — focus without activation. InkWell handles
+        // tap, Enter, Space and D-pad centre alike.
+        child: InkWell(
+          onTap: widget.onTap,
+          autofocus: widget.autofocus,
+          borderRadius: BorderRadius.circular(10),
+          // The scale animation below is the focus affordance; Material's own
+          // overlays would fight it.
+          focusColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          onFocusChange: (focused) {
+            setState(() => _engaged = focused);
+            // Bring the focused card into view — without this, moving along a
+            // rail with the remote walks focus off the edge of the screen.
+            if (focused) {
+              Scrollable.ensureVisible(
+                context,
+                alignment: 0.5,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+              );
+            }
+          },
+          child: AnimatedScale(
               scale: _engaged ? 1.05 : 1.0,
               duration: const Duration(milliseconds: 140),
               child: Column(
@@ -133,7 +161,6 @@ class _PosterCardState extends State<PosterCard> {
                 ],
               ),
             ),
-          ),
         ),
       ),
     );

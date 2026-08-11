@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
+import '../../../core/widgets/my_list_button.dart';
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
@@ -92,7 +93,6 @@ class _MovieDetail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(progressProvider(_contentKey)).value;
-    final favorite = ref.watch(isFavoriteProvider(_contentKey));
     final offerResume = ref
         .read(watchProgressRepositoryProvider)
         .shouldOfferResume(progress);
@@ -157,25 +157,7 @@ class _MovieDetail extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    tooltip: favorite.value ?? false
-                        ? 'Remove favorite'
-                        : 'Add favorite',
-                    onPressed: () async {
-                      await ref
-                          .read(favoritesRepositoryProvider)
-                          .toggle(_contentKey);
-                      ref.invalidate(isFavoriteProvider(_contentKey));
-                    },
-                    icon: Icon(
-                      (favorite.value ?? false)
-                          ? Icons.favorite
-                          : Icons.favorite_border,
-                      color: (favorite.value ?? false)
-                          ? AppColors.accent
-                          : AppColors.textPrimary,
-                    ),
-                  ),
+                  MyListButton(contentKey: _contentKey),
                 ],
               ),
               if (offerResume) ...[

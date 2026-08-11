@@ -87,8 +87,12 @@ final discoveryRailsProvider =
 ///
 /// Live channels are deliberately left out: a 2:3 poster rail of channel logos
 /// looks broken, and they stay reachable from the Live tab and Settings →
-/// Favorites. Series are keyed by episode (there is no series-level
-/// StreamType), so an episode favourite surfaces its series, de-duplicated.
+/// Favorites.
+///
+/// Three key shapes are accepted. `series` keys come from the detail page's My
+/// List button; `episode` keys are the older path (before a series could be
+/// added directly, favouriting an episode was the only way to mark a show) and
+/// still resolve to their series, de-duplicated against both.
 final myListProvider = FutureProvider<List<Object>>((ref) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return const [];
@@ -102,6 +106,10 @@ final myListProvider = FutureProvider<List<Object>>((ref) async {
     if (key.type == StreamType.movie.name) {
       final movie = await catalog.movieById(account, key.id);
       if (movie != null) out.add(movie);
+    } else if (key.type == seriesContentType) {
+      if (!seenSeries.add(key.id)) continue;
+      final series = await catalog.seriesById(account, key.id);
+      if (series != null) out.add(series);
     } else if (key.type == StreamType.episode.name) {
       final episode = await catalog.episodeById(account, key.id);
       if (episode == null || !seenSeries.add(episode.seriesId)) continue;

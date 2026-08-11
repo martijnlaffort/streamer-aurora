@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
+import '../../../core/widgets/my_list_button.dart';
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
@@ -162,15 +163,32 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       Text(series.plot!, style: AppTypography.body),
                     ],
                     const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: () => _play(detail, account.id, nextIndex,
-                          resumeFrom:
-                              resume ? nextProgress!.positionSeconds : null),
-                      icon: const Icon(Icons.play_arrow),
-                      label: Text(resume
-                          ? 'Resume S${next.seasonNumber} E${next.episodeNumber} '
-                              'from ${formatSeconds(nextProgress!.positionSeconds)}'
-                          : 'Play S${next.seasonNumber} E${next.episodeNumber}'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => _play(
+                                detail, account.id, nextIndex,
+                                resumeFrom: resume
+                                    ? nextProgress!.positionSeconds
+                                    : null),
+                            icon: const Icon(Icons.play_arrow),
+                            label: Text(
+                              resume
+                                  ? 'Resume S${next.seasonNumber} E${next.episodeNumber} '
+                                      'from ${formatSeconds(nextProgress!.positionSeconds)}'
+                                  : 'Play S${next.seasonNumber} E${next.episodeNumber}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        MyListButton(
+                          contentKey: contentKeyForSeries(
+                              accountId: account.id, id: series.id),
+                        ),
+                      ],
                     ),
                   ],
                 ),

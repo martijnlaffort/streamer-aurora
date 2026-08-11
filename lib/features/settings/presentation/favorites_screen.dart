@@ -31,7 +31,7 @@ final favoritesViewProvider = FutureProvider<
     if (key.type == StreamType.movie.name) {
       final movie = await catalog.movieById(account, key.id);
       if (movie != null) movies.add(movie);
-    } else if (key.type == 'series') {
+    } else if (key.type == seriesContentType) {
       final s = await catalog.seriesById(account, key.id);
       if (s != null) series.add(s);
     } else if (key.type == StreamType.live.name) {

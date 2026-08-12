@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/matching/category_label.dart';
 import '../../../core/widgets/paged_poster_grid.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../../data/providers.dart';
@@ -33,9 +34,11 @@ class _SeriesCategoryScreenState extends ConsumerState<SeriesCategoryScreen> {
 
   String _title(List<Category> categories) {
     if (_isAll) return 'All Series';
-    if (widget.categoryName != null) return widget.categoryName!;
+    if (widget.categoryName != null) {
+      return prettyCategoryName(widget.categoryName!);
+    }
     for (final c in categories) {
-      if (c.id == widget.categoryId) return c.name;
+      if (c.id == widget.categoryId) return prettyCategoryName(c.name);
     }
     return 'Series';
   }

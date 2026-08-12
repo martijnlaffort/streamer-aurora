@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/matching/category_label.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/category_rails_view.dart';
 import '../../../core/widgets/poster_card.dart';
@@ -63,7 +64,7 @@ class _SeriesCategoryRail extends ConsumerWidget {
       data: (series) {
         if (series.isEmpty) return const SizedBox.shrink();
         return MediaRail(
-          title: category.name,
+          title: prettyCategoryName(category.name),
           itemCount: series.length,
           onSeeAll: () => context.push(
               '/series/category/${Uri.encodeComponent(category.id)}',

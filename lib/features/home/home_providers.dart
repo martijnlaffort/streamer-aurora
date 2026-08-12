@@ -1,12 +1,13 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/language/content_language.dart';
 import '../../core/matching/title_match.dart';
+import '../../core/rotation.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/discovery_repository.dart';
 import '../../domain/models/models.dart';
 
-/// One Continue Watching card — a movie, or a series (represented by its
+/// One Continue Watching card â€” a movie, or a series (represented by its
 /// most-recent in-progress episode).
 class ContinueEntry {
   const ContinueEntry({
@@ -20,7 +21,7 @@ class ContinueEntry {
   final WatchProgress progress;
   final String title;
 
-  /// e.g. "S1 · E2" for an episode; null for a movie.
+  /// e.g. "S1 Â· E2" for an episode; null for a movie.
   final String? subtitle;
   final String? imageUrl;
 
@@ -41,16 +42,19 @@ class HomeData {
   final List<Movie> heroes;
   final List<Movie> recentlyAdded;
 
-  /// Continue Watching (PRD §8.9): movies and series, most-recent first.
+  /// Continue Watching (PRD Â§8.9): movies and series, most-recent first.
   final List<ContinueEntry> continueWatching;
 }
 
 const _railLength = 15;
 
-/// The discovery rails (PRD §8.2): externally-ranked lists filtered to what the
+/// How deep to read for a rail that rotates: the rail shows a slice of this.
+const _railPool = 60;
+
+/// The discovery rails (PRD Â§8.2): externally-ranked lists filtered to what the
 /// playlist carries. Kept in their OWN provider, deliberately separate from
 /// [homeDataProvider]: they touch the network and walk the catalogue, and Home
-/// must never wait on either — that is the mistake the hero enrichment made.
+/// must never wait on either â€” that is the mistake the hero enrichment made.
 /// Home renders its cached rails first and these appear underneath when ready.
 final discoveryRailsProvider =
     FutureProvider<List<DiscoveryRail<Object>>>((ref) async {
@@ -62,17 +66,26 @@ final discoveryRailsProvider =
   await repo.refresh(account);
 
   final region = ref.watch(discoveryRegionProvider);
+  final seed = ref.watch(rotationSeedProvider);
   final rails = <DiscoveryRail<Object>>[];
   for (final list in DiscoveryRepository.lists) {
+    // Pull a deeper pool than the rail shows so there is something to rotate
+    // through â€” the award canon in particular is static, so without this it is
+    // the same twenty films forever.
     var items = list.kind == DiscoveryKind.movie
-        ? await repo.railMovies(account, list.id)
-        : await repo.railSeries(account, list.id);
+        ? await repo.railMovies(account, list.id, limit: _railPool)
+        : await repo.railSeries(account, list.id, limit: _railPool);
     // A rail with one or two hits looks broken; below this the playlist simply
     // does not carry enough of that list to be worth a row.
     if (items.length < 3) continue;
-    if (list.numbered) items = items.take(10).toList();
+    if (list.numbered) {
+      // A Top 10 must stay in rank order â€” the rank IS the content.
+      items = items.take(10).toList();
+    } else {
+      items = rotatedSample(items, seed: seed, take: 20, salt: list.id);
+    }
     rails.add(DiscoveryRail<Object>(
-      // A rank is only meaningful if you know what it ranks — say the region.
+      // A rank is only meaningful if you know what it ranks â€” say the region.
       label: list.numbered ? 'Top 10 in $region' : list.label,
       items: items,
       numbered: list.numbered,
@@ -81,13 +94,13 @@ final discoveryRailsProvider =
   return rails;
 });
 
-/// "My List" — favourites resolved to catalogue rows.
+/// "My List" â€” favourites resolved to catalogue rows.
 ///
 /// Netflix and HBO both give this a top-level row; Aurora already had the data
 /// but only exposed it behind Settings, so it was effectively invisible.
 ///
 /// Live channels are deliberately left out: a 2:3 poster rail of channel logos
-/// looks broken, and they stay reachable from the Live tab and Settings →
+/// looks broken, and they stay reachable from the Live tab and Settings â†’
 /// Favorites.
 ///
 /// Three key shapes are accepted. `series` keys come from the detail page's My
@@ -137,7 +150,7 @@ final heroBackdropProvider =
         .movieDetail(account, movieId);
     return detail.backdropUrl;
   } on Exception {
-    return null; // Cosmetic only — never surface this as an error.
+    return null; // Cosmetic only â€” never surface this as an error.
   }
 });
 
@@ -146,7 +159,7 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   if (account == null) return null;
   final catalog = ref.watch(catalogRepositoryProvider);
 
-  // Content-language filter (PRD §8.3): everything on Home is restricted to
+  // Content-language filter (PRD Â§8.3): everything on Home is restricted to
   // categories whose detected language is enabled. Category IDs are resolved
   // once here; `null` sets mean the filter is off (show all).
   final enabled = await ref.watch(contentLanguageFilterProvider.future);
@@ -156,25 +169,40 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
           .where((c) => enabled.contains(detectContentLanguage(c.name).code))
           .map((c) => c.id)
           .toSet();
-  // Home's rails are sorted and limited in SQL (see CatalogRepository) — the
+  // Home's rails are sorted and limited in SQL (see CatalogRepository) â€” the
   // whole catalog is never pulled into memory, which is what let large
   // playlists push a sideloaded build past iOS's memory limit. A `null`
   // allowed-set means the content-language filter is off (show all).
 
-  // Recently added drives the hero + the one rail.
-  final recentlyAdded = await catalog.recentMovies(account,
-      limit: _railLength, categoryIds: allowedVod);
+  // Recently added drives the hero + the one rail. Read three rails' worth so
+  // the rail can show a different slice each session â€” but page WITHIN the
+  // recent set rather than shuffling it, because everything shown under
+  // "Recently Added" still has to actually be recent.
+  final seed = ref.watch(rotationSeedProvider);
+  final recentPool = await catalog.recentMovies(account,
+      limit: _railLength * 3, categoryIds: allowedVod);
+  final recentPage =
+      rotatingPage(seed: seed, pages: 3, salt: 'recently-added');
+  var recentlyAdded =
+      recentPool.skip(recentPage * _railLength).take(_railLength).toList();
+  // A thin catalogue can leave the chosen page empty â€” fall back to the top.
+  if (recentlyAdded.isEmpty) {
+    recentlyAdded = recentPool.take(_railLength).toList();
+  }
 
   // Featured heroes: the newest few, straight from the cache. Backdrops are
-  // NOT resolved here — see [heroBackdropProvider]. This used to await
+  // NOT resolved here â€” see [heroBackdropProvider]. This used to await
   // `movieDetail` per hero, i.e. up to five sequential `get_vod_info`
   // round-trips before Home rendered anything; on a real panel that is seconds
   // of spinner for a cosmetic upgrade the hero already falls back from (it
   // shows the poster when there is no backdrop).
-  final heroes = recentlyAdded.take(5).toList();
+  // Heroes come from the true newest, NOT the rotated page: the spotlight is
+  // labelled "Recently Added", and putting the 40th-newest film there would be
+  // a small lie. The hero already rotates through five on its own timer.
+  final heroes = recentPool.take(5).toList();
 
-  // Continue Watching (PRD §8.9): movies play directly; episodes resolve back
-  // to their series (one card per series — the most-recent episode, since the
+  // Continue Watching (PRD Â§8.9): movies play directly; episodes resolve back
+  // to their series (one card per series â€” the most-recent episode, since the
   // list is already updatedAt-desc).
   final progress =
       await ref.watch(watchProgressRepositoryProvider).recentlyWatched();
@@ -222,7 +250,7 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
       if (series == null) continue;
 
       // Finishing an episode used to drop the whole show out of this rail.
-      // Advance to the next episode instead — that is the thing you actually
+      // Advance to the next episode instead â€” that is the thing you actually
       // want to watch next, and it is what the streaming services do.
       var showEpisode = episode;
       var showProgress = p;
@@ -250,7 +278,7 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
         progress: showProgress,
         title: series.name,
         subtitle:
-            'S${showEpisode.seasonNumber} · E${showEpisode.episodeNumber}',
+            'S${showEpisode.seasonNumber} Â· E${showEpisode.episodeNumber}',
         imageUrl: series.backdropUrl ?? series.posterUrl,
         route: '/series/${series.id}',
       ));
@@ -258,7 +286,7 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   }
 
   // Per-category rails used to live here. They moved to the Movies and Series
-  // tabs, which are now category-first — Home linking to six arbitrary
+  // tabs, which are now category-first â€” Home linking to six arbitrary
   // categories was both redundant and the thing that made every cold start
   // refresh six categories before it could paint.
   return HomeData(

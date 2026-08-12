@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/platform/television.dart';
+import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/poster_card.dart';
@@ -83,6 +84,9 @@ class _HomeContent extends ConsumerWidget {
         await ref
             .read(catalogRepositoryProvider)
             .refreshCatalog(account, kinds: {CatalogKind.vod});
+        // Pull-to-refresh is the "show me something else" gesture, so deal a
+        // new rotation as well as refetching.
+        ref.invalidate(rotationSeedProvider);
         ref.invalidate(homeDataProvider);
         // The catalogue just changed, so the discovery matches are stale.
         ref.invalidate(discoveryRailsProvider);

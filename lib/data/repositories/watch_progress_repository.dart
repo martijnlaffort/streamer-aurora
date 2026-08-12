@@ -72,6 +72,21 @@ class WatchProgressRepository {
     return rows.map((r) => r.toModel()).toList();
   }
 
+  /// Recently touched progress, finished or not, most recent first.
+  ///
+  /// [continueWatching] hides completed rows, which is right for a film but
+  /// wrong for a series: finishing an episode made the whole show vanish from
+  /// the rail instead of advancing to the next episode. Home uses this to find
+  /// the next one up. The default limit is generous because entries get
+  /// filtered and de-duplicated afterwards.
+  Future<List<WatchProgress>> recentlyWatched({int limit = 60}) async {
+    final rows = await (_db.watchProgressTable.select()
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAtMillisUtc)])
+          ..limit(limit))
+        .get();
+    return rows.map((r) => r.toModel()).toList();
+  }
+
   /// Marks content finished and drops it from Continue Watching.
   Future<void> markCompleted(String contentKey) async {
     await (_db.watchProgressTable.update()

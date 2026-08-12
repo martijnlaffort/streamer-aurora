@@ -757,6 +757,21 @@ class CatalogRepository {
     return row?.toModel();
   }
 
+  /// Cache-only episode list for one series, in broadcast order. Used to work
+  /// out which episode comes after the one you just finished.
+  Future<List<Episode>> episodesOfSeries(
+      Account account, String seriesId) async {
+    final rows = await (_db.episodesTable.select()
+          ..where((t) =>
+              t.accountId.equals(account.id) & t.seriesId.equals(seriesId))
+          ..orderBy([
+            (t) => OrderingTerm.asc(t.seasonNumber),
+            (t) => OrderingTerm.asc(t.episodeNumber),
+          ]))
+        .get();
+    return rows.map((r) => r.toModel()).toList();
+  }
+
   /// Cache-only single episode lookup — resolves a watched episode back to its
   /// series (for Continue Watching). Present whenever the series detail was
   /// opened, which is the only way to reach an episode.

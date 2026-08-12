@@ -177,26 +177,36 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   // to their series (one card per series — the most-recent episode, since the
   // list is already updatedAt-desc).
   final progress =
-      await ref.watch(watchProgressRepositoryProvider).continueWatching();
+      await ref.watch(watchProgressRepositoryProvider).recentlyWatched();
   final continueWatching = <ContinueEntry>[];
   final seenSeries = <String>{};
   // Providers routinely carry the SAME show under several language categories
   // ("| NL | Schitt's Creek", "| AR | Schitt's Creek") as separate series with
-  // separate ids, so guarding on the id alone still let the same show appear
-  // twice in this row. Normalising collapses them — the reducer already strips
-  // language prefixes, punctuation and apostrophes for the discovery matcher.
-  // The list is updatedAt-desc, so the first hit kept is the one watched most
-  // recently, which is the variant to resume. Kind-prefixed so a film and a
-  // series of the same name (Fargo) do not collide.
-  final seenTitles = <String>{};
+  // separate ids, so guarding on the id alone let one show appear twice.
+  //
+  // Matched on TitleKey rather than a bare string so the year still has a vote:
+  // "The Office" (2005) and "The Office" (2001) normalise identically but are
+  // different shows, and hiding a show you watched is a worse failure than
+  // showing a duplicate. Kind-prefixed lists keep a film and a series of the
+  // same name (Fargo) apart.
+  final seenMovieKeys = <TitleKey>[];
+  final seenSeriesKeys = <TitleKey>[];
+  bool isNew(List<TitleKey> seen, TitleKey candidate) {
+    if (seen.any((k) => k.matches(candidate))) return false;
+    seen.add(candidate);
+    return true;
+  }
+
   for (final p in progress) {
+    if (continueWatching.length >= 20) break;
     final key = parseContentKey(p.contentKey);
     if (key == null || key.accountId != account.id) continue;
     if (key.type == StreamType.movie.name) {
+      // A finished film has nothing to continue.
+      if (p.completed) continue;
       final movie = await catalog.movieById(account, key.id);
       if (movie == null) continue;
-      if (!seenTitles
-          .add('m:${normalizeTitle(movie.name, knownYear: movie.year)}')) {
+      if (!isNew(seenMovieKeys, titleKeyFor(movie.name, year: movie.year))) {
         continue;
       }
       continueWatching.add(ContinueEntry(
@@ -210,14 +220,37 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
       if (episode == null || !seenSeries.add(episode.seriesId)) continue;
       final series = await catalog.seriesById(account, episode.seriesId);
       if (series == null) continue;
-      if (!seenTitles
-          .add('s:${normalizeTitle(series.name, knownYear: series.year)}')) {
+
+      // Finishing an episode used to drop the whole show out of this rail.
+      // Advance to the next episode instead — that is the thing you actually
+      // want to watch next, and it is what the streaming services do.
+      var showEpisode = episode;
+      var showProgress = p;
+      if (p.completed) {
+        final all = await catalog.episodesOfSeries(account, episode.seriesId);
+        final at = all.indexWhere((e) => e.id == episode.id);
+        if (at == -1 || at + 1 >= all.length) continue; // Series finished.
+        showEpisode = all[at + 1];
+        // Start the next one from the beginning, keeping the ordering stamp so
+        // the rail still sorts by when you last watched this show.
+        showProgress = WatchProgress(
+          contentKey: contentKeyFor(
+              accountId: account.id,
+              type: StreamType.episode,
+              id: showEpisode.id),
+          positionSeconds: 0,
+          durationSeconds: showEpisode.durationSeconds ?? 0,
+          updatedAt: p.updatedAt,
+        );
+      }
+      if (!isNew(seenSeriesKeys, titleKeyFor(series.name, year: series.year))) {
         continue;
       }
       continueWatching.add(ContinueEntry(
-        progress: p,
+        progress: showProgress,
         title: series.name,
-        subtitle: 'S${episode.seasonNumber} · E${episode.episodeNumber}',
+        subtitle:
+            'S${showEpisode.seasonNumber} · E${showEpisode.episodeNumber}',
         imageUrl: series.backdropUrl ?? series.posterUrl,
         route: '/series/${series.id}',
       ));

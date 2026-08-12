@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/language/content_language.dart';
+import '../../core/matching/title_match.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/discovery_repository.dart';
 import '../../domain/models/models.dart';
@@ -179,24 +180,40 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
       await ref.watch(watchProgressRepositoryProvider).continueWatching();
   final continueWatching = <ContinueEntry>[];
   final seenSeries = <String>{};
+  // Providers routinely carry the SAME show under several language categories
+  // ("| NL | Schitt's Creek", "| AR | Schitt's Creek") as separate series with
+  // separate ids, so guarding on the id alone still let the same show appear
+  // twice in this row. Normalising collapses them — the reducer already strips
+  // language prefixes, punctuation and apostrophes for the discovery matcher.
+  // The list is updatedAt-desc, so the first hit kept is the one watched most
+  // recently, which is the variant to resume. Kind-prefixed so a film and a
+  // series of the same name (Fargo) do not collide.
+  final seenTitles = <String>{};
   for (final p in progress) {
     final key = parseContentKey(p.contentKey);
     if (key == null || key.accountId != account.id) continue;
     if (key.type == StreamType.movie.name) {
       final movie = await catalog.movieById(account, key.id);
-      if (movie != null) {
-        continueWatching.add(ContinueEntry(
-          progress: p,
-          title: movie.name,
-          imageUrl: movie.backdropUrl ?? movie.posterUrl,
-          route: '/movie/${movie.id}',
-        ));
+      if (movie == null) continue;
+      if (!seenTitles
+          .add('m:${normalizeTitle(movie.name, knownYear: movie.year)}')) {
+        continue;
       }
+      continueWatching.add(ContinueEntry(
+        progress: p,
+        title: movie.name,
+        imageUrl: movie.backdropUrl ?? movie.posterUrl,
+        route: '/movie/${movie.id}',
+      ));
     } else if (key.type == StreamType.episode.name) {
       final episode = await catalog.episodeById(account, key.id);
       if (episode == null || !seenSeries.add(episode.seriesId)) continue;
       final series = await catalog.seriesById(account, episode.seriesId);
       if (series == null) continue;
+      if (!seenTitles
+          .add('s:${normalizeTitle(series.name, knownYear: series.year)}')) {
+        continue;
+      }
       continueWatching.add(ContinueEntry(
         progress: p,
         title: series.name,

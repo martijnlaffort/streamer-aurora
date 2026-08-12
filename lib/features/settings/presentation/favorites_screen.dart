@@ -12,12 +12,35 @@ import '../../player/player_request.dart';
 
 /// Favorites resolved against the cached catalog (PRD §8.11), aggregating
 /// movies, series, and live channels.
-final favoritesViewProvider = FutureProvider<
-    ({List<Movie> movies, List<Series> series, List<Channel> channels})>(
-    (ref) async {
+///
+/// Also reports what could NOT be resolved. A saved item is a content key
+/// (`account:type:id`) pointing at a catalogue row, and two things make that
+/// row unreachable: the key belongs to a *different account* (re-adding a
+/// playlist mints a new account id, which orphans everything saved under the
+/// old one), or the row is no longer cached (the panel dropped the title, or
+/// moved it to a category that has since been re-fetched without it).
+///
+/// Both used to fail silently — saved items just vanished from My List with no
+/// explanation. Counting them turns that into something the UI can say out loud,
+/// and distinguishes the two causes.
+typedef FavoritesView = ({
+  List<Movie> movies,
+  List<Series> series,
+  List<Channel> channels,
+  int otherAccount,
+  int missingFromCatalog,
+});
+
+final favoritesViewProvider = FutureProvider<FavoritesView>((ref) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) {
-    return (movies: <Movie>[], series: <Series>[], channels: <Channel>[]);
+    return (
+      movies: <Movie>[],
+      series: <Series>[],
+      channels: <Channel>[],
+      otherAccount: 0,
+      missingFromCatalog: 0,
+    );
   }
   final catalog = ref.watch(catalogRepositoryProvider);
   final favorites = await ref.watch(favoritesRepositoryProvider).all();
@@ -25,22 +48,103 @@ final favoritesViewProvider = FutureProvider<
   final movies = <Movie>[];
   final series = <Series>[];
   final channels = <Channel>[];
+  var otherAccount = 0;
+  var missingFromCatalog = 0;
   for (final (contentKey, _) in favorites) {
     final key = parseContentKey(contentKey);
-    if (key == null || key.accountId != account.id) continue;
+    if (key == null) continue;
+    if (key.accountId != account.id) {
+      otherAccount++;
+      continue;
+    }
     if (key.type == StreamType.movie.name) {
       final movie = await catalog.movieById(account, key.id);
-      if (movie != null) movies.add(movie);
+      if (movie != null) {
+        movies.add(movie);
+      } else {
+        missingFromCatalog++;
+      }
     } else if (key.type == seriesContentType) {
       final s = await catalog.seriesById(account, key.id);
-      if (s != null) series.add(s);
+      if (s != null) {
+        series.add(s);
+      } else {
+        missingFromCatalog++;
+      }
     } else if (key.type == StreamType.live.name) {
       final c = await catalog.channelById(account, key.id);
-      if (c != null) channels.add(c);
+      if (c != null) {
+        channels.add(c);
+      } else {
+        missingFromCatalog++;
+      }
+    } else if (key.type == StreamType.episode.name) {
+      // Older saves marked a show by favouriting one of its episodes.
+      final episode = await catalog.episodeById(account, key.id);
+      final s = episode == null
+          ? null
+          : await catalog.seriesById(account, episode.seriesId);
+      if (s != null && !series.any((existing) => existing.id == s.id)) {
+        series.add(s);
+      } else if (s == null) {
+        missingFromCatalog++;
+      }
     }
   }
-  return (movies: movies, series: series, channels: channels);
+  return (
+    movies: movies,
+    series: series,
+    channels: channels,
+    otherAccount: otherAccount,
+    missingFromCatalog: missingFromCatalog,
+  );
 });
+
+/// Explains saved items that could not be shown, instead of dropping them
+/// silently. Renders nothing when everything resolved.
+class _UnresolvedNote extends StatelessWidget {
+  const _UnresolvedNote({required this.otherAccount, required this.missing});
+
+  final int otherAccount;
+  final int missing;
+
+  @override
+  Widget build(BuildContext context) {
+    if (otherAccount == 0 && missing == 0) return const SizedBox.shrink();
+    final lines = [
+      if (otherAccount > 0)
+        '$otherAccount saved ${otherAccount == 1 ? 'item was' : 'items were'} '
+            'added under a different account. Re-adding a playlist creates a '
+            'new account, which leaves earlier saves attached to the old one.',
+      if (missing > 0)
+        '$missing saved ${missing == 1 ? 'item is' : 'items are'} no longer in '
+            'your playlist, so there is nothing to show for them.',
+    ];
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline,
+              size: 18, color: AppColors.textSecondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              lines.join('\n\n'),
+              style: const TextStyle(
+                  color: AppColors.textSecondary, fontSize: 12, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class FavoritesScreen extends ConsumerWidget {
   const FavoritesScreen({super.key});
@@ -79,9 +183,15 @@ class FavoritesScreen extends ConsumerWidget {
         error: (e, _) => Center(
             child: Text('$e', style: const TextStyle(color: AppColors.error))),
         data: (data) {
+          final unresolved = _UnresolvedNote(
+              otherAccount: data.otherAccount,
+              missing: data.missingFromCatalog);
           if (data.movies.isEmpty &&
               data.series.isEmpty &&
               data.channels.isEmpty) {
+            if (data.otherAccount > 0 || data.missingFromCatalog > 0) {
+              return ListView(children: [unresolved]);
+            }
             return const Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -105,6 +215,7 @@ class FavoritesScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
+              unresolved,
               if (data.channels.isNotEmpty) ...[
                 const _SectionHeader('Channels'),
                 for (final channel in data.channels)

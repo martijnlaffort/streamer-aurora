@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/db/app_database.dart' show CatalogKind;
 import '../../../data/providers.dart';
+import '../../../data/sources/playlist_source.dart' show SourceException;
+import '../../../data/sources/tmdb_source.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
@@ -100,6 +102,20 @@ Future<void> _editDiscovery(
               onPressed: () async {
                 final key = keyController.text.trim();
                 final region = regionController.text.trim().toUpperCase();
+                // Check the key before saving. Pasting a key and being told
+                // nothing is the worst part of this screen — a wrong key just
+                // meant the rails silently never appeared.
+                if (key.isNotEmpty) {
+                  try {
+                    await TmdbSource(apiKey: key).verifyKey();
+                  } on SourceException catch (e) {
+                    if (sheetContext.mounted) {
+                      ScaffoldMessenger.of(sheetContext).showSnackBar(
+                          SnackBar(content: Text(e.message)));
+                    }
+                    return;
+                  }
+                }
                 await savePrefs(key.isEmpty
                     ? prefs.copyWith(
                         clearTmdbApiKey: true,
@@ -109,7 +125,13 @@ Future<void> _editDiscovery(
                         discoveryRegion: region.isEmpty ? null : region));
                 // New key/region → refetch the lists and re-resolve.
                 ref.invalidate(discoveryRailsProvider);
-                if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                if (sheetContext.mounted) {
+                  ScaffoldMessenger.of(sheetContext).showSnackBar(SnackBar(
+                      content: Text(key.isEmpty
+                          ? 'Discovery rails limited to award winners.'
+                          : 'TMDB key verified — discovery rails are on.')));
+                  Navigator.of(sheetContext).pop();
+                }
               },
               child: const Text('Save'),
             ),

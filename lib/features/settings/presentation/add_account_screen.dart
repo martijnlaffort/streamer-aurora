@@ -107,7 +107,10 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     for (final p in _progress) {
       setState(() => p.status = _KindStatus.running);
       try {
-        await catalog.refreshCatalog(account, kinds: {p.kind});
+        // Seed, don't sweep. Pulling every slice in full is minutes of waiting
+        // on a large playlist before the app is usable at all; browsing fetches
+        // the rest per category as you open it.
+        await catalog.prepareSlice(account, p.kind);
         // COUNT in SQL — loading the rows just to count them held the whole
         // catalog in memory, which on a big playlist was enough to get the
         // app killed right here during onboarding.

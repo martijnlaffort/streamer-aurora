@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
 
@@ -55,8 +56,7 @@ class ContentLanguagesScreen extends ConsumerWidget {
       ),
       body: available.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-            child: Text('$e', style: const TextStyle(color: AppColors.error))),
+        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(availableContentLanguagesProvider)),
         data: (langs) {
           if (langs.isEmpty) {
             return const Center(

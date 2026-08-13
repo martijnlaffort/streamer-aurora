@@ -1,12 +1,15 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/providers.dart';
+import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../../player/player_request.dart';
 
@@ -125,8 +128,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       body: results.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-            child: Text('$e', style: const TextStyle(color: AppColors.error))),
+        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(searchResultsProvider(_query))),
         data: (data) {
           if (_query.trim().length < 2) {
             return _RecentSearches(
@@ -165,7 +167,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 const _SectionHeader('Movies'),
                 for (final movie in data.movies)
                   _ResultTile(
-                    title: movie.name,
+                    title: prettyTitle(movie.name, year: movie.year),
                     imageUrl: movie.posterUrl,
                     subtitle: [
                       if (movie.year != null) '${movie.year}',
@@ -181,7 +183,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 const _SectionHeader('Series'),
                 for (final series in data.series)
                   _ResultTile(
-                    title: series.name,
+                    title: prettyTitle(series.name, year: series.year),
                     imageUrl: series.posterUrl,
                     subtitle: [
                       if (series.year != null) '${series.year}',
@@ -303,8 +305,11 @@ class _ResultTile extends StatelessWidget {
               ),
               clipBehavior: Clip.antiAlias,
               child: imageUrl != null
-                  ? Image.network(imageUrl!, fit: BoxFit.contain,
-                      errorBuilder: (context, error, stack) => const Icon(
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl!,
+                      fit: BoxFit.contain,
+                      memCacheWidth: 120,
+                      errorWidget: (context, url, error) => const Icon(
                           Icons.live_tv, color: AppColors.textSecondary))
                   : const Icon(Icons.live_tv, color: AppColors.textSecondary),
             )
@@ -315,8 +320,14 @@ class _ResultTile extends StatelessWidget {
                 child: AspectRatio(
                   aspectRatio: 2 / 3,
                   child: imageUrl != null
-                      ? Image.network(imageUrl!, fit: BoxFit.cover,
-                          errorBuilder: (context, error, stack) =>
+                      // Capped decode, like every other poster in the app — an
+                      // uncapped one here decoded at full source resolution for
+                      // every row of a long result list.
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl!,
+                          fit: BoxFit.cover,
+                          memCacheWidth: 120,
+                          errorWidget: (context, url, error) =>
                               const ColoredBox(
                                   color: AppColors.surfaceElevated))
                       : const ColoredBox(color: AppColors.surfaceElevated),

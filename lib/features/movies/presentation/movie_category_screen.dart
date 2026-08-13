@@ -6,6 +6,7 @@ import '../../../core/matching/category_label.dart';
 import '../../../core/widgets/paged_poster_grid.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../../data/providers.dart';
+import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../movies_providers.dart';
 
@@ -93,7 +94,7 @@ class _MovieCategoryScreenState extends ConsumerState<MovieCategoryScreen> {
         itemBuilder: (context, movie) {
           final tag = 'grid-${widget.categoryId}-m-${movie.id}';
           return PosterCard(
-            title: movie.name,
+            title: prettyTitle(movie.name, year: movie.year),
             imageUrl: movie.posterUrl,
             rating: movie.rating,
             heroTag: tag,

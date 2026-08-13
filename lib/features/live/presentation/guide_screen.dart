@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:linked_scroll_controller/linked_scroll_controller.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../domain/models/models.dart';
 import '../../player/player_request.dart';
@@ -136,8 +137,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
       ),
       body: guide.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-            child: Text('$e', style: const TextStyle(color: AppColors.error))),
+        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(guideProvider)),
         data: (data) {
           if (data == null || data.channels.isEmpty) {
             return const Center(
@@ -358,8 +358,11 @@ class _ChannelRow extends StatelessWidget {
         width: width,
         top: 4,
         bottom: 4,
-        child: GestureDetector(
+        // InkWell so a D-pad OK press activates the block; GestureDetector
+        // takes focus on a TV and then ignores it.
+        child: InkWell(
           onTap: () => onTap(e),
+          borderRadius: BorderRadius.circular(6),
           child: Container(
             margin: const EdgeInsets.only(right: 2),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

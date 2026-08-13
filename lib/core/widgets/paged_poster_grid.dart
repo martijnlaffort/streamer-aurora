@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import 'error_view.dart';
 
 /// A poster grid that pulls its content one page at a time.
 ///
@@ -105,13 +105,13 @@ class _PagedPosterGridState<T> extends State<PagedPosterGrid<T>> {
         return const Center(child: CircularProgressIndicator());
       }
       if (_error != null) {
-        return Center(
-            child: Text('$_error',
-                style: const TextStyle(color: AppColors.error)));
+        return ErrorView(error: _error!, onRetry: _reload);
       }
-      return Center(
-        child: Text(widget.emptyLabel,
-            style: const TextStyle(color: AppColors.textSecondary)),
+      return EmptyView(
+        icon: Icons.movie_filter_outlined,
+        title: widget.emptyLabel,
+        message: 'Nothing in this category has been downloaded yet. '
+            'Pull down to refresh, or try another category.',
       );
     }
     return GridView.builder(

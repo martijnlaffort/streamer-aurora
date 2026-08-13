@@ -60,7 +60,19 @@ class _PosterCardState extends State<PosterCard> {
     // kill the app while scrolling.
     final decodeWidth =
         (widget.width * MediaQuery.devicePixelRatioOf(context)).round();
-    return SizedBox(
+    // The card is a picture plus a caption; without this a screen reader reads
+    // the caption with no indication it is a button, and the rating/rank
+    // badges are announced as loose numbers.
+    return Semantics(
+      button: true,
+      label: [
+        widget.title,
+        if (widget.rank != null) 'number ${widget.rank}',
+        if (widget.rating != null && widget.rating! > 0)
+          'rated ${widget.rating!.toStringAsFixed(1)}',
+      ].join(', '),
+      excludeSemantics: true,
+      child: SizedBox(
       width: widget.width,
       child: MouseRegion(
         onEnter: (_) => setState(() => _engaged = true),
@@ -162,6 +174,7 @@ class _PosterCardState extends State<PosterCard> {
               ),
             ),
         ),
+      ),
       ),
     );
   }

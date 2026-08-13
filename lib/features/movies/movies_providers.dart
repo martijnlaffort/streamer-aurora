@@ -1,4 +1,4 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/language/content_language.dart';
 import '../../core/rotation.dart';
@@ -31,7 +31,7 @@ final vodCategoriesProvider = FutureProvider<List<Category>>((ref) async {
 });
 
 /// Page size for the browse grid. Small enough that the grid never holds the
-/// whole catalog in memory â€” a large catalog would otherwise blow the app's
+/// whole catalog in memory — a large catalog would otherwise blow the app's
 /// memory budget and get it killed by the OS. Pagination lives in
 /// [PagedPosterGrid], which fetches one page at a time via the repository.
 const moviesPageSize = 90;
@@ -39,7 +39,7 @@ const moviesPageSize = 90;
 /// How many posters one category rail shows before "See all".
 const categoryRailLength = 15;
 
-/// Route sentinel for "no category filter" â€” the unscoped grid reachable from
+/// Route sentinel for "no category filter" — the unscoped grid reachable from
 /// the Movies/Series app bar. Not a real category id, so it cannot collide with
 /// one from a panel.
 const allCategoryId = '__all__';
@@ -48,7 +48,7 @@ const allCategoryId = '__all__';
 ///
 /// The Movies tab is one rail per category, and a line can have hundreds. Since
 /// the panel offers no per-category limit, warming a category downloads the
-/// whole category â€” so a fling from top to bottom must not queue a fetch per
+/// whole category — so a fling from top to bottom must not queue a fetch per
 /// rail. Rails that scroll past within this window are disposed before they ask
 /// for anything, which makes fast scrolling free.
 const _railDwell = Duration(milliseconds: 350);
@@ -95,7 +95,7 @@ final movieCategoryRailProvider =
     return cached;
   }
   if (gone) return const [];
-  // Nothing cached â€” this is the one case worth waiting for, and it is a single
+  // Nothing cached — this is the one case worth waiting for, and it is a single
   // category, not a sweep.
   await catalog.warmCategory(account, CatalogKind.vod, categoryId);
   final warmed = await fromCache(page: page);

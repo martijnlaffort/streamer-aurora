@@ -8,12 +8,15 @@ import 'package:go_router/go_router.dart';
 import '../../../core/platform/television.dart';
 import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../../data/db/app_database.dart' show CatalogKind;
 import '../../../data/providers.dart';
+import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../../movies/movies_providers.dart' show isFavoriteProvider;
+import '../../player/player_request.dart';
 import '../home_providers.dart';
 import 'widgets/media_rail.dart';
 
@@ -29,14 +32,11 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       body: home.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('Could not load your catalog: $e',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.error)),
-          ),
-        ),
+        error: (e, _) => ErrorView(
+            error: e,
+            title: 'Could not load your catalogue',
+            onRetry: () => ref.invalidate(homeDataProvider)),
+
         data: (data) =>
             data == null ? const _NoAccount() : _HomeContent(data: data),
       ),
@@ -130,7 +130,7 @@ class _HomeContent extends ConsumerWidget {
                   final movie = data.recentlyAdded[i];
                   final tag = 'recent-m-${movie.id}';
                   return PosterCard(
-                    title: movie.name,
+                    title: prettyTitle(movie.name, year: movie.year),
                     imageUrl: movie.posterUrl,
                     heroTag: tag,
                     onTap: () => context.push('/movie/${movie.id}', extra: tag),
@@ -177,7 +177,7 @@ Widget _posterFor(BuildContext context, Object item, String tagPrefix,
   if (item is Movie) {
     final tag = '$tagPrefix-m-${item.id}';
     return PosterCard(
-      title: item.name,
+      title: prettyTitle(item.name, year: item.year),
       imageUrl: item.posterUrl,
       rating: showRating ? item.rating : null,
       rank: rank,
@@ -188,7 +188,7 @@ Widget _posterFor(BuildContext context, Object item, String tagPrefix,
   final series = item as Series;
   final tag = '$tagPrefix-s-${series.id}';
   return PosterCard(
-    title: series.name,
+    title: prettyTitle(series.name, year: series.year),
     imageUrl: series.posterUrl,
     rating: showRating ? series.rating : null,
     rank: rank,
@@ -255,16 +255,25 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
   int _index = 0;
   Timer? _timer;
 
+  /// Auto-rotation stops once you engage with the hero. Without this the title
+  /// changes under your thumb while you are reading it or reaching for a
+  /// button, which turns the spotlight into a hazard.
+  bool _paused = false;
+
   @override
   void initState() {
     super.initState();
     if (widget.movies.length > 1) {
       _timer = Timer.periodic(const Duration(seconds: 6), (_) {
-        if (mounted) {
+        if (mounted && !_paused) {
           setState(() => _index = (_index + 1) % widget.movies.length);
         }
       });
     }
+  }
+
+  void _pause() {
+    if (!_paused && mounted) setState(() => _paused = true);
   }
 
   @override
@@ -276,10 +285,22 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
   @override
   Widget build(BuildContext context) {
     final movie = widget.movies[_index];
-    return GestureDetector(
-      onTap: () => context.push('/movie/${movie.id}'),
-      child: SizedBox(
-        height: 430,
+    return MouseRegion(
+      onEnter: (_) => _pause(),
+      child: InkWell(
+        // InkWell so the remote's OK button activates it; GestureDetector
+        // takes focus on a TV and then ignores the press.
+        onTap: () {
+          _pause();
+          context.push('/movie/${movie.id}');
+        },
+        onFocusChange: (focused) {
+          if (focused) _pause();
+        },
+        focusColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        child: SizedBox(
+          height: 430,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -332,7 +353,7 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 400),
                     child: Text(
-                      movie.name,
+                      prettyTitle(movie.name, year: movie.year),
                       key: ValueKey(movie.id),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -379,28 +400,98 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
                 ],
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _ContinueCard extends StatelessWidget {
+class _ContinueCard extends ConsumerWidget {
   const _ContinueCard({required this.entry});
 
   final ContinueEntry entry;
 
+  /// Play straight from the card, at the point you stopped.
+  Future<void> _resume(BuildContext context, WidgetRef ref) async {
+    await context.push(
+      '/player',
+      extra: PlayerRequest(
+        queue: [
+          PlayerItem(
+            streamRef: entry.streamRef,
+            title: entry.title,
+            subtitle: entry.subtitle,
+            contentKey: entry.progress.contentKey,
+          ),
+        ],
+        resumeFromSeconds: entry.resumeFromSeconds,
+      ),
+    );
+    ref.invalidate(homeDataProvider);
+  }
+
+  /// Long-press: the escape hatch. Without a way to remove, something you
+  /// abandoned after five minutes sits at the top of Home forever.
+  Future<void> _showMenu(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_arrow),
+              title: const Text('Resume'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _resume(context, ref);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('Details'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                context.push(entry.route);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Remove from Continue Watching'),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                await ref
+                    .read(watchProgressRepositoryProvider)
+                    .remove(entry.progress.contentKey);
+                ref.invalidate(homeDataProvider);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final progress = entry.progress;
     final fraction = progress.durationSeconds > 0
         ? (progress.positionSeconds / progress.durationSeconds).clamp(0.0, 1.0)
         : 0.0;
     return SizedBox(
       width: 220,
-      child: GestureDetector(
-        onTap: () => context.push(entry.route),
+      // InkWell, not GestureDetector: a D-pad OK press is an ActivateIntent
+      // and GestureDetector ignores it, so on a TV this row took focus and
+      // then did nothing.
+      child: InkWell(
+        onTap: () => _resume(context, ref),
+        onLongPress: () => _showMenu(context, ref),
+        borderRadius: BorderRadius.circular(10),
+        focusColor: Colors.transparent,
+        hoverColor: Colors.transparent,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

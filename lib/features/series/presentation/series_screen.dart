@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/matching/category_label.dart';
+import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/category_rails_view.dart';
 import '../../../core/widgets/poster_card.dart';
+import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../../home/presentation/widgets/media_rail.dart';
 import '../../movies/movies_providers.dart' show allCategoryId;
@@ -23,27 +26,29 @@ class SeriesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Series'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.grid_view_outlined),
-            tooltip: 'All series',
+          TextButton.icon(
+            icon: const Icon(Icons.grid_view_outlined, size: 18),
+            label: const Text('All'),
             onPressed: () => context.push('/series/category/$allCategoryId'),
           ),
         ],
       ),
       body: categories.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('$e',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.error)),
+        error: (e, _) =>
+            ErrorView(error: e, onRetry: () => ref.invalidate(seriesCategoriesProvider)),
+
+        data: (list) => RefreshIndicator(
+          color: AppColors.accent,
+          onRefresh: () async {
+            ref.invalidate(rotationSeedProvider);
+            ref.invalidate(seriesCategoriesProvider);
+          },
+          child: CategoryRailsView(
+            categories: list,
+            railBuilder: (context, category) =>
+                _SeriesCategoryRail(category: category),
           ),
-        ),
-        data: (list) => CategoryRailsView(
-          categories: list,
-          railBuilder: (context, category) =>
-              _SeriesCategoryRail(category: category),
         ),
       ),
     );
@@ -73,7 +78,7 @@ class _SeriesCategoryRail extends ConsumerWidget {
             final s = series[i];
             final tag = 'cat-${category.id}-s-${s.id}';
             return PosterCard(
-              title: s.name,
+              title: prettyTitle(s.name, year: s.year),
               imageUrl: s.posterUrl,
               rating: s.rating,
               heroTag: tag,

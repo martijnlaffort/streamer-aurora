@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../../data/providers.dart';
+import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../../player/player_request.dart';
 
@@ -180,8 +182,7 @@ class FavoritesScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Favorites')),
       body: favorites.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-            child: Text('$e', style: const TextStyle(color: AppColors.error))),
+        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(favoritesViewProvider)),
         data: (data) {
           final unresolved = _UnresolvedNote(
               otherAccount: data.otherAccount,
@@ -192,25 +193,18 @@ class FavoritesScreen extends ConsumerWidget {
             if (data.otherAccount > 0 || data.missingFromCatalog > 0) {
               return ListView(children: [unresolved]);
             }
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.favorite_border,
-                      size: 48, color: AppColors.textSecondary),
-                  SizedBox(height: 12),
-                  Text('No favorites yet.'),
-                  Text('Tap the heart on any detail page or channel.',
-                      style: TextStyle(color: AppColors.textSecondary)),
-                ],
-              ),
+            return const EmptyView(
+              icon: Icons.bookmark_border,
+              title: 'Nothing saved yet',
+              message: 'Open any film or series and tap “My List”, or tap the '
+                  'heart on a live channel. Saved items appear on Home.',
             );
           }
           final posterItems = [
             for (final m in data.movies)
-              (m.name, m.posterUrl, '/movie/${m.id}'),
+              (prettyTitle(m.name, year: m.year), m.posterUrl, '/movie/${m.id}'),
             for (final s in data.series)
-              (s.name, s.posterUrl, '/series/${s.id}'),
+              (prettyTitle(s.name, year: s.year), s.posterUrl, '/series/${s.id}'),
           ];
           return ListView(
             padding: const EdgeInsets.only(bottom: 24),

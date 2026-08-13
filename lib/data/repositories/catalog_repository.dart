@@ -447,6 +447,16 @@ class CatalogRepository {
   }
 
   /// Whether anything is cached for a slice, or for one category of it.
+  /// Gets a slice ready for first use after an account is added: fetch the
+  /// category list, then seed a bounded number of categories.
+  ///
+  /// Explicitly NOT [refreshCatalog]. Onboarding used to sweep every slice in
+  /// full, which on a large line is 200k+ items — minutes of waiting before the
+  /// app opens, and the exact operation that used to get it killed for memory.
+  /// Browsing fills in the rest per category, on demand.
+  Future<void> prepareSlice(Account account, CatalogKind kind) =>
+      _ensureSliceBootstrapped(account, kind);
+
   Future<bool> _hasCachedItems(Account account, CatalogKind kind,
       {String? categoryId}) async {
     final table = switch (kind) {
@@ -811,11 +821,26 @@ class CatalogRepository {
 
   // --- Search (cache-only — instant, PRD §8.6) -------------------------------
 
+  /// Escapes the LIKE metacharacters so a typed `%` or `_` searches for that
+  /// character instead of acting as a wildcard — typing `%` used to match the
+  /// entire catalogue.
+  static String _likeTerm(String query) {
+    final escaped = query
+        .replaceAll(r'\', r'\\')
+        .replaceAll('%', r'\%')
+        .replaceAll('_', r'\_');
+    return '%$escaped%';
+  }
+
   Future<List<Movie>> searchMovies(Account account, String query,
       {int limit = 30}) async {
+    final term = _likeTerm(query);
+    // Cast is searched too: "films with Tom Hanks" is a real way people look,
+    // and the column is already populated for anything with a detail fetch.
     final rows = await (_db.moviesTable.select()
           ..where((t) =>
-              t.accountId.equals(account.id) & t.name.like('%$query%'))
+              t.accountId.equals(account.id) &
+              (t.name.like(term) | t.cast.like(term)))
           ..orderBy([(t) => OrderingTerm.asc(t.name)])
           ..limit(limit))
         .get();
@@ -824,9 +849,11 @@ class CatalogRepository {
 
   Future<List<Series>> searchSeries(Account account, String query,
       {int limit = 30}) async {
+    final term = _likeTerm(query);
     final rows = await (_db.seriesTable.select()
           ..where((t) =>
-              t.accountId.equals(account.id) & t.name.like('%$query%'))
+              t.accountId.equals(account.id) &
+              (t.name.like(term) | t.cast.like(term)))
           ..orderBy([(t) => OrderingTerm.asc(t.name)])
           ..limit(limit))
         .get();
@@ -837,7 +864,7 @@ class CatalogRepository {
       {int limit = 30}) async {
     final rows = await (_db.channelsTable.select()
           ..where((t) =>
-              t.accountId.equals(account.id) & t.name.like('%$query%'))
+              t.accountId.equals(account.id) & t.name.like(_likeTerm(query)))
           ..orderBy([(t) => OrderingTerm.asc(t.name)])
           ..limit(limit))
         .get();

@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/matching/category_label.dart';
+import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/category_rails_view.dart';
 import '../../../core/widgets/poster_card.dart';
+import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../../home/presentation/widgets/media_rail.dart';
 import '../movies_providers.dart';
@@ -29,27 +32,34 @@ class MoviesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Movies'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.grid_view_outlined),
-            tooltip: 'All movies',
+          // Labelled, not just an icon: a bare grid glyph gives no clue that it
+          // means "browse everything", and it was unreadable to a screen
+          // reader as well as cryptic to a sighted user.
+          TextButton.icon(
+            icon: const Icon(Icons.grid_view_outlined, size: 18),
+            label: const Text('All'),
             onPressed: () => context.push('/movies/category/$allCategoryId'),
           ),
         ],
       ),
       body: categories.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('$e',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.error)),
+        error: (e, _) =>
+            ErrorView(error: e, onRetry: () => ref.invalidate(vodCategoriesProvider)),
+
+        data: (list) => RefreshIndicator(
+          color: AppColors.accent,
+          // Users learn pull-to-refresh on Home and then try it everywhere;
+          // a tab that ignores the gesture reads as broken.
+          onRefresh: () async {
+            ref.invalidate(rotationSeedProvider);
+            ref.invalidate(vodCategoriesProvider);
+          },
+          child: CategoryRailsView(
+            categories: list,
+            railBuilder: (context, category) =>
+                _MovieCategoryRail(category: category),
           ),
-        ),
-        data: (list) => CategoryRailsView(
-          categories: list,
-          railBuilder: (context, category) =>
-              _MovieCategoryRail(category: category),
         ),
       ),
     );
@@ -82,7 +92,7 @@ class _MovieCategoryRail extends ConsumerWidget {
             final movie = movies[i];
             final tag = 'cat-${category.id}-m-${movie.id}';
             return PosterCard(
-              title: movie.name,
+              title: prettyTitle(movie.name, year: movie.year),
               imageUrl: movie.posterUrl,
               rating: movie.rating,
               heroTag: tag,

@@ -11,7 +11,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/poster_card.dart';
-import '../../../data/db/app_database.dart' show CatalogKind;
 import '../../../data/providers.dart';
 import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
@@ -79,17 +78,22 @@ class _HomeContent extends ConsumerWidget {
     return RefreshIndicator(
       color: AppColors.accent,
       onRefresh: () async {
-        final account = await ref.read(activeAccountProvider.future);
-        if (account == null) return;
-        await ref
-            .read(catalogRepositoryProvider)
-            .refreshCatalog(account, kinds: {CatalogKind.vod});
-        // Pull-to-refresh is the "show me something else" gesture, so deal a
-        // new rotation as well as refetching.
+        // This used to call refreshCatalog(), which sweeps the ENTIRE vod
+        // slice — 150k titles on a real line, i.e. minutes of spinner for a
+        // pull-to-refresh, while the Movies and Series tabs returned instantly
+        // because they only re-read. It was the last whole-slice sweep left in
+        // a routine path.
+        //
+        // Refreshing the catalogue is not what this gesture is for: the rails
+        // are served from cache and each category refreshes itself on demand.
+        // So re-read, and deal a new rotation, which is the "show me something
+        // else" the gesture actually means.
         ref.invalidate(rotationSeedProvider);
         ref.invalidate(homeDataProvider);
-        // The catalogue just changed, so the discovery matches are stale.
+        ref.invalidate(myListProvider);
         ref.invalidate(discoveryRailsProvider);
+        // Let the new values land so the spinner reflects real work.
+        await ref.read(homeDataProvider.future);
       },
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(

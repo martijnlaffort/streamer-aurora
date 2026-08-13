@@ -141,10 +141,11 @@ class _PosterCardState extends State<PosterCard> {
                                             color: AppColors.textSecondary),
                                       ),
                                     )
-                                  : const Center(
-                                      child: Icon(Icons.movie_outlined,
-                                          color: AppColors.textSecondary),
-                                    ),
+                                  // No artwork from the panel: show the title
+                                  // rather than an anonymous icon. A rail of
+                                  // identical grey placeholders tells you
+                                  // nothing about what is behind them.
+                                  : _NoArtwork(title: widget.title),
                             ),
                           )),
                         ),
@@ -175,6 +176,41 @@ class _PosterCardState extends State<PosterCard> {
             ),
         ),
       ),
+      ),
+    );
+  }
+}
+
+/// Stand-in for a poster the provider does not supply. Shows the title, so the
+/// card is still identifiable — some titles simply have no artwork on the
+/// panel, and until artwork backfill lands this is all we have.
+class _NoArtwork extends StatelessWidget {
+  const _NoArtwork({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.movie_outlined,
+              size: 22, color: AppColors.textSecondary),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            maxLines: 4,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+                height: 1.25,
+                fontWeight: FontWeight.w600),
+          ),
+        ],
       ),
     );
   }

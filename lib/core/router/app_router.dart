@@ -17,6 +17,8 @@ import '../../features/settings/presentation/about_screen.dart';
 import '../../features/settings/presentation/accounts_screen.dart';
 import '../../features/settings/presentation/add_account_screen.dart';
 import '../../features/settings/presentation/content_languages_screen.dart';
+import '../../features/settings/presentation/pair_device_screen.dart';
+import '../../features/settings/presentation/pair_tv_screen.dart';
 import '../../features/settings/presentation/favorites_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/source_probe_screen.dart';
@@ -132,6 +134,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/about',
         name: 'about',
         builder: (context, state) => const AboutScreen(),
+      ),
+      GoRoute(
+        path: '/pair/receive',
+        name: 'pair-receive',
+        builder: (context, state) => const PairDeviceScreen(),
+      ),
+      GoRoute(
+        path: '/pair/send',
+        name: 'pair-send',
+        builder: (context, state) => const PairTvScreen(),
       ),
       GoRoute(
         path: '/settings/sync',

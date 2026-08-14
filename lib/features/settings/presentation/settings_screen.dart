@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/db/app_database.dart' show CatalogKind;
 import '../../../data/providers.dart';
@@ -234,6 +235,42 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/favorites'),
           ),
+          // Both directions exist on every device, but the one that matches
+          // what you are holding comes first — a TV is nearly always the
+          // device being set up, and a phone the one doing the setting up.
+          if (isTelevisionOf(ref)) ...[
+            ListTile(
+              leading: const Icon(Icons.phonelink_ring),
+              title: const Text('Pair with your phone'),
+              subtitle: const Text(
+                'Copy your playlists and sync settings across, without typing',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/pair/receive'),
+            ),
+          ] else ...[
+            ListTile(
+              leading: const Icon(Icons.tv),
+              title: const Text('Set up a TV'),
+              subtitle: const Text(
+                'Send your playlists and sync settings to another device',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/pair/send'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.phonelink_ring),
+              title: const Text('Pair with another device'),
+              subtitle: const Text(
+                'Receive playlists and sync settings from a set-up device',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/pair/receive'),
+            ),
+          ],
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('About & credits'),

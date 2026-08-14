@@ -112,8 +112,14 @@ void main() {
       source.xmltv = 'http://epg.example.com/guide.xml';
       final repo = epgRepo(dio: dio);
 
-      final window = await repo.guideWindow(account(),
-          now.subtract(const Duration(hours: 2)), now.add(const Duration(hours: 4)));
+      // guideWindow is now channel-scoped; the guide discovers its keys via
+      // channelKeysWithEpg, which is also what triggers the ingest.
+      final from = now.subtract(const Duration(hours: 2));
+      final to = now.add(const Duration(hours: 4));
+      final keys =
+          await repo.channelKeysWithEpg(account(), from, to, limit: 150);
+      final window = await repo.guideWindow(account(), from, to,
+          channelKeys: keys.toSet());
 
       expect(window.keys, contains('one.epg'));
       final progs = window['one.epg']!;
@@ -148,7 +154,8 @@ void main() {
 
       await repo.nowNext(account(), channelOne());
       await repo.currentProgramme(account(), channelOne());
-      await repo.guideWindow(account(), now, now.add(const Duration(hours: 2)));
+      await repo.guideWindow(account(), now, now.add(const Duration(hours: 2)),
+          channelKeys: {'one.epg'});
       expect(adapter.calls, 1, reason: 'ingested once, then served from cache');
 
       expect(await repo.hasEpg(account()), isTrue);

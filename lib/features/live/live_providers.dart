@@ -17,21 +17,12 @@ final liveCategoriesProvider = FutureProvider<List<Category>>((ref) async {
       .toList();
 });
 
-/// Channels for one category (null = all). The unscoped list honours the
-/// content-language filter.
-final channelsListProvider =
-    FutureProvider.family<List<Channel>, String?>((ref, categoryId) async {
-  final account = await ref.watch(activeAccountProvider.future);
-  if (account == null) return [];
-  final channels = await ref
-      .watch(catalogRepositoryProvider)
-      .channels(account, categoryId: categoryId);
-  if (categoryId != null) return channels;
-  final allowed =
-      await ref.watch(allowedCategoryIdsProvider(CategoryType.live).future);
-  if (allowed == null) return channels;
-  return channels.where((c) => allowed.contains(c.categoryId)).toList();
-});
+/// Page size for the Live channel list. The list used to load every channel at
+/// once and filter in Dart; on a line with tens of thousands of channels that
+/// materialised the whole lot into models on every read of the tab. LiveScreen
+/// pages against the repository instead, and the language filter is applied in
+/// SQL so pages come back full.
+const channelsPageSize = 90;
 
 /// Now/Next for a channel (PRD §8.5), from the ingested XMLTV guide (or a
 /// per-channel fallback for Xtream). Empty for accounts without any EPG.
@@ -59,6 +50,7 @@ class GuideData {
     required this.programmes,
     required this.windowStart,
     required this.windowEnd,
+    this.truncated = false,
   });
 
   final List<Channel> channels;
@@ -69,7 +61,17 @@ class GuideData {
   /// UTC bounds of the loaded window.
   final DateTime windowStart;
   final DateTime windowEnd;
+
+  /// More channels have EPG than are shown. Surfaced in the UI rather than
+  /// silently dropped — a guide that quietly hides channels is worse than one
+  /// that says it is showing the first N.
+  final bool truncated;
 }
+
+/// How many channels the guide grid renders at once. The grid is a 2-D scroller
+/// holding a row per channel; a line with 25k channels would build a 25k-row
+/// grid and read every programme in the window (~300k rows) to do it.
+const guideChannelLimit = 150;
 
 final guideProvider = FutureProvider<GuideData?>((ref) async {
   final account = await ref.watch(activeAccountProvider.future);
@@ -80,19 +82,31 @@ final guideProvider = FutureProvider<GuideData?>((ref) async {
   final start = DateTime.utc(now.year, now.month, now.day, now.hour);
   final end = start.add(const Duration(hours: 12));
 
-  final channels = await ref.watch(catalogRepositoryProvider).channels(account);
+  // Start from the channels that HAVE EPG, not from the channel list. This is
+  // the whole fix: the old flow loaded every channel plus every programme in
+  // the window and intersected them in Dart.
+  final epg = ref.watch(epgRepositoryProvider);
+  final keys = await epg.channelKeysWithEpg(account, start, end,
+      limit: guideChannelLimit);
+  final truncated = keys.length > guideChannelLimit;
+  final shown = (truncated ? keys.take(guideChannelLimit) : keys).toSet();
+
   final programmes =
-      await ref.watch(epgRepositoryProvider).guideWindow(account, start, end);
+      await epg.guideWindow(account, start, end, channelKeys: shown);
+  final channels = await ref
+      .watch(catalogRepositoryProvider)
+      .channelsByEpgKeys(account, shown);
 
-  // Only show channels that actually have EPG in the window.
-  final withEpg = channels
-      .where((c) => (programmes[c.epgChannelId ?? c.id] ?? const []).isNotEmpty)
-      .toList();
-
+  // A key with no matching channel row (guide lists a channel the playlist
+  // does not carry) simply has no row to draw.
   return GuideData(
-    channels: withEpg,
+    channels: channels
+        .where(
+            (c) => (programmes[c.epgChannelId ?? c.id] ?? const []).isNotEmpty)
+        .toList(),
     programmes: programmes,
     windowStart: start,
     windowEnd: end,
+    truncated: truncated,
   );
 });

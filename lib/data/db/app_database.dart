@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import '../../domain/models/discovery.dart' show DiscoveryKind;
 import '../../domain/models/enums.dart';
 
 part 'app_database.g.dart';
@@ -128,6 +129,13 @@ class ChannelsTable extends Table {
   TextColumn get logoUrl => text().nullable()();
   TextColumn get epgChannelId => text().nullable()();
   IntColumn get sortOrder => integer().nullable()();
+
+  /// Whether the panel keeps a rolling recording of this channel, and for how
+  /// many days (Xtream `tv_archive` / `tv_archive_duration`, schema v7).
+  /// This is what makes "watch it from the start" possible for something that
+  /// already aired.
+  BoolColumn get tvArchive => boolean().withDefault(const Constant(false))();
+  IntColumn get tvArchiveDays => integer().nullable()();
   IntColumn get cachedAtMillisUtc => integer()();
 
   @override
@@ -171,6 +179,17 @@ class PreferencesTable extends Table {
   /// Content-language filter: CSV of ContentLanguage codes to show, or null
   /// for "all languages" (added in schema v4).
   TextColumn get contentLanguages => text().nullable()();
+
+  /// TMDB v3 API key for the discovery rails, or null when not configured —
+  /// in which case only the bundled award rails appear (added in schema v6).
+  /// Kept here rather than in secure storage deliberately: it is a personal
+  /// read-only key for public list data, not a credential granting access to
+  /// anything of the user's.
+  TextColumn get tmdbApiKey => text().nullable()();
+
+  /// ISO 3166-1 country for region-aware discovery ("what's popular/new *here*").
+  /// Null → derived from the device locale (added in schema v6).
+  TextColumn get discoveryRegion => text().nullable()();
 
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
@@ -226,6 +245,106 @@ class CatalogMetaTable extends Table {
   Set<Column> get primaryKey => {accountId, kind};
 }
 
+/// Per-category TTL bookkeeping: when each category's *items* were last
+/// fetched. [CatalogMetaTable] above tracks the slice's category *list*; this
+/// tracks the contents of each category, because refreshes are per-category and
+/// on demand (see `CatalogRepository`). Sweeping a whole slice is not viable on
+/// a large line — 200k+ items is minutes of network that starves every read.
+///
+/// A separate table rather than a `categoryId` column on [CatalogMetaTable]:
+/// that would change its primary key, and adding a table is a migration that
+/// cannot lose the existing TTL state.
+@DataClassName('CatalogCategoryMetaRow')
+class CatalogCategoryMetaTable extends Table {
+  @override
+  String get tableName => 'catalog_category_meta';
+
+  TextColumn get accountId => text()();
+
+  /// One of [CatalogKind] (stored as enum name).
+  TextColumn get kind => textEnum<CatalogKind>()();
+  TextColumn get categoryId => text()();
+  IntColumn get refreshedAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {accountId, kind, categoryId};
+}
+
+/// One entry of an external ranked list (TMDB trending/popular/top-rated, or
+/// the bundled award canon). Global, not account-scoped: the lists describe the
+/// world, not a playlist. [DiscoveryMatchesTable] is what ties them to an
+/// account's catalogue.
+@DataClassName('DiscoveryTitleRow')
+class DiscoveryTitlesTable extends Table {
+  @override
+  String get tableName => 'discovery_titles';
+
+  TextColumn get listId => text()();
+
+  /// Position in the source list. This IS the ranking we render — it already
+  /// encodes popularity far better than any panel rating.
+  IntColumn get rank => integer()();
+  TextColumn get kind => textEnum<DiscoveryKind>()();
+  TextColumn get title => text()();
+  IntColumn get tmdbId => integer().nullable()();
+  IntColumn get year => integer().nullable()();
+  RealColumn get voteAverage => real().nullable()();
+  IntColumn get voteCount => integer().nullable()();
+  IntColumn get fetchedAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {listId, rank};
+}
+
+/// A discovery entry resolved to a row in one account's catalogue. Written by a
+/// single streaming pass over the catalogue (see `DiscoveryRepository`), so a
+/// rail read afterwards is one indexed join rather than 150k normalisations.
+@DataClassName('DiscoveryMatchRow')
+class DiscoveryMatchesTable extends Table {
+  @override
+  String get tableName => 'discovery_matches';
+
+  TextColumn get accountId => text()();
+  TextColumn get listId => text()();
+  IntColumn get rank => integer()();
+
+  /// `movies.id` or `series.id`, per the list's kind.
+  TextColumn get localId => text()();
+  IntColumn get resolvedAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {accountId, listId, rank};
+}
+
+/// Artwork fetched from TMDB for titles the panel supplies no image for.
+///
+/// Global rather than account-scoped, and keyed by the *title* rather than by a
+/// local row id: the same film on two playlists is the same film, and a lookup
+/// paid for once should serve both. It also survives a catalogue refresh, which
+/// writing into `movies.posterUrl` would not — the panel's null would simply
+/// overwrite it again on the next fetch.
+///
+/// [missing] records a lookup that came back empty. Without it, every title
+/// TMDB does not know would be re-requested on every scroll past it forever.
+@DataClassName('ArtworkRow')
+class ArtworkCacheTable extends Table {
+  @override
+  String get tableName => 'artwork_cache';
+
+  /// 'movie' or 'series'.
+  TextColumn get kind => text()();
+
+  /// Normalised title (+ year when known) — see `artworkKeyFor`.
+  TextColumn get titleKey => text()();
+  TextColumn get posterUrl => text().nullable()();
+  TextColumn get backdropUrl => text().nullable()();
+  BoolColumn get missing => boolean().withDefault(const Constant(false))();
+  IntColumn get fetchedAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {kind, titleKey};
+}
+
 /// Catalog slices tracked for TTL purposes.
 enum CatalogKind { live, vod, series }
 
@@ -255,7 +374,11 @@ class SearchHistoryTable extends Table {
   FavoritesTable,
   EpgCacheTable,
   CatalogMetaTable,
+  CatalogCategoryMetaTable,
+  DiscoveryTitlesTable,
+  DiscoveryMatchesTable,
   SearchHistoryTable,
+  ArtworkCacheTable,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
@@ -264,7 +387,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -283,6 +406,29 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(
                 preferencesTable, preferencesTable.contentLanguages);
           }
+          // v5: per-category TTLs, for on-demand per-category refreshes.
+          if (from < 5) {
+            await m.createTable(catalogCategoryMetaTable);
+          }
+          // v6: discovery rails (TMDB lists + the bundled award canon).
+          if (from < 6) {
+            await m.createTable(discoveryTitlesTable);
+            await m.createTable(discoveryMatchesTable);
+            await m.addColumn(preferencesTable, preferencesTable.tmdbApiKey);
+            await m.addColumn(
+                preferencesTable, preferencesTable.discoveryRegion);
+          }
+          // v7: catch-up TV — which channels the panel records, and for how
+          // long. Existing rows default to "no archive" until the next live
+          // refresh fills them in, so nothing has to be re-downloaded eagerly.
+          if (from < 7) {
+            await m.addColumn(channelsTable, channelsTable.tvArchive);
+            await m.addColumn(channelsTable, channelsTable.tvArchiveDays);
+          }
+          // v8: artwork for titles the panel has no image for.
+          if (from < 8) {
+            await m.createTable(artworkCacheTable);
+          }
         },
         beforeOpen: (details) async {
           // Indexes for the hot catalog queries. Without them every Home rail
@@ -291,7 +437,7 @@ class AppDatabase extends _$AppDatabase {
           // feel very slow. Created idempotently — no schema bump needed — and
           // built once against whatever is already cached. Column/table names
           // come from drift's getters so they can't drift out of sync.
-          final mv = moviesTable, sr = seriesTable;
+          final mv = moviesTable, sr = seriesTable, ch = channelsTable;
           Future<void> ix(String name, String table, List<String> cols) =>
               customStatement('CREATE INDEX IF NOT EXISTS $name ON $table '
                   '(${cols.join(', ')})');
@@ -309,6 +455,13 @@ class AppDatabase extends _$AppDatabase {
               [sr.accountId.name, sr.name.name]);
           await ix('idx_sr_acct_rating', sr.actualTableName,
               [sr.accountId.name, sr.rating.name]);
+          // Channels had no index at all: a line with tens of thousands of
+          // channels made every Live read a full scan plus a sort. These let a
+          // paged read touch only the rows it returns.
+          await ix('idx_ch_acct_sort', ch.actualTableName,
+              [ch.accountId.name, ch.sortOrder.name]);
+          await ix('idx_ch_acct_cat_sort', ch.actualTableName,
+              [ch.accountId.name, ch.categoryId.name, ch.sortOrder.name]);
         },
       );
 }

@@ -16,7 +16,8 @@ import '../../../core/utils/duration_format.dart';
 import '../../../data/providers.dart';
 import '../../../data/repositories/watch_progress_repository.dart';
 import '../../../data/sync/sync_providers.dart';
-import '../../../domain/models/models.dart' show Preferences;
+import '../../../domain/models/models.dart'
+    show Preferences, StreamRef, StreamType, contentKeyFor;
 import '../player_request.dart';
 
 /// Android emulators stall on hardware video decode (documented media_kit
@@ -104,7 +105,41 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Timer? _upNextTimer;
   int? _upNextCountdown;
 
-  PlayerItem get _current => widget.request.queue[_index];
+  /// Automatic recovery from a dropped stream.
+  ///
+  /// IPTV transports drop constantly — a few seconds of bad wifi, a panel
+  /// hiccup, a re-negotiated CDN edge. Surfacing the error screen on the first
+  /// failure turned every one of those into a manual Retry tap, which on a TV
+  /// means finding the remote. We now reopen silently a few times first, and
+  /// only fall through to the error screen once it is clear the stream is
+  /// genuinely gone.
+  static const _maxReconnectAttempts = 3;
+  int _reconnectAttempt = 0;
+  bool _reconnecting = false;
+  Timer? _reconnectTimer;
+
+  /// Set once the current media has actually produced playback, which is what
+  /// makes a later failure a *drop* (worth retrying silently) rather than a
+  /// stream that never opened at all.
+  bool _everPlayed = false;
+
+  /// Focus node for remote/keyboard input. The player is the one screen where
+  /// the entire UI is a video surface, so it owns key handling directly rather
+  /// than relying on focus traversal between buttons.
+  final _keyboardFocus = FocusNode(debugLabel: 'player-keys');
+
+  /// Live zapping state. Starts from the list position the caller handed over
+  /// and moves as the user changes channel.
+  late ZapContext? _zap = widget.request.zap;
+
+  /// The channel currently playing, when it was reached by zapping rather than
+  /// from the queue. Lets the player show the new channel's name and EPG.
+  PlayerItem? _zappedItem;
+  bool _zapping = false;
+  String? _zapToast;
+  Timer? _zapToastTimer;
+
+  PlayerItem get _current => _zappedItem ?? widget.request.queue[_index];
   PlayerItem? get _next => _index + 1 < widget.request.queue.length
       ? widget.request.queue[_index + 1]
       : null;
@@ -115,6 +150,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // PopScope's canPop depends on where focus currently sits, and focus
+    // changes do not rebuild by themselves.
+    _keyboardFocus.addListener(() {
+      if (mounted) setState(() {});
+    });
     // logLevel: info so the mpv log stream carries HTTP status / open-failure
     // detail (the default `error` level drops it).
     _player = Player(
@@ -142,7 +182,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
 
     _subs.add(_player.stream.playing.listen((v) {
-      setState(() => _playing = v);
+      setState(() {
+        _playing = v;
+        if (v) {
+          // Playback is live again: clear any recovery state so a *later*
+          // unrelated drop gets its own full set of attempts rather than
+          // inheriting a used-up budget.
+          _everPlayed = true;
+          _reconnectAttempt = 0;
+          _reconnecting = false;
+        }
+      });
       // Save on pause (PRD §8.9).
       if (!v && _position > Duration.zero && _duration > Duration.zero) {
         _saveProgress();
@@ -169,12 +219,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _subs.add(_player.stream.track.listen((v) {
       setState(() => _selected = v);
     }));
-    _subs.add(_player.stream.error.listen((message) {
-      setState(() {
-        _error = message;
-        _controlsVisible = true;
-      });
-    }));
+    _subs.add(_player.stream.error.listen(_onStreamError));
     // mpv's own log stream — the only place open/decode failures explain
     // themselves. debugPrint is compiled out of release builds.
     _subs.add(_player.stream.log.listen((event) {
@@ -225,6 +270,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _hintTimer?.cancel();
     _upNextTimer?.cancel();
     _liveEpgTimer?.cancel();
+    _reconnectTimer?.cancel();
+    _zapToastTimer?.cancel();
+    _keyboardFocus.dispose();
     for (final sub in _subs) {
       sub.cancel();
     }
@@ -346,13 +394,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     ref.invalidate(preferencesProvider);
   }
 
-  Future<void> _openCurrent({int? resumeFrom}) async {
+  /// Opens [_current]. [isRetry] marks an automatic reconnect, which keeps the
+  /// attempt counter running; anything else (a queue advance, a manual Retry)
+  /// is a fresh start and resets it.
+  Future<void> _openCurrent({int? resumeFrom, bool isRetry = false}) async {
     setState(() {
       _error = null;
       _upNextCountdown = null;
       _liveNow = null;
       _diagLog.clear();
       _showErrorDetails = false;
+      if (!isRetry) {
+        _reconnectAttempt = 0;
+        _reconnecting = false;
+        _everPlayed = false;
+      }
     });
     _upNextTimer?.cancel();
     _liveEpgTimer?.cancel();
@@ -391,7 +447,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             const Duration(seconds: 60), (_) => _refreshLiveEpg());
       }
     } on Exception catch (e) {
-      setState(() => _error = '$e');
+      // Same path as a playback failure: building the URL can fail for
+      // transient reasons too, and a reconnect in progress should keep trying.
+      _onStreamError('$e');
     }
   }
 
@@ -409,7 +467,59 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (mounted) setState(() => _liveNow = programme?.title);
   }
 
+  /// A stream failed. Retry quietly a few times before admitting defeat —
+  /// see [_maxReconnectAttempts].
+  void _onStreamError(String message) {
+    if (!mounted) return;
+    // A stream that never opened is usually a real problem (wrong URL, denied,
+    // offline) and retrying it just delays a useful message. A stream that was
+    // playing and stopped is a drop, and is worth reopening.
+    if (_everPlayed && _reconnectAttempt < _maxReconnectAttempts) {
+      _scheduleReconnect();
+      return;
+    }
+    setState(() {
+      _error = message;
+      _reconnecting = false;
+      _controlsVisible = true;
+    });
+  }
+
+  /// Reopens the current item after a backoff, resuming where it dropped.
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    final attempt = _reconnectAttempt + 1;
+    // 1s, 2s, 4s — long enough for a brief outage to pass, short enough that a
+    // recoverable blip doesn't feel like a failure.
+    final delay = Duration(seconds: 1 << (attempt - 1));
+    setState(() {
+      _reconnectAttempt = attempt;
+      _reconnecting = true;
+      _error = null;
+    });
+    // Live has no meaningful resume point; VOD picks up where it stopped.
+    final resumeFrom = _current.isLive ? null : _position.inSeconds;
+    _reconnectTimer = Timer(delay, () {
+      if (mounted) _openCurrent(resumeFrom: resumeFrom, isRetry: true);
+    });
+  }
+
   void _onCompleted() {
+    // A live stream does not "complete" — if it reports completion the feed
+    // dropped, and stopping here would leave a dead screen with the channel
+    // apparently still on. Recover it the same way as an error.
+    if (_current.isLive) {
+      if (_reconnectAttempt < _maxReconnectAttempts) {
+        _scheduleReconnect();
+      } else {
+        setState(() {
+          _error = 'The channel stopped responding.';
+          _reconnecting = false;
+          _controlsVisible = true;
+        });
+      }
+      return;
+    }
     // Completion drops it from Continue Watching and, for series,
     // advances the next-unwatched pointer (PRD §8.9).
     _progressRepo.markCompleted(_current.contentKey);
@@ -485,6 +595,199 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _hintTimer = Timer(const Duration(milliseconds: 900), () {
       if (mounted) setState(() => _gestureHint = null);
     });
+  }
+
+  /// Whether channel up/down is available: a live stream launched from a
+  /// channel list. Catch-up playback is a recording, so zapping off it would be
+  /// surprising — it is excluded.
+  bool get _canZap =>
+      _zap != null && _current.isLive && !_current.streamRef.isCatchup;
+
+  /// Channel up (+1) / down (-1), wrapping at both ends.
+  ///
+  /// Neighbours are resolved one row at a time from the catalogue rather than
+  /// from an in-memory list — see [ZapContext].
+  Future<void> _zapBy(int delta) async {
+    final zap = _zap;
+    if (zap == null || _zapping) return;
+    _zapping = true;
+    try {
+      final account = await ref.read(activeAccountProvider.future);
+      if (account == null) return;
+      final catalog = ref.read(catalogRepositoryProvider);
+      final total = await catalog.channelCount(
+        account,
+        categoryId: zap.categoryId,
+        categoryIds: zap.categoryIds,
+      );
+      if (total <= 1) {
+        _showZapToast('No other channels in this list');
+        return;
+      }
+      final nextIndex = (zap.index + delta) % total;
+      final channel = await catalog.channelAt(
+        account,
+        nextIndex,
+        categoryId: zap.categoryId,
+        categoryIds: zap.categoryIds,
+      );
+      if (channel == null || !mounted) return;
+      _saveProgress();
+      _reconnectTimer?.cancel();
+      setState(() {
+        _zap = zap.withIndex(nextIndex);
+        _zappedItem = PlayerItem(
+          streamRef: StreamRef(
+            accountId: channel.accountId,
+            type: StreamType.live,
+            streamId: channel.id,
+          ),
+          title: channel.name,
+          contentKey: contentKeyFor(
+              accountId: channel.accountId,
+              type: StreamType.live,
+              id: channel.id),
+          isLive: true,
+        );
+      });
+      _showZapToast('${nextIndex + 1}/$total · ${channel.name}');
+      await _openCurrent();
+    } finally {
+      _zapping = false;
+    }
+  }
+
+  /// Brief channel banner after a zap — the one piece of feedback that makes
+  /// holding channel-up feel like a TV rather than a series of blind jumps.
+  void _showZapToast(String text) {
+    _zapToastTimer?.cancel();
+    if (!mounted) return;
+    setState(() => _zapToast = text);
+    _zapToastTimer = Timer(const Duration(milliseconds: 2200), () {
+      if (mounted) setState(() => _zapToast = null);
+    });
+  }
+
+  /// Brings the overlay back and restarts the auto-hide countdown.
+  ///
+  /// Every remote press routes through here, and that is the point: the
+  /// controls hid themselves after 3.2 seconds and *tap* was the only thing
+  /// that brought them back, so on a television they became unreachable the
+  /// first time they faded.
+  void _wake() {
+    if (!_controlsVisible) setState(() => _controlsVisible = true);
+    _scheduleHide();
+  }
+
+  /// Remote and keyboard input.
+  ///
+  /// Handled here at the top of the player rather than by focus traversal
+  /// between the overlay's buttons: a video player's primary controls are the
+  /// directional pad itself (left/right scrubs, centre pauses), not a set of
+  /// widgets you tab through. Up/Down are deliberately left unhandled so
+  /// traversal can still reach the top bar's audio/subtitle/lock buttons.
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+
+    // Key events bubble up from whatever descendant holds focus. Once the user
+    // has moved up into the overlay's buttons, the arrows belong to focus
+    // traversal — hijacking them here would make the audio, subtitle and lock
+    // buttons unreachable, since moving between them IS left/right.
+    if (!_keyboardFocus.hasPrimaryFocus) {
+      _wake();
+      return KeyEventResult.ignored;
+    }
+
+    // Locked: swallow everything except the wake, so the unlock button can be
+    // focused. This mirrors the touch behaviour.
+    if (_locked) {
+      _wake();
+      return KeyEventResult.handled;
+    }
+
+    // Play/pause — the remote's dedicated keys plus the D-pad centre.
+    if (key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.gameButtonA ||
+        key == LogicalKeyboardKey.mediaPlayPause) {
+      _player.playOrPause();
+      _wake();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPlay) {
+      _player.play();
+      _wake();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPause) {
+      _player.pause();
+      _wake();
+      return KeyEventResult.handled;
+    }
+
+    // Scrubbing. On a live stream there is nothing to seek through, so the
+    // keys only wake the overlay rather than appearing to do nothing.
+    if (key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.mediaRewind) {
+      if (!_current.isLive) {
+        _seekRelative(-10);
+      } else {
+        _wake();
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.mediaFastForward) {
+      if (!_current.isLive) {
+        _seekRelative(10);
+      } else {
+        _wake();
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Episode queue.
+    if (key == LogicalKeyboardKey.mediaTrackNext) {
+      if (_next != null) _playNext();
+      _wake();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaTrackPrevious) {
+      if (_hasPrevious) _playPrevious();
+      _wake();
+      return KeyEventResult.handled;
+    }
+
+    // Channel up/down. The remote's dedicated channel keys always zap; the
+    // D-pad's up/down only do so while watching live, where changing channel
+    // is the thing you actually want them for. Everywhere else they are handed
+    // on to focus traversal so the top bar stays reachable.
+    if (key == LogicalKeyboardKey.channelUp) {
+      if (_canZap) unawaited(_zapBy(1));
+      _wake();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.channelDown) {
+      if (_canZap) unawaited(_zapBy(-1));
+      _wake();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown) {
+      if (_canZap) {
+        unawaited(_zapBy(key == LogicalKeyboardKey.arrowUp ? 1 : -1));
+        _wake();
+        return KeyEventResult.handled;
+      }
+      _wake();
+      return KeyEventResult.ignored;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   void _seekRelative(int seconds) {
@@ -650,9 +953,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      // Back inside the overlay steps out of the controls rather than leaving
+      // playback altogether; a second Back then exits. Without this, reaching
+      // for the subtitle button and changing your mind drops you out of the
+      // film — a costly mistake with a remote.
+      canPop: _keyboardFocus.hasPrimaryFocus,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _keyboardFocus.requestFocus();
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
-      body: LayoutBuilder(
+      body: Focus(
+        focusNode: _keyboardFocus,
+        autofocus: true,
+        onKeyEvent: _onKey,
+        child: LayoutBuilder(
         builder: (context, constraints) => Stack(
           fit: StackFit.expand,
           children: [
@@ -671,9 +987,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   _onHorizontalDragUpdate(d, constraints),
               onHorizontalDragEnd: _onHorizontalDragEnd,
             ),
-            if (_buffering && _error == null)
+            if (_buffering && _error == null && !_reconnecting)
               const Center(
                   child: CircularProgressIndicator(color: AppColors.accent)),
+            if (_reconnecting) _reconnectingView(),
             if (_error != null) _errorView(),
             if (_gestureHint != null)
               Align(
@@ -688,11 +1005,60 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   child: Text(_gestureHint!, style: AppTypography.body),
                 ),
               ),
+            if (_zapToast != null)
+              Align(
+                alignment: const Alignment(0, -0.55),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(_zapToast!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.body),
+                ),
+              ),
             if (_upNextCountdown != null && _next != null) _upNextCard(),
             if (_shouldShowNextEpisode()) _nextEpisodeButton(),
             _controlsOverlay(),
           ],
         ),
+      ),
+      ),
+      ),
+    );
+  }
+
+  /// Shown while a dropped stream is being reopened. Deliberately quiet: this
+  /// is the state that used to be a full error screen, and most of the time it
+  /// resolves itself within a couple of seconds.
+  Widget _reconnectingView() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+                color: AppColors.accent, strokeWidth: 3),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Reconnecting…',
+            style: AppTypography.body,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Attempt $_reconnectAttempt of $_maxReconnectAttempts',
+            style: const TextStyle(
+                color: AppColors.textSecondary, fontSize: 12),
+          ),
+        ],
       ),
     );
   }
@@ -1036,7 +1402,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       ),
                       const SizedBox(width: 16),
                     ],
-                    if (!_current.isLive) ...[
+                    // Live gets channel down/up where VOD gets skip back/
+                    // forward: on a channel there is nothing to seek through,
+                    // and zapping is what the position is actually used for.
+                    if (_canZap) ...[
+                      IconButton(
+                        iconSize: 40,
+                        tooltip: 'Channel down',
+                        onPressed: () => _zapBy(-1),
+                        icon: const Icon(Icons.keyboard_arrow_down),
+                      ),
+                      const SizedBox(width: 28),
+                    ] else if (!_current.isLive) ...[
                       IconButton(
                         iconSize: 40,
                         onPressed: () => _seekRelative(-10),
@@ -1054,7 +1431,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           ? Icons.pause_circle_filled
                           : Icons.play_circle_filled),
                     ),
-                    if (!_current.isLive) ...[
+                    if (_canZap) ...[
+                      const SizedBox(width: 28),
+                      IconButton(
+                        iconSize: 40,
+                        tooltip: 'Channel up',
+                        onPressed: () => _zapBy(1),
+                        icon: const Icon(Icons.keyboard_arrow_up),
+                      ),
+                    ] else if (!_current.isLive) ...[
                       const SizedBox(width: 28),
                       IconButton(
                         iconSize: 40,

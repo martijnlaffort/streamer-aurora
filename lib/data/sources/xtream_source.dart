@@ -146,6 +146,10 @@ class XtreamSource implements PlaylistSource {
           logoUrl: optString(map['stream_icon']),
           epgChannelId: optString(map['epg_channel_id']),
           sortOrder: optInt(map['num']),
+          // Panels are inconsistent here: `tv_archive` arrives as 1, "1", or
+          // true depending on the build, so treat anything truthy as yes.
+          hasArchive: _truthy(map['tv_archive']),
+          archiveDays: optInt(map['tv_archive_duration']),
           cachedAt: now,
         ));
       } catch (e) {
@@ -390,10 +394,31 @@ class XtreamSource implements PlaylistSource {
 
   // --- Stream URLs (PRD §6.1) ------------------------------------------------
 
+  /// Panels report booleans as 1, "1", or true depending on the build.
+  static bool _truthy(Object? v) =>
+      v == true || v == 1 || v == '1' || v == 'true';
+
+  /// Xtream's timeshift path: the start time is panel-local wall clock in
+  /// `Y-m-d:H-i`, and the duration is in minutes.
+  static String _catchupStamp(DateTime start) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${start.year}-${two(start.month)}-${two(start.day)}:'
+        '${two(start.hour)}-${two(start.minute)}';
+  }
+
   @override
   Future<String> buildStreamUrl(StreamRef ref) async {
     final u = Uri.encodeComponent(account.username);
     final p = Uri.encodeComponent(account.password);
+    // Catch-up replaces the live edge with a slice of the panel's recording.
+    // The stamp is deliberately built from the LOCAL time: panels index their
+    // archive by their own wall clock, and the EPG we matched the programme
+    // against is already displayed in local time.
+    if (ref.type == StreamType.live && ref.isCatchup) {
+      final start = _catchupStamp(ref.catchupStart!.toLocal());
+      return '$_server/timeshift/$u/$p/${ref.catchupMinutes}/$start/'
+          '${ref.streamId}.${ref.containerExt ?? 'ts'}';
+    }
     return switch (ref.type) {
       StreamType.live =>
         '$_server/live/$u/$p/${ref.streamId}.${ref.containerExt ?? 'ts'}',

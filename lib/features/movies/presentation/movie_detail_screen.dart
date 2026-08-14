@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
+import '../../../core/widgets/my_list_button.dart';
 import '../../../data/providers.dart';
+import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
 import '../../player/player_request.dart';
@@ -44,8 +47,7 @@ class MovieDetailScreen extends ConsumerWidget {
       extendBodyBehindAppBar: true,
       body: movie.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-            child: Text('$e', style: const TextStyle(color: AppColors.error))),
+        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(movieByIdProvider(movieId))),
         data: (m) => m == null
             ? const Center(child: Text('Not found in the catalog.'))
             : _MovieDetail(movie: m, heroTag: heroTag),
@@ -77,7 +79,7 @@ class _MovieDetail extends ConsumerWidget {
             streamId: movie.id,
             containerExt: movie.containerExt,
           ),
-          title: movie.name,
+          title: prettyTitle(movie.name, year: movie.year),
           contentKey: _contentKey,
         ),
       ],
@@ -92,7 +94,6 @@ class _MovieDetail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final progress = ref.watch(progressProvider(_contentKey)).value;
-    final favorite = ref.watch(isFavoriteProvider(_contentKey));
     final offerResume = ref
         .read(watchProgressRepositoryProvider)
         .shouldOfferResume(progress);
@@ -135,7 +136,7 @@ class _MovieDetail extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(movie.name,
+              Text(prettyTitle(movie.name, year: movie.year),
                   style: AppTypography.display.copyWith(fontSize: 28)),
               if (meta.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -157,25 +158,7 @@ class _MovieDetail extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton.filledTonal(
-                    tooltip: favorite.value ?? false
-                        ? 'Remove favorite'
-                        : 'Add favorite',
-                    onPressed: () async {
-                      await ref
-                          .read(favoritesRepositoryProvider)
-                          .toggle(_contentKey);
-                      ref.invalidate(isFavoriteProvider(_contentKey));
-                    },
-                    icon: Icon(
-                      (favorite.value ?? false)
-                          ? Icons.favorite
-                          : Icons.favorite_border,
-                      color: (favorite.value ?? false)
-                          ? AppColors.accent
-                          : AppColors.textPrimary,
-                    ),
-                  ),
+                  MyListButton(contentKey: _contentKey),
                 ],
               ),
               if (offerResume) ...[

@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/db/app_database.dart' show CatalogKind;
 import '../../../data/providers.dart';
+import '../../../data/sources/playlist_source.dart' show SourceException;
+import '../../../data/sources/tmdb_source.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
@@ -33,6 +36,114 @@ const _languages = <(String?, String)>[
   ('pl', 'Polish'),
   ('pt', 'Portuguese'),
 ];
+
+/// Sheet for the TMDB key + region behind the discovery rails.
+///
+/// The key is optional by design: with none, the bundled Award Winners rails
+/// still work. Nothing about the user's playlist is sent to TMDB — only requests
+/// for TMDB's own public lists — which is worth saying on screen, because
+/// "paste an API key" otherwise reads as "upload my library".
+Future<void> _editDiscovery(
+  BuildContext context,
+  WidgetRef ref,
+  Preferences prefs,
+  Future<void> Function(Preferences) savePrefs,
+) async {
+  final keyController = TextEditingController(text: prefs.tmdbApiKey ?? '');
+  final regionController =
+      TextEditingController(text: prefs.discoveryRegion ?? '');
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.surface,
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, 20 + MediaQuery.of(sheetContext).viewInsets.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Discovery rails',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          const Text(
+            'Trending, Popular and New Releases come from TMDB\'s public '
+            'lists, filtered to what your playlist actually carries. Your '
+            'playlist is never uploaded. A free key takes a minute: '
+            'themoviedb.org → Settings → API.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: keyController,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: const InputDecoration(
+              labelText: 'TMDB API key (v3)',
+              hintText: 'Leave empty to use award rails only',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: regionController,
+            autocorrect: false,
+            textCapitalization: TextCapitalization.characters,
+            maxLength: 2,
+            decoration: const InputDecoration(
+              labelText: 'Region (2-letter country)',
+              hintText: 'Empty = your device region',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              onPressed: () async {
+                final key = keyController.text.trim();
+                final region = regionController.text.trim().toUpperCase();
+                // Check the key before saving. Pasting a key and being told
+                // nothing is the worst part of this screen — a wrong key just
+                // meant the rails silently never appeared.
+                if (key.isNotEmpty) {
+                  try {
+                    await TmdbSource(apiKey: key).verifyKey();
+                  } on SourceException catch (e) {
+                    if (sheetContext.mounted) {
+                      ScaffoldMessenger.of(sheetContext).showSnackBar(
+                          SnackBar(content: Text(e.message)));
+                    }
+                    return;
+                  }
+                }
+                await savePrefs(key.isEmpty
+                    ? prefs.copyWith(
+                        clearTmdbApiKey: true,
+                        discoveryRegion: region.isEmpty ? null : region)
+                    : prefs.copyWith(
+                        tmdbApiKey: key,
+                        discoveryRegion: region.isEmpty ? null : region));
+                // New key/region → refetch the lists and re-resolve.
+                ref.invalidate(discoveryRailsProvider);
+                if (sheetContext.mounted) {
+                  ScaffoldMessenger.of(sheetContext).showSnackBar(SnackBar(
+                      content: Text(key.isEmpty
+                          ? 'Discovery rails limited to award winners.'
+                          : 'TMDB key verified — discovery rails are on.')));
+                  Navigator.of(sheetContext).pop();
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+  keyController.dispose();
+  regionController.dispose();
+}
 
 String _languageLabel(String? code) {
   if (code == null) return 'No preference';
@@ -124,6 +235,48 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/favorites'),
           ),
+          // Both directions exist on every device, but the one that matches
+          // what you are holding comes first — a TV is nearly always the
+          // device being set up, and a phone the one doing the setting up.
+          if (isTelevisionOf(ref)) ...[
+            ListTile(
+              leading: const Icon(Icons.phonelink_ring),
+              title: const Text('Pair with your phone'),
+              subtitle: const Text(
+                'Copy your playlists and sync settings across, without typing',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/pair/receive'),
+            ),
+          ] else ...[
+            ListTile(
+              leading: const Icon(Icons.tv),
+              title: const Text('Set up a TV'),
+              subtitle: const Text(
+                'Send your playlists and sync settings to another device',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/pair/send'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.phonelink_ring),
+              title: const Text('Pair with another device'),
+              subtitle: const Text(
+                'Receive playlists and sync settings from a set-up device',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/pair/receive'),
+            ),
+          ],
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('About & credits'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/about'),
+          ),
           ListTile(
             leading: const Icon(Icons.sync),
             title: const Text('Sync'),
@@ -148,6 +301,19 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/languages'),
           ),
+          ListTile(
+            leading: const Icon(Icons.local_fire_department_outlined),
+            title: const Text('Discovery rails'),
+            subtitle: Text(
+              prefs.tmdbApiKey == null
+                  ? 'Award winners only — add a TMDB key for Trending & Popular'
+                  : 'On — trending, popular and new in '
+                      '${prefs.discoveryRegion ?? 'your region'}',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _editDiscovery(context, ref, prefs, savePrefs),
+          ),
           const Divider(),
           const _SectionLabel('Playback'),
           ListTile(
@@ -161,13 +327,8 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Preferred audio language',
               current: prefs.preferredAudioLang,
               withOff: false,
-              onPicked: (code) => savePrefs(Preferences(
-                preferredAudioLang: code,
-                preferredSubtitleLang: prefs.preferredSubtitleLang,
-                autoplayNext: prefs.autoplayNext,
-                backgroundPlayback: prefs.backgroundPlayback,
-                contentLanguages: prefs.contentLanguages,
-              )),
+              onPicked: (code) =>
+                  savePrefs(prefs.copyWith(preferredAudioLang: code)),
             ),
           ),
           ListTile(
@@ -181,13 +342,8 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Preferred subtitle language',
               current: prefs.preferredSubtitleLang,
               withOff: true,
-              onPicked: (code) => savePrefs(Preferences(
-                preferredAudioLang: prefs.preferredAudioLang,
-                preferredSubtitleLang: code,
-                autoplayNext: prefs.autoplayNext,
-                backgroundPlayback: prefs.backgroundPlayback,
-                contentLanguages: prefs.contentLanguages,
-              )),
+              onPicked: (code) =>
+                  savePrefs(prefs.copyWith(preferredSubtitleLang: code)),
             ),
           ),
           SwitchListTile(

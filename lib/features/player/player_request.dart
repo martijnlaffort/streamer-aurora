@@ -24,6 +24,36 @@ class PlayerItem {
   final bool isLive;
 }
 
+/// Where a live channel sits in the list the user was browsing, so the player
+/// can offer channel up/down.
+///
+/// Carries the *scope* and a position rather than the channels themselves: the
+/// list is 25k entries on a real line, and the player resolves neighbours one
+/// indexed row at a time (`CatalogRepository.channelAt`).
+class ZapContext {
+  const ZapContext({
+    required this.index,
+    this.categoryId,
+    this.categoryIds,
+  });
+
+  /// Position of the playing channel within the scoped, sorted list.
+  final int index;
+
+  /// The category the user had selected, or null for "all channels".
+  final String? categoryId;
+
+  /// The content-language filter's allowed categories, when no explicit
+  /// category is selected. Null means unfiltered.
+  final Set<String>? categoryIds;
+
+  ZapContext withIndex(int next) => ZapContext(
+        index: next,
+        categoryId: categoryId,
+        categoryIds: categoryIds,
+      );
+}
+
 /// What a detail screen hands the player route: a queue (a single movie, or
 /// a series' episodes for autoplay-next) plus where to start.
 class PlayerRequest {
@@ -31,10 +61,14 @@ class PlayerRequest {
     required this.queue,
     this.startIndex = 0,
     this.resumeFromSeconds,
+    this.zap,
   }) : assert(queue.length > 0);
 
   final List<PlayerItem> queue;
   final int startIndex;
+
+  /// Set for live playback launched from a channel list — enables zapping.
+  final ZapContext? zap;
 
   /// Non-null → seek here once the media reports a duration (PRD §8.9).
   final int? resumeFromSeconds;

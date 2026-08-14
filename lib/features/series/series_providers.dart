@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/language/content_language.dart';
+import '../../core/rotation.dart';
+import '../../data/db/app_database.dart' show CatalogKind;
 import '../../data/providers.dart';
 import '../../data/repositories/catalog_repository.dart';
 import '../../domain/models/models.dart';
+import '../movies/movies_providers.dart' show categoryRailLength;
 
 enum SeriesSort { name, rating }
 
@@ -28,8 +31,48 @@ final seriesCategoriesProvider = FutureProvider<List<Category>>((ref) async {
 });
 
 /// Page size for the browse grid — mirrors the movies feed so a large catalog
-/// is never held in memory all at once. Pagination lives in SeriesScreen.
+/// is never held in memory all at once. Pagination lives in [PagedPosterGrid].
 const seriesPageSize = 90;
+
+/// One category's rail. See [movieCategoryRailProvider] for why this is
+/// cache-first, non-blocking and debounced — a line can have hundreds of
+/// categories and warming one pulls the whole category.
+final seriesCategoryRailProvider =
+    FutureProvider.autoDispose.family<List<Series>, String>(
+        (ref, categoryId) async {
+  var gone = false;
+  ref.onDispose(() => gone = true);
+  await Future<void>.delayed(const Duration(milliseconds: 350));
+  if (gone) return const [];
+
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return const [];
+  final catalog = ref.watch(catalogRepositoryProvider);
+
+  // See movieCategoryRailProvider — a different slice per session, salted so
+  // the rails do not all turn the page together.
+  final page = rotatingPage(
+      seed: ref.watch(rotationSeedProvider), pages: 3, salt: categoryId);
+
+  Future<List<Series>> fromCache({int page = 0}) => catalog.series(
+        account,
+        categoryId: categoryId,
+        limit: categoryRailLength,
+        offset: page * categoryRailLength,
+        refresh: false,
+      );
+
+  var cached = await fromCache(page: page);
+  if (cached.isEmpty && page > 0) cached = await fromCache();
+  if (cached.isNotEmpty) {
+    catalog.warmCategory(account, CatalogKind.series, categoryId).ignore();
+    return cached;
+  }
+  if (gone) return const [];
+  await catalog.warmCategory(account, CatalogKind.series, categoryId);
+  final warmed = await fromCache(page: page);
+  return warmed.isEmpty ? await fromCache() : warmed;
+});
 
 /// Maps the UI sort to the DB-side ordering used for paged reads. Pagination is
 /// driven by SeriesScreen directly against the repository.

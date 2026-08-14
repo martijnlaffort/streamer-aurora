@@ -2,179 +2,108 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/matching/category_label.dart';
+import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/widgets/category_chips.dart';
+import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/category_rails_view.dart';
 import '../../../core/widgets/poster_card.dart';
+import '../../../core/matching/title_label.dart';
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
+import '../../home/presentation/widgets/media_rail.dart';
 import '../movies_providers.dart';
 
-/// Movies browse (PRD §8.3): grid, category filter, sort. Paged — the grid
-/// pulls the catalog a page at a time instead of loading all of it into memory,
-/// so a large catalog can't push the app past the OS memory limit.
-class MoviesScreen extends ConsumerStatefulWidget {
+/// Movies browse (PRD §8.3), category-first: one rail per category with
+/// "See all" into the full paged grid.
+///
+/// This replaced a flat grid of the entire catalogue behind a horizontal chip
+/// strip. With hundreds of categories that strip was unusable as a filter, and
+/// the unscoped grid is the weakest view in the app — it is cache-only, because
+/// 150k titles cannot be refreshed on demand. Choosing a category is now the
+/// primary act, and it costs exactly one request.
+class MoviesScreen extends ConsumerWidget {
   const MoviesScreen({super.key});
 
   @override
-  ConsumerState<MoviesScreen> createState() => _MoviesScreenState();
-}
-
-class _MoviesScreenState extends ConsumerState<MoviesScreen> {
-  String? _categoryId;
-  MovieSort _sort = MovieSort.added;
-  final _scroll = ScrollController();
-
-  final List<Movie> _items = [];
-  bool _loading = false;
-  bool _atEnd = false;
-  Object? _error;
-
-  /// Bumped whenever the category/sort/filter changes, so a page still in
-  /// flight from the previous query is discarded instead of appended.
-  int _generation = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _scroll.addListener(_onScroll);
-    _reload();
-  }
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 800) {
-      _loadMore();
-    }
-  }
-
-  void _reload() {
-    _generation++;
-    _items.clear();
-    _atEnd = false;
-    _error = null;
-    _loading = false;
-    _loadMore();
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading || _atEnd) return;
-    _loading = true;
-    final gen = _generation;
-    try {
-      final account = await ref.read(activeAccountProvider.future);
-      if (account == null) {
-        if (mounted && gen == _generation) setState(() => _atEnd = true);
-        return;
-      }
-      final allowed = _categoryId == null
-          ? await ref.read(allowedCategoryIdsProvider(CategoryType.vod).future)
-          : null;
-      if (gen != _generation) return; // superseded during the awaits above
-      final page = await ref.read(catalogRepositoryProvider).movies(
-            account,
-            categoryId: _categoryId,
-            categoryIds: allowed,
-            order: movieOrderFor(_sort),
-            limit: moviesPageSize,
-            offset: _items.length,
-          );
-      if (!mounted || gen != _generation) return;
-      setState(() {
-        _items.addAll(page);
-        if (page.length < moviesPageSize) _atEnd = true;
-      });
-    } catch (e) {
-      if (mounted && gen == _generation) setState(() => _error = e);
-    } finally {
-      if (gen == _generation) _loading = false;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Re-page from the top when the account or content-language filter changes.
-    ref.listen(activeAccountProvider, (_, _) => _reload());
-    ref.listen(allowedCategoryIdsProvider(CategoryType.vod), (_, _) => _reload());
+  Widget build(BuildContext context, WidgetRef ref) {
     final categories = ref.watch(vodCategoriesProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Movies'),
         actions: [
-          PopupMenuButton<MovieSort>(
-            icon: const Icon(Icons.sort),
-            tooltip: 'Sort',
-            initialValue: _sort,
-            onSelected: (sort) {
-              setState(() => _sort = sort);
-              _reload();
-            },
-            itemBuilder: (context) => [
-              for (final sort in MovieSort.values)
-                PopupMenuItem(value: sort, child: Text(sort.label)),
-            ],
+          // Labelled, not just an icon: a bare grid glyph gives no clue that it
+          // means "browse everything", and it was unreadable to a screen
+          // reader as well as cryptic to a sighted user.
+          TextButton.icon(
+            icon: const Icon(Icons.grid_view_outlined, size: 18),
+            label: const Text('All'),
+            onPressed: () => context.push('/movies/category/$allCategoryId'),
           ),
         ],
       ),
-      body: Column(
-        children: [
-          categories.when(
-            data: (list) => CategoryChips(
-              categories: list,
-              selectedId: _categoryId,
-              onSelected: (id) {
-                setState(() => _categoryId = id);
-                _reload();
-              },
-            ),
-            loading: () => const SizedBox(height: 44),
-            error: (e, _) => const SizedBox(height: 44),
+      body: categories.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) =>
+            ErrorView(error: e, onRetry: () => ref.invalidate(vodCategoriesProvider)),
+
+        data: (list) => RefreshIndicator(
+          color: AppColors.accent,
+          // Users learn pull-to-refresh on Home and then try it everywhere;
+          // a tab that ignores the gesture reads as broken.
+          onRefresh: () async {
+            ref.invalidate(rotationSeedProvider);
+            ref.invalidate(vodCategoriesProvider);
+          },
+          child: CategoryRailsView(
+            categories: list,
+            railBuilder: (context, category) =>
+                _MovieCategoryRail(category: category),
           ),
-          const SizedBox(height: 4),
-          Expanded(child: _grid()),
-        ],
+        ),
       ),
     );
   }
+}
 
-  Widget _grid() {
-    if (_items.isEmpty) {
-      if (_loading) {
-        return const Center(child: CircularProgressIndicator());
-      }
-      if (_error != null) {
-        return Center(
-            child: Text('$_error',
-                style: const TextStyle(color: AppColors.error)));
-      }
-      return const Center(
-        child: Text('Nothing here yet.',
-            style: TextStyle(color: AppColors.textSecondary)),
-      );
-    }
-    return GridView.builder(
-      controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 140,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.54,
-      ),
-      itemCount: _items.length,
-      itemBuilder: (context, i) {
-        final movie = _items[i];
-        final tag = 'movies-m-${movie.id}';
-        return PosterCard(
-          title: movie.name,
-          imageUrl: movie.posterUrl,
-          heroTag: tag,
-          onTap: () => context.push('/movie/${movie.id}', extra: tag),
+class _MovieCategoryRail extends ConsumerWidget {
+  const _MovieCategoryRail({required this.category});
+
+  final Category category;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rail = ref.watch(movieCategoryRailProvider(category.id));
+    return rail.when(
+      loading: () => CategoryRailPlaceholder(title: category.name),
+      // A rail that cannot load is not worth a row of error text among dozens
+      // of working ones.
+      error: (e, _) => const SizedBox.shrink(),
+      data: (movies) {
+        // Genuinely empty category — hide it rather than leave a bald heading.
+        if (movies.isEmpty) return const SizedBox.shrink();
+        return MediaRail(
+          title: prettyCategoryName(category.name),
+          itemCount: movies.length,
+          onSeeAll: () => context.push(
+              '/movies/category/${Uri.encodeComponent(category.id)}',
+              extra: category.name),
+          itemBuilder: (context, i) {
+            final movie = movies[i];
+            final tag = 'cat-${category.id}-m-${movie.id}';
+            return PosterCard(
+              title: prettyTitle(movie.name, year: movie.year),
+              imageUrl: movie.posterUrl,
+              artwork: ArtworkQuery(
+                  name: prettyTitle(movie.name, year: movie.year),
+                  year: movie.year,
+                  isSeries: false),
+              rating: movie.rating,
+              heroTag: tag,
+              onTap: () => context.push('/movie/${movie.id}', extra: tag),
+            );
+          },
         );
       },
     );

@@ -40,6 +40,19 @@ class PreferencesRepository {
               ? null
               : preferences.contentLanguages!.join(','),
         ),
+        // Empty string and null both mean "not configured" — normalize so the
+        // discovery layer only has to check for null.
+        tmdbApiKey: Value(
+          (preferences.tmdbApiKey == null || preferences.tmdbApiKey!.isEmpty)
+              ? null
+              : preferences.tmdbApiKey!.trim(),
+        ),
+        discoveryRegion: Value(
+          (preferences.discoveryRegion == null ||
+                  preferences.discoveryRegion!.isEmpty)
+              ? null
+              : preferences.discoveryRegion!.trim().toUpperCase(),
+        ),
       ),
     );
   }

@@ -3227,6 +3227,32 @@ class $ChannelsTableTable extends ChannelsTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tvArchiveMeta = const VerificationMeta(
+    'tvArchive',
+  );
+  @override
+  late final GeneratedColumn<bool> tvArchive = GeneratedColumn<bool>(
+    'tv_archive',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("tv_archive" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _tvArchiveDaysMeta = const VerificationMeta(
+    'tvArchiveDays',
+  );
+  @override
+  late final GeneratedColumn<int> tvArchiveDays = GeneratedColumn<int>(
+    'tv_archive_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _cachedAtMillisUtcMeta = const VerificationMeta(
     'cachedAtMillisUtc',
   );
@@ -3247,6 +3273,8 @@ class $ChannelsTableTable extends ChannelsTable
     logoUrl,
     epgChannelId,
     sortOrder,
+    tvArchive,
+    tvArchiveDays,
     cachedAtMillisUtc,
   ];
   @override
@@ -3311,6 +3339,21 @@ class $ChannelsTableTable extends ChannelsTable
         sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
       );
     }
+    if (data.containsKey('tv_archive')) {
+      context.handle(
+        _tvArchiveMeta,
+        tvArchive.isAcceptableOrUnknown(data['tv_archive']!, _tvArchiveMeta),
+      );
+    }
+    if (data.containsKey('tv_archive_days')) {
+      context.handle(
+        _tvArchiveDaysMeta,
+        tvArchiveDays.isAcceptableOrUnknown(
+          data['tv_archive_days']!,
+          _tvArchiveDaysMeta,
+        ),
+      );
+    }
     if (data.containsKey('cached_at_millis_utc')) {
       context.handle(
         _cachedAtMillisUtcMeta,
@@ -3359,6 +3402,14 @@ class $ChannelsTableTable extends ChannelsTable
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       ),
+      tvArchive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}tv_archive'],
+      )!,
+      tvArchiveDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}tv_archive_days'],
+      ),
       cachedAtMillisUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}cached_at_millis_utc'],
@@ -3380,6 +3431,13 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
   final String? logoUrl;
   final String? epgChannelId;
   final int? sortOrder;
+
+  /// Whether the panel keeps a rolling recording of this channel, and for how
+  /// many days (Xtream `tv_archive` / `tv_archive_duration`, schema v7).
+  /// This is what makes "watch it from the start" possible for something that
+  /// already aired.
+  final bool tvArchive;
+  final int? tvArchiveDays;
   final int cachedAtMillisUtc;
   const ChannelRow({
     required this.id,
@@ -3389,6 +3447,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     this.logoUrl,
     this.epgChannelId,
     this.sortOrder,
+    required this.tvArchive,
+    this.tvArchiveDays,
     required this.cachedAtMillisUtc,
   });
   @override
@@ -3406,6 +3466,10 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     }
     if (!nullToAbsent || sortOrder != null) {
       map['sort_order'] = Variable<int>(sortOrder);
+    }
+    map['tv_archive'] = Variable<bool>(tvArchive);
+    if (!nullToAbsent || tvArchiveDays != null) {
+      map['tv_archive_days'] = Variable<int>(tvArchiveDays);
     }
     map['cached_at_millis_utc'] = Variable<int>(cachedAtMillisUtc);
     return map;
@@ -3426,6 +3490,10 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       sortOrder: sortOrder == null && nullToAbsent
           ? const Value.absent()
           : Value(sortOrder),
+      tvArchive: Value(tvArchive),
+      tvArchiveDays: tvArchiveDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tvArchiveDays),
       cachedAtMillisUtc: Value(cachedAtMillisUtc),
     );
   }
@@ -3443,6 +3511,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       logoUrl: serializer.fromJson<String?>(json['logoUrl']),
       epgChannelId: serializer.fromJson<String?>(json['epgChannelId']),
       sortOrder: serializer.fromJson<int?>(json['sortOrder']),
+      tvArchive: serializer.fromJson<bool>(json['tvArchive']),
+      tvArchiveDays: serializer.fromJson<int?>(json['tvArchiveDays']),
       cachedAtMillisUtc: serializer.fromJson<int>(json['cachedAtMillisUtc']),
     );
   }
@@ -3457,6 +3527,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       'logoUrl': serializer.toJson<String?>(logoUrl),
       'epgChannelId': serializer.toJson<String?>(epgChannelId),
       'sortOrder': serializer.toJson<int?>(sortOrder),
+      'tvArchive': serializer.toJson<bool>(tvArchive),
+      'tvArchiveDays': serializer.toJson<int?>(tvArchiveDays),
       'cachedAtMillisUtc': serializer.toJson<int>(cachedAtMillisUtc),
     };
   }
@@ -3469,6 +3541,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     Value<String?> logoUrl = const Value.absent(),
     Value<String?> epgChannelId = const Value.absent(),
     Value<int?> sortOrder = const Value.absent(),
+    bool? tvArchive,
+    Value<int?> tvArchiveDays = const Value.absent(),
     int? cachedAtMillisUtc,
   }) => ChannelRow(
     id: id ?? this.id,
@@ -3478,6 +3552,10 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     logoUrl: logoUrl.present ? logoUrl.value : this.logoUrl,
     epgChannelId: epgChannelId.present ? epgChannelId.value : this.epgChannelId,
     sortOrder: sortOrder.present ? sortOrder.value : this.sortOrder,
+    tvArchive: tvArchive ?? this.tvArchive,
+    tvArchiveDays: tvArchiveDays.present
+        ? tvArchiveDays.value
+        : this.tvArchiveDays,
     cachedAtMillisUtc: cachedAtMillisUtc ?? this.cachedAtMillisUtc,
   );
   ChannelRow copyWithCompanion(ChannelsTableCompanion data) {
@@ -3493,6 +3571,10 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           ? data.epgChannelId.value
           : this.epgChannelId,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      tvArchive: data.tvArchive.present ? data.tvArchive.value : this.tvArchive,
+      tvArchiveDays: data.tvArchiveDays.present
+          ? data.tvArchiveDays.value
+          : this.tvArchiveDays,
       cachedAtMillisUtc: data.cachedAtMillisUtc.present
           ? data.cachedAtMillisUtc.value
           : this.cachedAtMillisUtc,
@@ -3509,6 +3591,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           ..write('logoUrl: $logoUrl, ')
           ..write('epgChannelId: $epgChannelId, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('tvArchive: $tvArchive, ')
+          ..write('tvArchiveDays: $tvArchiveDays, ')
           ..write('cachedAtMillisUtc: $cachedAtMillisUtc')
           ..write(')'))
         .toString();
@@ -3523,6 +3607,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     logoUrl,
     epgChannelId,
     sortOrder,
+    tvArchive,
+    tvArchiveDays,
     cachedAtMillisUtc,
   );
   @override
@@ -3536,6 +3622,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           other.logoUrl == this.logoUrl &&
           other.epgChannelId == this.epgChannelId &&
           other.sortOrder == this.sortOrder &&
+          other.tvArchive == this.tvArchive &&
+          other.tvArchiveDays == this.tvArchiveDays &&
           other.cachedAtMillisUtc == this.cachedAtMillisUtc);
 }
 
@@ -3547,6 +3635,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
   final Value<String?> logoUrl;
   final Value<String?> epgChannelId;
   final Value<int?> sortOrder;
+  final Value<bool> tvArchive;
+  final Value<int?> tvArchiveDays;
   final Value<int> cachedAtMillisUtc;
   final Value<int> rowid;
   const ChannelsTableCompanion({
@@ -3557,6 +3647,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     this.logoUrl = const Value.absent(),
     this.epgChannelId = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.tvArchive = const Value.absent(),
+    this.tvArchiveDays = const Value.absent(),
     this.cachedAtMillisUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -3568,6 +3660,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     this.logoUrl = const Value.absent(),
     this.epgChannelId = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.tvArchive = const Value.absent(),
+    this.tvArchiveDays = const Value.absent(),
     required int cachedAtMillisUtc,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -3583,6 +3677,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     Expression<String>? logoUrl,
     Expression<String>? epgChannelId,
     Expression<int>? sortOrder,
+    Expression<bool>? tvArchive,
+    Expression<int>? tvArchiveDays,
     Expression<int>? cachedAtMillisUtc,
     Expression<int>? rowid,
   }) {
@@ -3594,6 +3690,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
       if (logoUrl != null) 'logo_url': logoUrl,
       if (epgChannelId != null) 'epg_channel_id': epgChannelId,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (tvArchive != null) 'tv_archive': tvArchive,
+      if (tvArchiveDays != null) 'tv_archive_days': tvArchiveDays,
       if (cachedAtMillisUtc != null) 'cached_at_millis_utc': cachedAtMillisUtc,
       if (rowid != null) 'rowid': rowid,
     });
@@ -3607,6 +3705,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     Value<String?>? logoUrl,
     Value<String?>? epgChannelId,
     Value<int?>? sortOrder,
+    Value<bool>? tvArchive,
+    Value<int?>? tvArchiveDays,
     Value<int>? cachedAtMillisUtc,
     Value<int>? rowid,
   }) {
@@ -3618,6 +3718,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
       logoUrl: logoUrl ?? this.logoUrl,
       epgChannelId: epgChannelId ?? this.epgChannelId,
       sortOrder: sortOrder ?? this.sortOrder,
+      tvArchive: tvArchive ?? this.tvArchive,
+      tvArchiveDays: tvArchiveDays ?? this.tvArchiveDays,
       cachedAtMillisUtc: cachedAtMillisUtc ?? this.cachedAtMillisUtc,
       rowid: rowid ?? this.rowid,
     );
@@ -3647,6 +3749,12 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (tvArchive.present) {
+      map['tv_archive'] = Variable<bool>(tvArchive.value);
+    }
+    if (tvArchiveDays.present) {
+      map['tv_archive_days'] = Variable<int>(tvArchiveDays.value);
+    }
     if (cachedAtMillisUtc.present) {
       map['cached_at_millis_utc'] = Variable<int>(cachedAtMillisUtc.value);
     }
@@ -3666,6 +3774,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
           ..write('logoUrl: $logoUrl, ')
           ..write('epgChannelId: $epgChannelId, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('tvArchive: $tvArchive, ')
+          ..write('tvArchiveDays: $tvArchiveDays, ')
           ..write('cachedAtMillisUtc: $cachedAtMillisUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -4201,6 +4311,28 @@ class $PreferencesTableTable extends PreferencesTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tmdbApiKeyMeta = const VerificationMeta(
+    'tmdbApiKey',
+  );
+  @override
+  late final GeneratedColumn<String> tmdbApiKey = GeneratedColumn<String>(
+    'tmdb_api_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _discoveryRegionMeta = const VerificationMeta(
+    'discoveryRegion',
+  );
+  @override
+  late final GeneratedColumn<String> discoveryRegion = GeneratedColumn<String>(
+    'discovery_region',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _activeAccountIdMeta = const VerificationMeta(
     'activeAccountId',
   );
@@ -4220,6 +4352,8 @@ class $PreferencesTableTable extends PreferencesTable
     autoplayNext,
     backgroundPlayback,
     contentLanguages,
+    tmdbApiKey,
+    discoveryRegion,
     activeAccountId,
   ];
   @override
@@ -4282,6 +4416,24 @@ class $PreferencesTableTable extends PreferencesTable
         ),
       );
     }
+    if (data.containsKey('tmdb_api_key')) {
+      context.handle(
+        _tmdbApiKeyMeta,
+        tmdbApiKey.isAcceptableOrUnknown(
+          data['tmdb_api_key']!,
+          _tmdbApiKeyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('discovery_region')) {
+      context.handle(
+        _discoveryRegionMeta,
+        discoveryRegion.isAcceptableOrUnknown(
+          data['discovery_region']!,
+          _discoveryRegionMeta,
+        ),
+      );
+    }
     if (data.containsKey('active_account_id')) {
       context.handle(
         _activeAccountIdMeta,
@@ -4324,6 +4476,14 @@ class $PreferencesTableTable extends PreferencesTable
         DriftSqlType.string,
         data['${effectivePrefix}content_languages'],
       ),
+      tmdbApiKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tmdb_api_key'],
+      ),
+      discoveryRegion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}discovery_region'],
+      ),
       activeAccountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}active_account_id'],
@@ -4351,6 +4511,17 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
   /// for "all languages" (added in schema v4).
   final String? contentLanguages;
 
+  /// TMDB v3 API key for the discovery rails, or null when not configured —
+  /// in which case only the bundled award rails appear (added in schema v6).
+  /// Kept here rather than in secure storage deliberately: it is a personal
+  /// read-only key for public list data, not a credential granting access to
+  /// anything of the user's.
+  final String? tmdbApiKey;
+
+  /// ISO 3166-1 country for region-aware discovery ("what's popular/new *here*").
+  /// Null → derived from the device locale (added in schema v6).
+  final String? discoveryRegion;
+
   /// App state, not a user preference — which account the UI is showing.
   final String? activeAccountId;
   const PreferencesRow({
@@ -4360,6 +4531,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     required this.autoplayNext,
     required this.backgroundPlayback,
     this.contentLanguages,
+    this.tmdbApiKey,
+    this.discoveryRegion,
     this.activeAccountId,
   });
   @override
@@ -4376,6 +4549,12 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     map['background_playback'] = Variable<bool>(backgroundPlayback);
     if (!nullToAbsent || contentLanguages != null) {
       map['content_languages'] = Variable<String>(contentLanguages);
+    }
+    if (!nullToAbsent || tmdbApiKey != null) {
+      map['tmdb_api_key'] = Variable<String>(tmdbApiKey);
+    }
+    if (!nullToAbsent || discoveryRegion != null) {
+      map['discovery_region'] = Variable<String>(discoveryRegion);
     }
     if (!nullToAbsent || activeAccountId != null) {
       map['active_account_id'] = Variable<String>(activeAccountId);
@@ -4397,6 +4576,12 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       contentLanguages: contentLanguages == null && nullToAbsent
           ? const Value.absent()
           : Value(contentLanguages),
+      tmdbApiKey: tmdbApiKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tmdbApiKey),
+      discoveryRegion: discoveryRegion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(discoveryRegion),
       activeAccountId: activeAccountId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeAccountId),
@@ -4419,6 +4604,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       autoplayNext: serializer.fromJson<bool>(json['autoplayNext']),
       backgroundPlayback: serializer.fromJson<bool>(json['backgroundPlayback']),
       contentLanguages: serializer.fromJson<String?>(json['contentLanguages']),
+      tmdbApiKey: serializer.fromJson<String?>(json['tmdbApiKey']),
+      discoveryRegion: serializer.fromJson<String?>(json['discoveryRegion']),
       activeAccountId: serializer.fromJson<String?>(json['activeAccountId']),
     );
   }
@@ -4434,6 +4621,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       'autoplayNext': serializer.toJson<bool>(autoplayNext),
       'backgroundPlayback': serializer.toJson<bool>(backgroundPlayback),
       'contentLanguages': serializer.toJson<String?>(contentLanguages),
+      'tmdbApiKey': serializer.toJson<String?>(tmdbApiKey),
+      'discoveryRegion': serializer.toJson<String?>(discoveryRegion),
       'activeAccountId': serializer.toJson<String?>(activeAccountId),
     };
   }
@@ -4445,6 +4634,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     bool? autoplayNext,
     bool? backgroundPlayback,
     Value<String?> contentLanguages = const Value.absent(),
+    Value<String?> tmdbApiKey = const Value.absent(),
+    Value<String?> discoveryRegion = const Value.absent(),
     Value<String?> activeAccountId = const Value.absent(),
   }) => PreferencesRow(
     id: id ?? this.id,
@@ -4459,6 +4650,10 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     contentLanguages: contentLanguages.present
         ? contentLanguages.value
         : this.contentLanguages,
+    tmdbApiKey: tmdbApiKey.present ? tmdbApiKey.value : this.tmdbApiKey,
+    discoveryRegion: discoveryRegion.present
+        ? discoveryRegion.value
+        : this.discoveryRegion,
     activeAccountId: activeAccountId.present
         ? activeAccountId.value
         : this.activeAccountId,
@@ -4481,6 +4676,12 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       contentLanguages: data.contentLanguages.present
           ? data.contentLanguages.value
           : this.contentLanguages,
+      tmdbApiKey: data.tmdbApiKey.present
+          ? data.tmdbApiKey.value
+          : this.tmdbApiKey,
+      discoveryRegion: data.discoveryRegion.present
+          ? data.discoveryRegion.value
+          : this.discoveryRegion,
       activeAccountId: data.activeAccountId.present
           ? data.activeAccountId.value
           : this.activeAccountId,
@@ -4496,6 +4697,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           ..write('autoplayNext: $autoplayNext, ')
           ..write('backgroundPlayback: $backgroundPlayback, ')
           ..write('contentLanguages: $contentLanguages, ')
+          ..write('tmdbApiKey: $tmdbApiKey, ')
+          ..write('discoveryRegion: $discoveryRegion, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -4509,6 +4712,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     autoplayNext,
     backgroundPlayback,
     contentLanguages,
+    tmdbApiKey,
+    discoveryRegion,
     activeAccountId,
   );
   @override
@@ -4521,6 +4726,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           other.autoplayNext == this.autoplayNext &&
           other.backgroundPlayback == this.backgroundPlayback &&
           other.contentLanguages == this.contentLanguages &&
+          other.tmdbApiKey == this.tmdbApiKey &&
+          other.discoveryRegion == this.discoveryRegion &&
           other.activeAccountId == this.activeAccountId);
 }
 
@@ -4531,6 +4738,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
   final Value<bool> autoplayNext;
   final Value<bool> backgroundPlayback;
   final Value<String?> contentLanguages;
+  final Value<String?> tmdbApiKey;
+  final Value<String?> discoveryRegion;
   final Value<String?> activeAccountId;
   const PreferencesTableCompanion({
     this.id = const Value.absent(),
@@ -4539,6 +4748,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.autoplayNext = const Value.absent(),
     this.backgroundPlayback = const Value.absent(),
     this.contentLanguages = const Value.absent(),
+    this.tmdbApiKey = const Value.absent(),
+    this.discoveryRegion = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   PreferencesTableCompanion.insert({
@@ -4548,6 +4759,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.autoplayNext = const Value.absent(),
     this.backgroundPlayback = const Value.absent(),
     this.contentLanguages = const Value.absent(),
+    this.tmdbApiKey = const Value.absent(),
+    this.discoveryRegion = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   static Insertable<PreferencesRow> custom({
@@ -4557,6 +4770,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Expression<bool>? autoplayNext,
     Expression<bool>? backgroundPlayback,
     Expression<String>? contentLanguages,
+    Expression<String>? tmdbApiKey,
+    Expression<String>? discoveryRegion,
     Expression<String>? activeAccountId,
   }) {
     return RawValuesInsertable({
@@ -4568,6 +4783,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       if (autoplayNext != null) 'autoplay_next': autoplayNext,
       if (backgroundPlayback != null) 'background_playback': backgroundPlayback,
       if (contentLanguages != null) 'content_languages': contentLanguages,
+      if (tmdbApiKey != null) 'tmdb_api_key': tmdbApiKey,
+      if (discoveryRegion != null) 'discovery_region': discoveryRegion,
       if (activeAccountId != null) 'active_account_id': activeAccountId,
     });
   }
@@ -4579,6 +4796,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Value<bool>? autoplayNext,
     Value<bool>? backgroundPlayback,
     Value<String?>? contentLanguages,
+    Value<String?>? tmdbApiKey,
+    Value<String?>? discoveryRegion,
     Value<String?>? activeAccountId,
   }) {
     return PreferencesTableCompanion(
@@ -4589,6 +4808,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       autoplayNext: autoplayNext ?? this.autoplayNext,
       backgroundPlayback: backgroundPlayback ?? this.backgroundPlayback,
       contentLanguages: contentLanguages ?? this.contentLanguages,
+      tmdbApiKey: tmdbApiKey ?? this.tmdbApiKey,
+      discoveryRegion: discoveryRegion ?? this.discoveryRegion,
       activeAccountId: activeAccountId ?? this.activeAccountId,
     );
   }
@@ -4616,6 +4837,12 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     if (contentLanguages.present) {
       map['content_languages'] = Variable<String>(contentLanguages.value);
     }
+    if (tmdbApiKey.present) {
+      map['tmdb_api_key'] = Variable<String>(tmdbApiKey.value);
+    }
+    if (discoveryRegion.present) {
+      map['discovery_region'] = Variable<String>(discoveryRegion.value);
+    }
     if (activeAccountId.present) {
       map['active_account_id'] = Variable<String>(activeAccountId.value);
     }
@@ -4631,6 +4858,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
           ..write('autoplayNext: $autoplayNext, ')
           ..write('backgroundPlayback: $backgroundPlayback, ')
           ..write('contentLanguages: $contentLanguages, ')
+          ..write('tmdbApiKey: $tmdbApiKey, ')
+          ..write('discoveryRegion: $discoveryRegion, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -5639,6 +5868,1302 @@ class CatalogMetaTableCompanion extends UpdateCompanion<CatalogMetaRow> {
   }
 }
 
+class $CatalogCategoryMetaTableTable extends CatalogCategoryMetaTable
+    with TableInfo<$CatalogCategoryMetaTableTable, CatalogCategoryMetaRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CatalogCategoryMetaTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<CatalogKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<CatalogKind>(
+        $CatalogCategoryMetaTableTable.$converterkind,
+      );
+  static const VerificationMeta _categoryIdMeta = const VerificationMeta(
+    'categoryId',
+  );
+  @override
+  late final GeneratedColumn<String> categoryId = GeneratedColumn<String>(
+    'category_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _refreshedAtMillisUtcMeta =
+      const VerificationMeta('refreshedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> refreshedAtMillisUtc = GeneratedColumn<int>(
+    'refreshed_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    accountId,
+    kind,
+    categoryId,
+    refreshedAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'catalog_category_meta';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CatalogCategoryMetaRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('category_id')) {
+      context.handle(
+        _categoryIdMeta,
+        categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_categoryIdMeta);
+    }
+    if (data.containsKey('refreshed_at_millis_utc')) {
+      context.handle(
+        _refreshedAtMillisUtcMeta,
+        refreshedAtMillisUtc.isAcceptableOrUnknown(
+          data['refreshed_at_millis_utc']!,
+          _refreshedAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_refreshedAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {accountId, kind, categoryId};
+  @override
+  CatalogCategoryMetaRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CatalogCategoryMetaRow(
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      kind: $CatalogCategoryMetaTableTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      categoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category_id'],
+      )!,
+      refreshedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}refreshed_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $CatalogCategoryMetaTableTable createAlias(String alias) {
+    return $CatalogCategoryMetaTableTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<CatalogKind, String, String> $converterkind =
+      const EnumNameConverter<CatalogKind>(CatalogKind.values);
+}
+
+class CatalogCategoryMetaRow extends DataClass
+    implements Insertable<CatalogCategoryMetaRow> {
+  final String accountId;
+
+  /// One of [CatalogKind] (stored as enum name).
+  final CatalogKind kind;
+  final String categoryId;
+  final int refreshedAtMillisUtc;
+  const CatalogCategoryMetaRow({
+    required this.accountId,
+    required this.kind,
+    required this.categoryId,
+    required this.refreshedAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['account_id'] = Variable<String>(accountId);
+    {
+      map['kind'] = Variable<String>(
+        $CatalogCategoryMetaTableTable.$converterkind.toSql(kind),
+      );
+    }
+    map['category_id'] = Variable<String>(categoryId);
+    map['refreshed_at_millis_utc'] = Variable<int>(refreshedAtMillisUtc);
+    return map;
+  }
+
+  CatalogCategoryMetaTableCompanion toCompanion(bool nullToAbsent) {
+    return CatalogCategoryMetaTableCompanion(
+      accountId: Value(accountId),
+      kind: Value(kind),
+      categoryId: Value(categoryId),
+      refreshedAtMillisUtc: Value(refreshedAtMillisUtc),
+    );
+  }
+
+  factory CatalogCategoryMetaRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CatalogCategoryMetaRow(
+      accountId: serializer.fromJson<String>(json['accountId']),
+      kind: $CatalogCategoryMetaTableTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      categoryId: serializer.fromJson<String>(json['categoryId']),
+      refreshedAtMillisUtc: serializer.fromJson<int>(
+        json['refreshedAtMillisUtc'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'accountId': serializer.toJson<String>(accountId),
+      'kind': serializer.toJson<String>(
+        $CatalogCategoryMetaTableTable.$converterkind.toJson(kind),
+      ),
+      'categoryId': serializer.toJson<String>(categoryId),
+      'refreshedAtMillisUtc': serializer.toJson<int>(refreshedAtMillisUtc),
+    };
+  }
+
+  CatalogCategoryMetaRow copyWith({
+    String? accountId,
+    CatalogKind? kind,
+    String? categoryId,
+    int? refreshedAtMillisUtc,
+  }) => CatalogCategoryMetaRow(
+    accountId: accountId ?? this.accountId,
+    kind: kind ?? this.kind,
+    categoryId: categoryId ?? this.categoryId,
+    refreshedAtMillisUtc: refreshedAtMillisUtc ?? this.refreshedAtMillisUtc,
+  );
+  CatalogCategoryMetaRow copyWithCompanion(
+    CatalogCategoryMetaTableCompanion data,
+  ) {
+    return CatalogCategoryMetaRow(
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      categoryId: data.categoryId.present
+          ? data.categoryId.value
+          : this.categoryId,
+      refreshedAtMillisUtc: data.refreshedAtMillisUtc.present
+          ? data.refreshedAtMillisUtc.value
+          : this.refreshedAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CatalogCategoryMetaRow(')
+          ..write('accountId: $accountId, ')
+          ..write('kind: $kind, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('refreshedAtMillisUtc: $refreshedAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(accountId, kind, categoryId, refreshedAtMillisUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CatalogCategoryMetaRow &&
+          other.accountId == this.accountId &&
+          other.kind == this.kind &&
+          other.categoryId == this.categoryId &&
+          other.refreshedAtMillisUtc == this.refreshedAtMillisUtc);
+}
+
+class CatalogCategoryMetaTableCompanion
+    extends UpdateCompanion<CatalogCategoryMetaRow> {
+  final Value<String> accountId;
+  final Value<CatalogKind> kind;
+  final Value<String> categoryId;
+  final Value<int> refreshedAtMillisUtc;
+  final Value<int> rowid;
+  const CatalogCategoryMetaTableCompanion({
+    this.accountId = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.categoryId = const Value.absent(),
+    this.refreshedAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CatalogCategoryMetaTableCompanion.insert({
+    required String accountId,
+    required CatalogKind kind,
+    required String categoryId,
+    required int refreshedAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : accountId = Value(accountId),
+       kind = Value(kind),
+       categoryId = Value(categoryId),
+       refreshedAtMillisUtc = Value(refreshedAtMillisUtc);
+  static Insertable<CatalogCategoryMetaRow> custom({
+    Expression<String>? accountId,
+    Expression<String>? kind,
+    Expression<String>? categoryId,
+    Expression<int>? refreshedAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (accountId != null) 'account_id': accountId,
+      if (kind != null) 'kind': kind,
+      if (categoryId != null) 'category_id': categoryId,
+      if (refreshedAtMillisUtc != null)
+        'refreshed_at_millis_utc': refreshedAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CatalogCategoryMetaTableCompanion copyWith({
+    Value<String>? accountId,
+    Value<CatalogKind>? kind,
+    Value<String>? categoryId,
+    Value<int>? refreshedAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return CatalogCategoryMetaTableCompanion(
+      accountId: accountId ?? this.accountId,
+      kind: kind ?? this.kind,
+      categoryId: categoryId ?? this.categoryId,
+      refreshedAtMillisUtc: refreshedAtMillisUtc ?? this.refreshedAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $CatalogCategoryMetaTableTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (categoryId.present) {
+      map['category_id'] = Variable<String>(categoryId.value);
+    }
+    if (refreshedAtMillisUtc.present) {
+      map['refreshed_at_millis_utc'] = Variable<int>(
+        refreshedAtMillisUtc.value,
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CatalogCategoryMetaTableCompanion(')
+          ..write('accountId: $accountId, ')
+          ..write('kind: $kind, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('refreshedAtMillisUtc: $refreshedAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DiscoveryTitlesTableTable extends DiscoveryTitlesTable
+    with TableInfo<$DiscoveryTitlesTableTable, DiscoveryTitleRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DiscoveryTitlesTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _listIdMeta = const VerificationMeta('listId');
+  @override
+  late final GeneratedColumn<String> listId = GeneratedColumn<String>(
+    'list_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rankMeta = const VerificationMeta('rank');
+  @override
+  late final GeneratedColumn<int> rank = GeneratedColumn<int>(
+    'rank',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DiscoveryKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<DiscoveryKind>($DiscoveryTitlesTableTable.$converterkind);
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tmdbIdMeta = const VerificationMeta('tmdbId');
+  @override
+  late final GeneratedColumn<int> tmdbId = GeneratedColumn<int>(
+    'tmdb_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _yearMeta = const VerificationMeta('year');
+  @override
+  late final GeneratedColumn<int> year = GeneratedColumn<int>(
+    'year',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _voteAverageMeta = const VerificationMeta(
+    'voteAverage',
+  );
+  @override
+  late final GeneratedColumn<double> voteAverage = GeneratedColumn<double>(
+    'vote_average',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _voteCountMeta = const VerificationMeta(
+    'voteCount',
+  );
+  @override
+  late final GeneratedColumn<int> voteCount = GeneratedColumn<int>(
+    'vote_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fetchedAtMillisUtcMeta =
+      const VerificationMeta('fetchedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> fetchedAtMillisUtc = GeneratedColumn<int>(
+    'fetched_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    listId,
+    rank,
+    kind,
+    title,
+    tmdbId,
+    year,
+    voteAverage,
+    voteCount,
+    fetchedAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'discovery_titles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DiscoveryTitleRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('list_id')) {
+      context.handle(
+        _listIdMeta,
+        listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_listIdMeta);
+    }
+    if (data.containsKey('rank')) {
+      context.handle(
+        _rankMeta,
+        rank.isAcceptableOrUnknown(data['rank']!, _rankMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rankMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('tmdb_id')) {
+      context.handle(
+        _tmdbIdMeta,
+        tmdbId.isAcceptableOrUnknown(data['tmdb_id']!, _tmdbIdMeta),
+      );
+    }
+    if (data.containsKey('year')) {
+      context.handle(
+        _yearMeta,
+        year.isAcceptableOrUnknown(data['year']!, _yearMeta),
+      );
+    }
+    if (data.containsKey('vote_average')) {
+      context.handle(
+        _voteAverageMeta,
+        voteAverage.isAcceptableOrUnknown(
+          data['vote_average']!,
+          _voteAverageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('vote_count')) {
+      context.handle(
+        _voteCountMeta,
+        voteCount.isAcceptableOrUnknown(data['vote_count']!, _voteCountMeta),
+      );
+    }
+    if (data.containsKey('fetched_at_millis_utc')) {
+      context.handle(
+        _fetchedAtMillisUtcMeta,
+        fetchedAtMillisUtc.isAcceptableOrUnknown(
+          data['fetched_at_millis_utc']!,
+          _fetchedAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fetchedAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {listId, rank};
+  @override
+  DiscoveryTitleRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DiscoveryTitleRow(
+      listId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}list_id'],
+      )!,
+      rank: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rank'],
+      )!,
+      kind: $DiscoveryTitlesTableTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      tmdbId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}tmdb_id'],
+      ),
+      year: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}year'],
+      ),
+      voteAverage: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}vote_average'],
+      ),
+      voteCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}vote_count'],
+      ),
+      fetchedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fetched_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $DiscoveryTitlesTableTable createAlias(String alias) {
+    return $DiscoveryTitlesTableTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<DiscoveryKind, String, String> $converterkind =
+      const EnumNameConverter<DiscoveryKind>(DiscoveryKind.values);
+}
+
+class DiscoveryTitleRow extends DataClass
+    implements Insertable<DiscoveryTitleRow> {
+  final String listId;
+
+  /// Position in the source list. This IS the ranking we render — it already
+  /// encodes popularity far better than any panel rating.
+  final int rank;
+  final DiscoveryKind kind;
+  final String title;
+  final int? tmdbId;
+  final int? year;
+  final double? voteAverage;
+  final int? voteCount;
+  final int fetchedAtMillisUtc;
+  const DiscoveryTitleRow({
+    required this.listId,
+    required this.rank,
+    required this.kind,
+    required this.title,
+    this.tmdbId,
+    this.year,
+    this.voteAverage,
+    this.voteCount,
+    required this.fetchedAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['list_id'] = Variable<String>(listId);
+    map['rank'] = Variable<int>(rank);
+    {
+      map['kind'] = Variable<String>(
+        $DiscoveryTitlesTableTable.$converterkind.toSql(kind),
+      );
+    }
+    map['title'] = Variable<String>(title);
+    if (!nullToAbsent || tmdbId != null) {
+      map['tmdb_id'] = Variable<int>(tmdbId);
+    }
+    if (!nullToAbsent || year != null) {
+      map['year'] = Variable<int>(year);
+    }
+    if (!nullToAbsent || voteAverage != null) {
+      map['vote_average'] = Variable<double>(voteAverage);
+    }
+    if (!nullToAbsent || voteCount != null) {
+      map['vote_count'] = Variable<int>(voteCount);
+    }
+    map['fetched_at_millis_utc'] = Variable<int>(fetchedAtMillisUtc);
+    return map;
+  }
+
+  DiscoveryTitlesTableCompanion toCompanion(bool nullToAbsent) {
+    return DiscoveryTitlesTableCompanion(
+      listId: Value(listId),
+      rank: Value(rank),
+      kind: Value(kind),
+      title: Value(title),
+      tmdbId: tmdbId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tmdbId),
+      year: year == null && nullToAbsent ? const Value.absent() : Value(year),
+      voteAverage: voteAverage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(voteAverage),
+      voteCount: voteCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(voteCount),
+      fetchedAtMillisUtc: Value(fetchedAtMillisUtc),
+    );
+  }
+
+  factory DiscoveryTitleRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DiscoveryTitleRow(
+      listId: serializer.fromJson<String>(json['listId']),
+      rank: serializer.fromJson<int>(json['rank']),
+      kind: $DiscoveryTitlesTableTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      title: serializer.fromJson<String>(json['title']),
+      tmdbId: serializer.fromJson<int?>(json['tmdbId']),
+      year: serializer.fromJson<int?>(json['year']),
+      voteAverage: serializer.fromJson<double?>(json['voteAverage']),
+      voteCount: serializer.fromJson<int?>(json['voteCount']),
+      fetchedAtMillisUtc: serializer.fromJson<int>(json['fetchedAtMillisUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'listId': serializer.toJson<String>(listId),
+      'rank': serializer.toJson<int>(rank),
+      'kind': serializer.toJson<String>(
+        $DiscoveryTitlesTableTable.$converterkind.toJson(kind),
+      ),
+      'title': serializer.toJson<String>(title),
+      'tmdbId': serializer.toJson<int?>(tmdbId),
+      'year': serializer.toJson<int?>(year),
+      'voteAverage': serializer.toJson<double?>(voteAverage),
+      'voteCount': serializer.toJson<int?>(voteCount),
+      'fetchedAtMillisUtc': serializer.toJson<int>(fetchedAtMillisUtc),
+    };
+  }
+
+  DiscoveryTitleRow copyWith({
+    String? listId,
+    int? rank,
+    DiscoveryKind? kind,
+    String? title,
+    Value<int?> tmdbId = const Value.absent(),
+    Value<int?> year = const Value.absent(),
+    Value<double?> voteAverage = const Value.absent(),
+    Value<int?> voteCount = const Value.absent(),
+    int? fetchedAtMillisUtc,
+  }) => DiscoveryTitleRow(
+    listId: listId ?? this.listId,
+    rank: rank ?? this.rank,
+    kind: kind ?? this.kind,
+    title: title ?? this.title,
+    tmdbId: tmdbId.present ? tmdbId.value : this.tmdbId,
+    year: year.present ? year.value : this.year,
+    voteAverage: voteAverage.present ? voteAverage.value : this.voteAverage,
+    voteCount: voteCount.present ? voteCount.value : this.voteCount,
+    fetchedAtMillisUtc: fetchedAtMillisUtc ?? this.fetchedAtMillisUtc,
+  );
+  DiscoveryTitleRow copyWithCompanion(DiscoveryTitlesTableCompanion data) {
+    return DiscoveryTitleRow(
+      listId: data.listId.present ? data.listId.value : this.listId,
+      rank: data.rank.present ? data.rank.value : this.rank,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      title: data.title.present ? data.title.value : this.title,
+      tmdbId: data.tmdbId.present ? data.tmdbId.value : this.tmdbId,
+      year: data.year.present ? data.year.value : this.year,
+      voteAverage: data.voteAverage.present
+          ? data.voteAverage.value
+          : this.voteAverage,
+      voteCount: data.voteCount.present ? data.voteCount.value : this.voteCount,
+      fetchedAtMillisUtc: data.fetchedAtMillisUtc.present
+          ? data.fetchedAtMillisUtc.value
+          : this.fetchedAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiscoveryTitleRow(')
+          ..write('listId: $listId, ')
+          ..write('rank: $rank, ')
+          ..write('kind: $kind, ')
+          ..write('title: $title, ')
+          ..write('tmdbId: $tmdbId, ')
+          ..write('year: $year, ')
+          ..write('voteAverage: $voteAverage, ')
+          ..write('voteCount: $voteCount, ')
+          ..write('fetchedAtMillisUtc: $fetchedAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    listId,
+    rank,
+    kind,
+    title,
+    tmdbId,
+    year,
+    voteAverage,
+    voteCount,
+    fetchedAtMillisUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DiscoveryTitleRow &&
+          other.listId == this.listId &&
+          other.rank == this.rank &&
+          other.kind == this.kind &&
+          other.title == this.title &&
+          other.tmdbId == this.tmdbId &&
+          other.year == this.year &&
+          other.voteAverage == this.voteAverage &&
+          other.voteCount == this.voteCount &&
+          other.fetchedAtMillisUtc == this.fetchedAtMillisUtc);
+}
+
+class DiscoveryTitlesTableCompanion extends UpdateCompanion<DiscoveryTitleRow> {
+  final Value<String> listId;
+  final Value<int> rank;
+  final Value<DiscoveryKind> kind;
+  final Value<String> title;
+  final Value<int?> tmdbId;
+  final Value<int?> year;
+  final Value<double?> voteAverage;
+  final Value<int?> voteCount;
+  final Value<int> fetchedAtMillisUtc;
+  final Value<int> rowid;
+  const DiscoveryTitlesTableCompanion({
+    this.listId = const Value.absent(),
+    this.rank = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.title = const Value.absent(),
+    this.tmdbId = const Value.absent(),
+    this.year = const Value.absent(),
+    this.voteAverage = const Value.absent(),
+    this.voteCount = const Value.absent(),
+    this.fetchedAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DiscoveryTitlesTableCompanion.insert({
+    required String listId,
+    required int rank,
+    required DiscoveryKind kind,
+    required String title,
+    this.tmdbId = const Value.absent(),
+    this.year = const Value.absent(),
+    this.voteAverage = const Value.absent(),
+    this.voteCount = const Value.absent(),
+    required int fetchedAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : listId = Value(listId),
+       rank = Value(rank),
+       kind = Value(kind),
+       title = Value(title),
+       fetchedAtMillisUtc = Value(fetchedAtMillisUtc);
+  static Insertable<DiscoveryTitleRow> custom({
+    Expression<String>? listId,
+    Expression<int>? rank,
+    Expression<String>? kind,
+    Expression<String>? title,
+    Expression<int>? tmdbId,
+    Expression<int>? year,
+    Expression<double>? voteAverage,
+    Expression<int>? voteCount,
+    Expression<int>? fetchedAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (listId != null) 'list_id': listId,
+      if (rank != null) 'rank': rank,
+      if (kind != null) 'kind': kind,
+      if (title != null) 'title': title,
+      if (tmdbId != null) 'tmdb_id': tmdbId,
+      if (year != null) 'year': year,
+      if (voteAverage != null) 'vote_average': voteAverage,
+      if (voteCount != null) 'vote_count': voteCount,
+      if (fetchedAtMillisUtc != null)
+        'fetched_at_millis_utc': fetchedAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DiscoveryTitlesTableCompanion copyWith({
+    Value<String>? listId,
+    Value<int>? rank,
+    Value<DiscoveryKind>? kind,
+    Value<String>? title,
+    Value<int?>? tmdbId,
+    Value<int?>? year,
+    Value<double?>? voteAverage,
+    Value<int?>? voteCount,
+    Value<int>? fetchedAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return DiscoveryTitlesTableCompanion(
+      listId: listId ?? this.listId,
+      rank: rank ?? this.rank,
+      kind: kind ?? this.kind,
+      title: title ?? this.title,
+      tmdbId: tmdbId ?? this.tmdbId,
+      year: year ?? this.year,
+      voteAverage: voteAverage ?? this.voteAverage,
+      voteCount: voteCount ?? this.voteCount,
+      fetchedAtMillisUtc: fetchedAtMillisUtc ?? this.fetchedAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (listId.present) {
+      map['list_id'] = Variable<String>(listId.value);
+    }
+    if (rank.present) {
+      map['rank'] = Variable<int>(rank.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $DiscoveryTitlesTableTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (tmdbId.present) {
+      map['tmdb_id'] = Variable<int>(tmdbId.value);
+    }
+    if (year.present) {
+      map['year'] = Variable<int>(year.value);
+    }
+    if (voteAverage.present) {
+      map['vote_average'] = Variable<double>(voteAverage.value);
+    }
+    if (voteCount.present) {
+      map['vote_count'] = Variable<int>(voteCount.value);
+    }
+    if (fetchedAtMillisUtc.present) {
+      map['fetched_at_millis_utc'] = Variable<int>(fetchedAtMillisUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiscoveryTitlesTableCompanion(')
+          ..write('listId: $listId, ')
+          ..write('rank: $rank, ')
+          ..write('kind: $kind, ')
+          ..write('title: $title, ')
+          ..write('tmdbId: $tmdbId, ')
+          ..write('year: $year, ')
+          ..write('voteAverage: $voteAverage, ')
+          ..write('voteCount: $voteCount, ')
+          ..write('fetchedAtMillisUtc: $fetchedAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DiscoveryMatchesTableTable extends DiscoveryMatchesTable
+    with TableInfo<$DiscoveryMatchesTableTable, DiscoveryMatchRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DiscoveryMatchesTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _listIdMeta = const VerificationMeta('listId');
+  @override
+  late final GeneratedColumn<String> listId = GeneratedColumn<String>(
+    'list_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rankMeta = const VerificationMeta('rank');
+  @override
+  late final GeneratedColumn<int> rank = GeneratedColumn<int>(
+    'rank',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _localIdMeta = const VerificationMeta(
+    'localId',
+  );
+  @override
+  late final GeneratedColumn<String> localId = GeneratedColumn<String>(
+    'local_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _resolvedAtMillisUtcMeta =
+      const VerificationMeta('resolvedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> resolvedAtMillisUtc = GeneratedColumn<int>(
+    'resolved_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    accountId,
+    listId,
+    rank,
+    localId,
+    resolvedAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'discovery_matches';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DiscoveryMatchRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('list_id')) {
+      context.handle(
+        _listIdMeta,
+        listId.isAcceptableOrUnknown(data['list_id']!, _listIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_listIdMeta);
+    }
+    if (data.containsKey('rank')) {
+      context.handle(
+        _rankMeta,
+        rank.isAcceptableOrUnknown(data['rank']!, _rankMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rankMeta);
+    }
+    if (data.containsKey('local_id')) {
+      context.handle(
+        _localIdMeta,
+        localId.isAcceptableOrUnknown(data['local_id']!, _localIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_localIdMeta);
+    }
+    if (data.containsKey('resolved_at_millis_utc')) {
+      context.handle(
+        _resolvedAtMillisUtcMeta,
+        resolvedAtMillisUtc.isAcceptableOrUnknown(
+          data['resolved_at_millis_utc']!,
+          _resolvedAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_resolvedAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {accountId, listId, rank};
+  @override
+  DiscoveryMatchRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DiscoveryMatchRow(
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      listId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}list_id'],
+      )!,
+      rank: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rank'],
+      )!,
+      localId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_id'],
+      )!,
+      resolvedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}resolved_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $DiscoveryMatchesTableTable createAlias(String alias) {
+    return $DiscoveryMatchesTableTable(attachedDatabase, alias);
+  }
+}
+
+class DiscoveryMatchRow extends DataClass
+    implements Insertable<DiscoveryMatchRow> {
+  final String accountId;
+  final String listId;
+  final int rank;
+
+  /// `movies.id` or `series.id`, per the list's kind.
+  final String localId;
+  final int resolvedAtMillisUtc;
+  const DiscoveryMatchRow({
+    required this.accountId,
+    required this.listId,
+    required this.rank,
+    required this.localId,
+    required this.resolvedAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['account_id'] = Variable<String>(accountId);
+    map['list_id'] = Variable<String>(listId);
+    map['rank'] = Variable<int>(rank);
+    map['local_id'] = Variable<String>(localId);
+    map['resolved_at_millis_utc'] = Variable<int>(resolvedAtMillisUtc);
+    return map;
+  }
+
+  DiscoveryMatchesTableCompanion toCompanion(bool nullToAbsent) {
+    return DiscoveryMatchesTableCompanion(
+      accountId: Value(accountId),
+      listId: Value(listId),
+      rank: Value(rank),
+      localId: Value(localId),
+      resolvedAtMillisUtc: Value(resolvedAtMillisUtc),
+    );
+  }
+
+  factory DiscoveryMatchRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DiscoveryMatchRow(
+      accountId: serializer.fromJson<String>(json['accountId']),
+      listId: serializer.fromJson<String>(json['listId']),
+      rank: serializer.fromJson<int>(json['rank']),
+      localId: serializer.fromJson<String>(json['localId']),
+      resolvedAtMillisUtc: serializer.fromJson<int>(
+        json['resolvedAtMillisUtc'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'accountId': serializer.toJson<String>(accountId),
+      'listId': serializer.toJson<String>(listId),
+      'rank': serializer.toJson<int>(rank),
+      'localId': serializer.toJson<String>(localId),
+      'resolvedAtMillisUtc': serializer.toJson<int>(resolvedAtMillisUtc),
+    };
+  }
+
+  DiscoveryMatchRow copyWith({
+    String? accountId,
+    String? listId,
+    int? rank,
+    String? localId,
+    int? resolvedAtMillisUtc,
+  }) => DiscoveryMatchRow(
+    accountId: accountId ?? this.accountId,
+    listId: listId ?? this.listId,
+    rank: rank ?? this.rank,
+    localId: localId ?? this.localId,
+    resolvedAtMillisUtc: resolvedAtMillisUtc ?? this.resolvedAtMillisUtc,
+  );
+  DiscoveryMatchRow copyWithCompanion(DiscoveryMatchesTableCompanion data) {
+    return DiscoveryMatchRow(
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      listId: data.listId.present ? data.listId.value : this.listId,
+      rank: data.rank.present ? data.rank.value : this.rank,
+      localId: data.localId.present ? data.localId.value : this.localId,
+      resolvedAtMillisUtc: data.resolvedAtMillisUtc.present
+          ? data.resolvedAtMillisUtc.value
+          : this.resolvedAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiscoveryMatchRow(')
+          ..write('accountId: $accountId, ')
+          ..write('listId: $listId, ')
+          ..write('rank: $rank, ')
+          ..write('localId: $localId, ')
+          ..write('resolvedAtMillisUtc: $resolvedAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(accountId, listId, rank, localId, resolvedAtMillisUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DiscoveryMatchRow &&
+          other.accountId == this.accountId &&
+          other.listId == this.listId &&
+          other.rank == this.rank &&
+          other.localId == this.localId &&
+          other.resolvedAtMillisUtc == this.resolvedAtMillisUtc);
+}
+
+class DiscoveryMatchesTableCompanion
+    extends UpdateCompanion<DiscoveryMatchRow> {
+  final Value<String> accountId;
+  final Value<String> listId;
+  final Value<int> rank;
+  final Value<String> localId;
+  final Value<int> resolvedAtMillisUtc;
+  final Value<int> rowid;
+  const DiscoveryMatchesTableCompanion({
+    this.accountId = const Value.absent(),
+    this.listId = const Value.absent(),
+    this.rank = const Value.absent(),
+    this.localId = const Value.absent(),
+    this.resolvedAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DiscoveryMatchesTableCompanion.insert({
+    required String accountId,
+    required String listId,
+    required int rank,
+    required String localId,
+    required int resolvedAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : accountId = Value(accountId),
+       listId = Value(listId),
+       rank = Value(rank),
+       localId = Value(localId),
+       resolvedAtMillisUtc = Value(resolvedAtMillisUtc);
+  static Insertable<DiscoveryMatchRow> custom({
+    Expression<String>? accountId,
+    Expression<String>? listId,
+    Expression<int>? rank,
+    Expression<String>? localId,
+    Expression<int>? resolvedAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (accountId != null) 'account_id': accountId,
+      if (listId != null) 'list_id': listId,
+      if (rank != null) 'rank': rank,
+      if (localId != null) 'local_id': localId,
+      if (resolvedAtMillisUtc != null)
+        'resolved_at_millis_utc': resolvedAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DiscoveryMatchesTableCompanion copyWith({
+    Value<String>? accountId,
+    Value<String>? listId,
+    Value<int>? rank,
+    Value<String>? localId,
+    Value<int>? resolvedAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return DiscoveryMatchesTableCompanion(
+      accountId: accountId ?? this.accountId,
+      listId: listId ?? this.listId,
+      rank: rank ?? this.rank,
+      localId: localId ?? this.localId,
+      resolvedAtMillisUtc: resolvedAtMillisUtc ?? this.resolvedAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (listId.present) {
+      map['list_id'] = Variable<String>(listId.value);
+    }
+    if (rank.present) {
+      map['rank'] = Variable<int>(rank.value);
+    }
+    if (localId.present) {
+      map['local_id'] = Variable<String>(localId.value);
+    }
+    if (resolvedAtMillisUtc.present) {
+      map['resolved_at_millis_utc'] = Variable<int>(resolvedAtMillisUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DiscoveryMatchesTableCompanion(')
+          ..write('accountId: $accountId, ')
+          ..write('listId: $listId, ')
+          ..write('rank: $rank, ')
+          ..write('localId: $localId, ')
+          ..write('resolvedAtMillisUtc: $resolvedAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SearchHistoryTableTable extends SearchHistoryTable
     with TableInfo<$SearchHistoryTableTable, SearchHistoryRow> {
   @override
@@ -5866,6 +7391,441 @@ class SearchHistoryTableCompanion extends UpdateCompanion<SearchHistoryRow> {
   }
 }
 
+class $ArtworkCacheTableTable extends ArtworkCacheTable
+    with TableInfo<$ArtworkCacheTableTable, ArtworkRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ArtworkCacheTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleKeyMeta = const VerificationMeta(
+    'titleKey',
+  );
+  @override
+  late final GeneratedColumn<String> titleKey = GeneratedColumn<String>(
+    'title_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _posterUrlMeta = const VerificationMeta(
+    'posterUrl',
+  );
+  @override
+  late final GeneratedColumn<String> posterUrl = GeneratedColumn<String>(
+    'poster_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _backdropUrlMeta = const VerificationMeta(
+    'backdropUrl',
+  );
+  @override
+  late final GeneratedColumn<String> backdropUrl = GeneratedColumn<String>(
+    'backdrop_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _missingMeta = const VerificationMeta(
+    'missing',
+  );
+  @override
+  late final GeneratedColumn<bool> missing = GeneratedColumn<bool>(
+    'missing',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("missing" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _fetchedAtMillisUtcMeta =
+      const VerificationMeta('fetchedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> fetchedAtMillisUtc = GeneratedColumn<int>(
+    'fetched_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    kind,
+    titleKey,
+    posterUrl,
+    backdropUrl,
+    missing,
+    fetchedAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'artwork_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ArtworkRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('title_key')) {
+      context.handle(
+        _titleKeyMeta,
+        titleKey.isAcceptableOrUnknown(data['title_key']!, _titleKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleKeyMeta);
+    }
+    if (data.containsKey('poster_url')) {
+      context.handle(
+        _posterUrlMeta,
+        posterUrl.isAcceptableOrUnknown(data['poster_url']!, _posterUrlMeta),
+      );
+    }
+    if (data.containsKey('backdrop_url')) {
+      context.handle(
+        _backdropUrlMeta,
+        backdropUrl.isAcceptableOrUnknown(
+          data['backdrop_url']!,
+          _backdropUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('missing')) {
+      context.handle(
+        _missingMeta,
+        missing.isAcceptableOrUnknown(data['missing']!, _missingMeta),
+      );
+    }
+    if (data.containsKey('fetched_at_millis_utc')) {
+      context.handle(
+        _fetchedAtMillisUtcMeta,
+        fetchedAtMillisUtc.isAcceptableOrUnknown(
+          data['fetched_at_millis_utc']!,
+          _fetchedAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fetchedAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {kind, titleKey};
+  @override
+  ArtworkRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ArtworkRow(
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      titleKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title_key'],
+      )!,
+      posterUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}poster_url'],
+      ),
+      backdropUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}backdrop_url'],
+      ),
+      missing: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}missing'],
+      )!,
+      fetchedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fetched_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $ArtworkCacheTableTable createAlias(String alias) {
+    return $ArtworkCacheTableTable(attachedDatabase, alias);
+  }
+}
+
+class ArtworkRow extends DataClass implements Insertable<ArtworkRow> {
+  /// 'movie' or 'series'.
+  final String kind;
+
+  /// Normalised title (+ year when known) — see `artworkKeyFor`.
+  final String titleKey;
+  final String? posterUrl;
+  final String? backdropUrl;
+  final bool missing;
+  final int fetchedAtMillisUtc;
+  const ArtworkRow({
+    required this.kind,
+    required this.titleKey,
+    this.posterUrl,
+    this.backdropUrl,
+    required this.missing,
+    required this.fetchedAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['kind'] = Variable<String>(kind);
+    map['title_key'] = Variable<String>(titleKey);
+    if (!nullToAbsent || posterUrl != null) {
+      map['poster_url'] = Variable<String>(posterUrl);
+    }
+    if (!nullToAbsent || backdropUrl != null) {
+      map['backdrop_url'] = Variable<String>(backdropUrl);
+    }
+    map['missing'] = Variable<bool>(missing);
+    map['fetched_at_millis_utc'] = Variable<int>(fetchedAtMillisUtc);
+    return map;
+  }
+
+  ArtworkCacheTableCompanion toCompanion(bool nullToAbsent) {
+    return ArtworkCacheTableCompanion(
+      kind: Value(kind),
+      titleKey: Value(titleKey),
+      posterUrl: posterUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(posterUrl),
+      backdropUrl: backdropUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backdropUrl),
+      missing: Value(missing),
+      fetchedAtMillisUtc: Value(fetchedAtMillisUtc),
+    );
+  }
+
+  factory ArtworkRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ArtworkRow(
+      kind: serializer.fromJson<String>(json['kind']),
+      titleKey: serializer.fromJson<String>(json['titleKey']),
+      posterUrl: serializer.fromJson<String?>(json['posterUrl']),
+      backdropUrl: serializer.fromJson<String?>(json['backdropUrl']),
+      missing: serializer.fromJson<bool>(json['missing']),
+      fetchedAtMillisUtc: serializer.fromJson<int>(json['fetchedAtMillisUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'kind': serializer.toJson<String>(kind),
+      'titleKey': serializer.toJson<String>(titleKey),
+      'posterUrl': serializer.toJson<String?>(posterUrl),
+      'backdropUrl': serializer.toJson<String?>(backdropUrl),
+      'missing': serializer.toJson<bool>(missing),
+      'fetchedAtMillisUtc': serializer.toJson<int>(fetchedAtMillisUtc),
+    };
+  }
+
+  ArtworkRow copyWith({
+    String? kind,
+    String? titleKey,
+    Value<String?> posterUrl = const Value.absent(),
+    Value<String?> backdropUrl = const Value.absent(),
+    bool? missing,
+    int? fetchedAtMillisUtc,
+  }) => ArtworkRow(
+    kind: kind ?? this.kind,
+    titleKey: titleKey ?? this.titleKey,
+    posterUrl: posterUrl.present ? posterUrl.value : this.posterUrl,
+    backdropUrl: backdropUrl.present ? backdropUrl.value : this.backdropUrl,
+    missing: missing ?? this.missing,
+    fetchedAtMillisUtc: fetchedAtMillisUtc ?? this.fetchedAtMillisUtc,
+  );
+  ArtworkRow copyWithCompanion(ArtworkCacheTableCompanion data) {
+    return ArtworkRow(
+      kind: data.kind.present ? data.kind.value : this.kind,
+      titleKey: data.titleKey.present ? data.titleKey.value : this.titleKey,
+      posterUrl: data.posterUrl.present ? data.posterUrl.value : this.posterUrl,
+      backdropUrl: data.backdropUrl.present
+          ? data.backdropUrl.value
+          : this.backdropUrl,
+      missing: data.missing.present ? data.missing.value : this.missing,
+      fetchedAtMillisUtc: data.fetchedAtMillisUtc.present
+          ? data.fetchedAtMillisUtc.value
+          : this.fetchedAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ArtworkRow(')
+          ..write('kind: $kind, ')
+          ..write('titleKey: $titleKey, ')
+          ..write('posterUrl: $posterUrl, ')
+          ..write('backdropUrl: $backdropUrl, ')
+          ..write('missing: $missing, ')
+          ..write('fetchedAtMillisUtc: $fetchedAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    kind,
+    titleKey,
+    posterUrl,
+    backdropUrl,
+    missing,
+    fetchedAtMillisUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ArtworkRow &&
+          other.kind == this.kind &&
+          other.titleKey == this.titleKey &&
+          other.posterUrl == this.posterUrl &&
+          other.backdropUrl == this.backdropUrl &&
+          other.missing == this.missing &&
+          other.fetchedAtMillisUtc == this.fetchedAtMillisUtc);
+}
+
+class ArtworkCacheTableCompanion extends UpdateCompanion<ArtworkRow> {
+  final Value<String> kind;
+  final Value<String> titleKey;
+  final Value<String?> posterUrl;
+  final Value<String?> backdropUrl;
+  final Value<bool> missing;
+  final Value<int> fetchedAtMillisUtc;
+  final Value<int> rowid;
+  const ArtworkCacheTableCompanion({
+    this.kind = const Value.absent(),
+    this.titleKey = const Value.absent(),
+    this.posterUrl = const Value.absent(),
+    this.backdropUrl = const Value.absent(),
+    this.missing = const Value.absent(),
+    this.fetchedAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ArtworkCacheTableCompanion.insert({
+    required String kind,
+    required String titleKey,
+    this.posterUrl = const Value.absent(),
+    this.backdropUrl = const Value.absent(),
+    this.missing = const Value.absent(),
+    required int fetchedAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : kind = Value(kind),
+       titleKey = Value(titleKey),
+       fetchedAtMillisUtc = Value(fetchedAtMillisUtc);
+  static Insertable<ArtworkRow> custom({
+    Expression<String>? kind,
+    Expression<String>? titleKey,
+    Expression<String>? posterUrl,
+    Expression<String>? backdropUrl,
+    Expression<bool>? missing,
+    Expression<int>? fetchedAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (kind != null) 'kind': kind,
+      if (titleKey != null) 'title_key': titleKey,
+      if (posterUrl != null) 'poster_url': posterUrl,
+      if (backdropUrl != null) 'backdrop_url': backdropUrl,
+      if (missing != null) 'missing': missing,
+      if (fetchedAtMillisUtc != null)
+        'fetched_at_millis_utc': fetchedAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ArtworkCacheTableCompanion copyWith({
+    Value<String>? kind,
+    Value<String>? titleKey,
+    Value<String?>? posterUrl,
+    Value<String?>? backdropUrl,
+    Value<bool>? missing,
+    Value<int>? fetchedAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return ArtworkCacheTableCompanion(
+      kind: kind ?? this.kind,
+      titleKey: titleKey ?? this.titleKey,
+      posterUrl: posterUrl ?? this.posterUrl,
+      backdropUrl: backdropUrl ?? this.backdropUrl,
+      missing: missing ?? this.missing,
+      fetchedAtMillisUtc: fetchedAtMillisUtc ?? this.fetchedAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (titleKey.present) {
+      map['title_key'] = Variable<String>(titleKey.value);
+    }
+    if (posterUrl.present) {
+      map['poster_url'] = Variable<String>(posterUrl.value);
+    }
+    if (backdropUrl.present) {
+      map['backdrop_url'] = Variable<String>(backdropUrl.value);
+    }
+    if (missing.present) {
+      map['missing'] = Variable<bool>(missing.value);
+    }
+    if (fetchedAtMillisUtc.present) {
+      map['fetched_at_millis_utc'] = Variable<int>(fetchedAtMillisUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ArtworkCacheTableCompanion(')
+          ..write('kind: $kind, ')
+          ..write('titleKey: $titleKey, ')
+          ..write('posterUrl: $posterUrl, ')
+          ..write('backdropUrl: $backdropUrl, ')
+          ..write('missing: $missing, ')
+          ..write('fetchedAtMillisUtc: $fetchedAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5887,8 +7847,16 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CatalogMetaTableTable catalogMetaTable = $CatalogMetaTableTable(
     this,
   );
+  late final $CatalogCategoryMetaTableTable catalogCategoryMetaTable =
+      $CatalogCategoryMetaTableTable(this);
+  late final $DiscoveryTitlesTableTable discoveryTitlesTable =
+      $DiscoveryTitlesTableTable(this);
+  late final $DiscoveryMatchesTableTable discoveryMatchesTable =
+      $DiscoveryMatchesTableTable(this);
   late final $SearchHistoryTableTable searchHistoryTable =
       $SearchHistoryTableTable(this);
+  late final $ArtworkCacheTableTable artworkCacheTable =
+      $ArtworkCacheTableTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5905,7 +7873,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     favoritesTable,
     epgCacheTable,
     catalogMetaTable,
+    catalogCategoryMetaTable,
+    discoveryTitlesTable,
+    discoveryMatchesTable,
     searchHistoryTable,
+    artworkCacheTable,
   ];
 }
 
@@ -7442,6 +9414,8 @@ typedef $$ChannelsTableTableCreateCompanionBuilder =
       Value<String?> logoUrl,
       Value<String?> epgChannelId,
       Value<int?> sortOrder,
+      Value<bool> tvArchive,
+      Value<int?> tvArchiveDays,
       required int cachedAtMillisUtc,
       Value<int> rowid,
     });
@@ -7454,6 +9428,8 @@ typedef $$ChannelsTableTableUpdateCompanionBuilder =
       Value<String?> logoUrl,
       Value<String?> epgChannelId,
       Value<int?> sortOrder,
+      Value<bool> tvArchive,
+      Value<int?> tvArchiveDays,
       Value<int> cachedAtMillisUtc,
       Value<int> rowid,
     });
@@ -7499,6 +9475,16 @@ class $$ChannelsTableTableFilterComposer
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get tvArchive => $composableBuilder(
+    column: $table.tvArchive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get tvArchiveDays => $composableBuilder(
+    column: $table.tvArchiveDays,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7552,6 +9538,16 @@ class $$ChannelsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get tvArchive => $composableBuilder(
+    column: $table.tvArchive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get tvArchiveDays => $composableBuilder(
+    column: $table.tvArchiveDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get cachedAtMillisUtc => $composableBuilder(
     column: $table.cachedAtMillisUtc,
     builder: (column) => ColumnOrderings(column),
@@ -7591,6 +9587,14 @@ class $$ChannelsTableTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<bool> get tvArchive =>
+      $composableBuilder(column: $table.tvArchive, builder: (column) => column);
+
+  GeneratedColumn<int> get tvArchiveDays => $composableBuilder(
+    column: $table.tvArchiveDays,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get cachedAtMillisUtc => $composableBuilder(
     column: $table.cachedAtMillisUtc,
@@ -7636,6 +9640,8 @@ class $$ChannelsTableTableTableManager
                 Value<String?> logoUrl = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
                 Value<int?> sortOrder = const Value.absent(),
+                Value<bool> tvArchive = const Value.absent(),
+                Value<int?> tvArchiveDays = const Value.absent(),
                 Value<int> cachedAtMillisUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChannelsTableCompanion(
@@ -7646,6 +9652,8 @@ class $$ChannelsTableTableTableManager
                 logoUrl: logoUrl,
                 epgChannelId: epgChannelId,
                 sortOrder: sortOrder,
+                tvArchive: tvArchive,
+                tvArchiveDays: tvArchiveDays,
                 cachedAtMillisUtc: cachedAtMillisUtc,
                 rowid: rowid,
               ),
@@ -7658,6 +9666,8 @@ class $$ChannelsTableTableTableManager
                 Value<String?> logoUrl = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
                 Value<int?> sortOrder = const Value.absent(),
+                Value<bool> tvArchive = const Value.absent(),
+                Value<int?> tvArchiveDays = const Value.absent(),
                 required int cachedAtMillisUtc,
                 Value<int> rowid = const Value.absent(),
               }) => ChannelsTableCompanion.insert(
@@ -7668,6 +9678,8 @@ class $$ChannelsTableTableTableManager
                 logoUrl: logoUrl,
                 epgChannelId: epgChannelId,
                 sortOrder: sortOrder,
+                tvArchive: tvArchive,
+                tvArchiveDays: tvArchiveDays,
                 cachedAtMillisUtc: cachedAtMillisUtc,
                 rowid: rowid,
               ),
@@ -7946,6 +9958,8 @@ typedef $$PreferencesTableTableCreateCompanionBuilder =
       Value<bool> autoplayNext,
       Value<bool> backgroundPlayback,
       Value<String?> contentLanguages,
+      Value<String?> tmdbApiKey,
+      Value<String?> discoveryRegion,
       Value<String?> activeAccountId,
     });
 typedef $$PreferencesTableTableUpdateCompanionBuilder =
@@ -7956,6 +9970,8 @@ typedef $$PreferencesTableTableUpdateCompanionBuilder =
       Value<bool> autoplayNext,
       Value<bool> backgroundPlayback,
       Value<String?> contentLanguages,
+      Value<String?> tmdbApiKey,
+      Value<String?> discoveryRegion,
       Value<String?> activeAccountId,
     });
 
@@ -7995,6 +10011,16 @@ class $$PreferencesTableTableFilterComposer
 
   ColumnFilters<String> get contentLanguages => $composableBuilder(
     column: $table.contentLanguages,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tmdbApiKey => $composableBuilder(
+    column: $table.tmdbApiKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get discoveryRegion => $composableBuilder(
+    column: $table.discoveryRegion,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8043,6 +10069,16 @@ class $$PreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get tmdbApiKey => $composableBuilder(
+    column: $table.tmdbApiKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get discoveryRegion => $composableBuilder(
+    column: $table.discoveryRegion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get activeAccountId => $composableBuilder(
     column: $table.activeAccountId,
     builder: (column) => ColumnOrderings(column),
@@ -8083,6 +10119,16 @@ class $$PreferencesTableTableAnnotationComposer
 
   GeneratedColumn<String> get contentLanguages => $composableBuilder(
     column: $table.contentLanguages,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get tmdbApiKey => $composableBuilder(
+    column: $table.tmdbApiKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get discoveryRegion => $composableBuilder(
+    column: $table.discoveryRegion,
     builder: (column) => column,
   );
 
@@ -8135,6 +10181,8 @@ class $$PreferencesTableTableTableManager
                 Value<bool> autoplayNext = const Value.absent(),
                 Value<bool> backgroundPlayback = const Value.absent(),
                 Value<String?> contentLanguages = const Value.absent(),
+                Value<String?> tmdbApiKey = const Value.absent(),
+                Value<String?> discoveryRegion = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion(
                 id: id,
@@ -8143,6 +10191,8 @@ class $$PreferencesTableTableTableManager
                 autoplayNext: autoplayNext,
                 backgroundPlayback: backgroundPlayback,
                 contentLanguages: contentLanguages,
+                tmdbApiKey: tmdbApiKey,
+                discoveryRegion: discoveryRegion,
                 activeAccountId: activeAccountId,
               ),
           createCompanionCallback:
@@ -8153,6 +10203,8 @@ class $$PreferencesTableTableTableManager
                 Value<bool> autoplayNext = const Value.absent(),
                 Value<bool> backgroundPlayback = const Value.absent(),
                 Value<String?> contentLanguages = const Value.absent(),
+                Value<String?> tmdbApiKey = const Value.absent(),
+                Value<String?> discoveryRegion = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion.insert(
                 id: id,
@@ -8161,6 +10213,8 @@ class $$PreferencesTableTableTableManager
                 autoplayNext: autoplayNext,
                 backgroundPlayback: backgroundPlayback,
                 contentLanguages: contentLanguages,
+                tmdbApiKey: tmdbApiKey,
+                discoveryRegion: discoveryRegion,
                 activeAccountId: activeAccountId,
               ),
           withReferenceMapper: (p0) => p0
@@ -8748,6 +10802,729 @@ typedef $$CatalogMetaTableTableProcessedTableManager =
       CatalogMetaRow,
       PrefetchHooks Function()
     >;
+typedef $$CatalogCategoryMetaTableTableCreateCompanionBuilder =
+    CatalogCategoryMetaTableCompanion Function({
+      required String accountId,
+      required CatalogKind kind,
+      required String categoryId,
+      required int refreshedAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$CatalogCategoryMetaTableTableUpdateCompanionBuilder =
+    CatalogCategoryMetaTableCompanion Function({
+      Value<String> accountId,
+      Value<CatalogKind> kind,
+      Value<String> categoryId,
+      Value<int> refreshedAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$CatalogCategoryMetaTableTableFilterComposer
+    extends Composer<_$AppDatabase, $CatalogCategoryMetaTableTable> {
+  $$CatalogCategoryMetaTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<CatalogKind, CatalogKind, String> get kind =>
+      $composableBuilder(
+        column: $table.kind,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get refreshedAtMillisUtc => $composableBuilder(
+    column: $table.refreshedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CatalogCategoryMetaTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $CatalogCategoryMetaTableTable> {
+  $$CatalogCategoryMetaTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get refreshedAtMillisUtc => $composableBuilder(
+    column: $table.refreshedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CatalogCategoryMetaTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CatalogCategoryMetaTableTable> {
+  $$CatalogCategoryMetaTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<CatalogKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get refreshedAtMillisUtc => $composableBuilder(
+    column: $table.refreshedAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$CatalogCategoryMetaTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CatalogCategoryMetaTableTable,
+          CatalogCategoryMetaRow,
+          $$CatalogCategoryMetaTableTableFilterComposer,
+          $$CatalogCategoryMetaTableTableOrderingComposer,
+          $$CatalogCategoryMetaTableTableAnnotationComposer,
+          $$CatalogCategoryMetaTableTableCreateCompanionBuilder,
+          $$CatalogCategoryMetaTableTableUpdateCompanionBuilder,
+          (
+            CatalogCategoryMetaRow,
+            BaseReferences<
+              _$AppDatabase,
+              $CatalogCategoryMetaTableTable,
+              CatalogCategoryMetaRow
+            >,
+          ),
+          CatalogCategoryMetaRow,
+          PrefetchHooks Function()
+        > {
+  $$CatalogCategoryMetaTableTableTableManager(
+    _$AppDatabase db,
+    $CatalogCategoryMetaTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CatalogCategoryMetaTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CatalogCategoryMetaTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CatalogCategoryMetaTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> accountId = const Value.absent(),
+                Value<CatalogKind> kind = const Value.absent(),
+                Value<String> categoryId = const Value.absent(),
+                Value<int> refreshedAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CatalogCategoryMetaTableCompanion(
+                accountId: accountId,
+                kind: kind,
+                categoryId: categoryId,
+                refreshedAtMillisUtc: refreshedAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String accountId,
+                required CatalogKind kind,
+                required String categoryId,
+                required int refreshedAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => CatalogCategoryMetaTableCompanion.insert(
+                accountId: accountId,
+                kind: kind,
+                categoryId: categoryId,
+                refreshedAtMillisUtc: refreshedAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CatalogCategoryMetaTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CatalogCategoryMetaTableTable,
+      CatalogCategoryMetaRow,
+      $$CatalogCategoryMetaTableTableFilterComposer,
+      $$CatalogCategoryMetaTableTableOrderingComposer,
+      $$CatalogCategoryMetaTableTableAnnotationComposer,
+      $$CatalogCategoryMetaTableTableCreateCompanionBuilder,
+      $$CatalogCategoryMetaTableTableUpdateCompanionBuilder,
+      (
+        CatalogCategoryMetaRow,
+        BaseReferences<
+          _$AppDatabase,
+          $CatalogCategoryMetaTableTable,
+          CatalogCategoryMetaRow
+        >,
+      ),
+      CatalogCategoryMetaRow,
+      PrefetchHooks Function()
+    >;
+typedef $$DiscoveryTitlesTableTableCreateCompanionBuilder =
+    DiscoveryTitlesTableCompanion Function({
+      required String listId,
+      required int rank,
+      required DiscoveryKind kind,
+      required String title,
+      Value<int?> tmdbId,
+      Value<int?> year,
+      Value<double?> voteAverage,
+      Value<int?> voteCount,
+      required int fetchedAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$DiscoveryTitlesTableTableUpdateCompanionBuilder =
+    DiscoveryTitlesTableCompanion Function({
+      Value<String> listId,
+      Value<int> rank,
+      Value<DiscoveryKind> kind,
+      Value<String> title,
+      Value<int?> tmdbId,
+      Value<int?> year,
+      Value<double?> voteAverage,
+      Value<int?> voteCount,
+      Value<int> fetchedAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$DiscoveryTitlesTableTableFilterComposer
+    extends Composer<_$AppDatabase, $DiscoveryTitlesTableTable> {
+  $$DiscoveryTitlesTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get listId => $composableBuilder(
+    column: $table.listId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rank => $composableBuilder(
+    column: $table.rank,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DiscoveryKind, DiscoveryKind, String>
+  get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get tmdbId => $composableBuilder(
+    column: $table.tmdbId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get voteAverage => $composableBuilder(
+    column: $table.voteAverage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get voteCount => $composableBuilder(
+    column: $table.voteCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DiscoveryTitlesTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $DiscoveryTitlesTableTable> {
+  $$DiscoveryTitlesTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get listId => $composableBuilder(
+    column: $table.listId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rank => $composableBuilder(
+    column: $table.rank,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get tmdbId => $composableBuilder(
+    column: $table.tmdbId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get voteAverage => $composableBuilder(
+    column: $table.voteAverage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get voteCount => $composableBuilder(
+    column: $table.voteCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DiscoveryTitlesTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DiscoveryTitlesTableTable> {
+  $$DiscoveryTitlesTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get listId =>
+      $composableBuilder(column: $table.listId, builder: (column) => column);
+
+  GeneratedColumn<int> get rank =>
+      $composableBuilder(column: $table.rank, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DiscoveryKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<int> get tmdbId =>
+      $composableBuilder(column: $table.tmdbId, builder: (column) => column);
+
+  GeneratedColumn<int> get year =>
+      $composableBuilder(column: $table.year, builder: (column) => column);
+
+  GeneratedColumn<double> get voteAverage => $composableBuilder(
+    column: $table.voteAverage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get voteCount =>
+      $composableBuilder(column: $table.voteCount, builder: (column) => column);
+
+  GeneratedColumn<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$DiscoveryTitlesTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DiscoveryTitlesTableTable,
+          DiscoveryTitleRow,
+          $$DiscoveryTitlesTableTableFilterComposer,
+          $$DiscoveryTitlesTableTableOrderingComposer,
+          $$DiscoveryTitlesTableTableAnnotationComposer,
+          $$DiscoveryTitlesTableTableCreateCompanionBuilder,
+          $$DiscoveryTitlesTableTableUpdateCompanionBuilder,
+          (
+            DiscoveryTitleRow,
+            BaseReferences<
+              _$AppDatabase,
+              $DiscoveryTitlesTableTable,
+              DiscoveryTitleRow
+            >,
+          ),
+          DiscoveryTitleRow,
+          PrefetchHooks Function()
+        > {
+  $$DiscoveryTitlesTableTableTableManager(
+    _$AppDatabase db,
+    $DiscoveryTitlesTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DiscoveryTitlesTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DiscoveryTitlesTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$DiscoveryTitlesTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> listId = const Value.absent(),
+                Value<int> rank = const Value.absent(),
+                Value<DiscoveryKind> kind = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<int?> tmdbId = const Value.absent(),
+                Value<int?> year = const Value.absent(),
+                Value<double?> voteAverage = const Value.absent(),
+                Value<int?> voteCount = const Value.absent(),
+                Value<int> fetchedAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DiscoveryTitlesTableCompanion(
+                listId: listId,
+                rank: rank,
+                kind: kind,
+                title: title,
+                tmdbId: tmdbId,
+                year: year,
+                voteAverage: voteAverage,
+                voteCount: voteCount,
+                fetchedAtMillisUtc: fetchedAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String listId,
+                required int rank,
+                required DiscoveryKind kind,
+                required String title,
+                Value<int?> tmdbId = const Value.absent(),
+                Value<int?> year = const Value.absent(),
+                Value<double?> voteAverage = const Value.absent(),
+                Value<int?> voteCount = const Value.absent(),
+                required int fetchedAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => DiscoveryTitlesTableCompanion.insert(
+                listId: listId,
+                rank: rank,
+                kind: kind,
+                title: title,
+                tmdbId: tmdbId,
+                year: year,
+                voteAverage: voteAverage,
+                voteCount: voteCount,
+                fetchedAtMillisUtc: fetchedAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DiscoveryTitlesTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DiscoveryTitlesTableTable,
+      DiscoveryTitleRow,
+      $$DiscoveryTitlesTableTableFilterComposer,
+      $$DiscoveryTitlesTableTableOrderingComposer,
+      $$DiscoveryTitlesTableTableAnnotationComposer,
+      $$DiscoveryTitlesTableTableCreateCompanionBuilder,
+      $$DiscoveryTitlesTableTableUpdateCompanionBuilder,
+      (
+        DiscoveryTitleRow,
+        BaseReferences<
+          _$AppDatabase,
+          $DiscoveryTitlesTableTable,
+          DiscoveryTitleRow
+        >,
+      ),
+      DiscoveryTitleRow,
+      PrefetchHooks Function()
+    >;
+typedef $$DiscoveryMatchesTableTableCreateCompanionBuilder =
+    DiscoveryMatchesTableCompanion Function({
+      required String accountId,
+      required String listId,
+      required int rank,
+      required String localId,
+      required int resolvedAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$DiscoveryMatchesTableTableUpdateCompanionBuilder =
+    DiscoveryMatchesTableCompanion Function({
+      Value<String> accountId,
+      Value<String> listId,
+      Value<int> rank,
+      Value<String> localId,
+      Value<int> resolvedAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$DiscoveryMatchesTableTableFilterComposer
+    extends Composer<_$AppDatabase, $DiscoveryMatchesTableTable> {
+  $$DiscoveryMatchesTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get listId => $composableBuilder(
+    column: $table.listId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rank => $composableBuilder(
+    column: $table.rank,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get resolvedAtMillisUtc => $composableBuilder(
+    column: $table.resolvedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DiscoveryMatchesTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $DiscoveryMatchesTableTable> {
+  $$DiscoveryMatchesTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get listId => $composableBuilder(
+    column: $table.listId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rank => $composableBuilder(
+    column: $table.rank,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localId => $composableBuilder(
+    column: $table.localId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get resolvedAtMillisUtc => $composableBuilder(
+    column: $table.resolvedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DiscoveryMatchesTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DiscoveryMatchesTableTable> {
+  $$DiscoveryMatchesTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get listId =>
+      $composableBuilder(column: $table.listId, builder: (column) => column);
+
+  GeneratedColumn<int> get rank =>
+      $composableBuilder(column: $table.rank, builder: (column) => column);
+
+  GeneratedColumn<String> get localId =>
+      $composableBuilder(column: $table.localId, builder: (column) => column);
+
+  GeneratedColumn<int> get resolvedAtMillisUtc => $composableBuilder(
+    column: $table.resolvedAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$DiscoveryMatchesTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DiscoveryMatchesTableTable,
+          DiscoveryMatchRow,
+          $$DiscoveryMatchesTableTableFilterComposer,
+          $$DiscoveryMatchesTableTableOrderingComposer,
+          $$DiscoveryMatchesTableTableAnnotationComposer,
+          $$DiscoveryMatchesTableTableCreateCompanionBuilder,
+          $$DiscoveryMatchesTableTableUpdateCompanionBuilder,
+          (
+            DiscoveryMatchRow,
+            BaseReferences<
+              _$AppDatabase,
+              $DiscoveryMatchesTableTable,
+              DiscoveryMatchRow
+            >,
+          ),
+          DiscoveryMatchRow,
+          PrefetchHooks Function()
+        > {
+  $$DiscoveryMatchesTableTableTableManager(
+    _$AppDatabase db,
+    $DiscoveryMatchesTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DiscoveryMatchesTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$DiscoveryMatchesTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$DiscoveryMatchesTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> accountId = const Value.absent(),
+                Value<String> listId = const Value.absent(),
+                Value<int> rank = const Value.absent(),
+                Value<String> localId = const Value.absent(),
+                Value<int> resolvedAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DiscoveryMatchesTableCompanion(
+                accountId: accountId,
+                listId: listId,
+                rank: rank,
+                localId: localId,
+                resolvedAtMillisUtc: resolvedAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String accountId,
+                required String listId,
+                required int rank,
+                required String localId,
+                required int resolvedAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => DiscoveryMatchesTableCompanion.insert(
+                accountId: accountId,
+                listId: listId,
+                rank: rank,
+                localId: localId,
+                resolvedAtMillisUtc: resolvedAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DiscoveryMatchesTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DiscoveryMatchesTableTable,
+      DiscoveryMatchRow,
+      $$DiscoveryMatchesTableTableFilterComposer,
+      $$DiscoveryMatchesTableTableOrderingComposer,
+      $$DiscoveryMatchesTableTableAnnotationComposer,
+      $$DiscoveryMatchesTableTableCreateCompanionBuilder,
+      $$DiscoveryMatchesTableTableUpdateCompanionBuilder,
+      (
+        DiscoveryMatchRow,
+        BaseReferences<
+          _$AppDatabase,
+          $DiscoveryMatchesTableTable,
+          DiscoveryMatchRow
+        >,
+      ),
+      DiscoveryMatchRow,
+      PrefetchHooks Function()
+    >;
 typedef $$SearchHistoryTableTableCreateCompanionBuilder =
     SearchHistoryTableCompanion Function({
       required String query,
@@ -8906,6 +11683,234 @@ typedef $$SearchHistoryTableTableProcessedTableManager =
       SearchHistoryRow,
       PrefetchHooks Function()
     >;
+typedef $$ArtworkCacheTableTableCreateCompanionBuilder =
+    ArtworkCacheTableCompanion Function({
+      required String kind,
+      required String titleKey,
+      Value<String?> posterUrl,
+      Value<String?> backdropUrl,
+      Value<bool> missing,
+      required int fetchedAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$ArtworkCacheTableTableUpdateCompanionBuilder =
+    ArtworkCacheTableCompanion Function({
+      Value<String> kind,
+      Value<String> titleKey,
+      Value<String?> posterUrl,
+      Value<String?> backdropUrl,
+      Value<bool> missing,
+      Value<int> fetchedAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$ArtworkCacheTableTableFilterComposer
+    extends Composer<_$AppDatabase, $ArtworkCacheTableTable> {
+  $$ArtworkCacheTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get titleKey => $composableBuilder(
+    column: $table.titleKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get posterUrl => $composableBuilder(
+    column: $table.posterUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get backdropUrl => $composableBuilder(
+    column: $table.backdropUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get missing => $composableBuilder(
+    column: $table.missing,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ArtworkCacheTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $ArtworkCacheTableTable> {
+  $$ArtworkCacheTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get titleKey => $composableBuilder(
+    column: $table.titleKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get posterUrl => $composableBuilder(
+    column: $table.posterUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get backdropUrl => $composableBuilder(
+    column: $table.backdropUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get missing => $composableBuilder(
+    column: $table.missing,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ArtworkCacheTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ArtworkCacheTableTable> {
+  $$ArtworkCacheTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get titleKey =>
+      $composableBuilder(column: $table.titleKey, builder: (column) => column);
+
+  GeneratedColumn<String> get posterUrl =>
+      $composableBuilder(column: $table.posterUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get backdropUrl => $composableBuilder(
+    column: $table.backdropUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get missing =>
+      $composableBuilder(column: $table.missing, builder: (column) => column);
+
+  GeneratedColumn<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$ArtworkCacheTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ArtworkCacheTableTable,
+          ArtworkRow,
+          $$ArtworkCacheTableTableFilterComposer,
+          $$ArtworkCacheTableTableOrderingComposer,
+          $$ArtworkCacheTableTableAnnotationComposer,
+          $$ArtworkCacheTableTableCreateCompanionBuilder,
+          $$ArtworkCacheTableTableUpdateCompanionBuilder,
+          (
+            ArtworkRow,
+            BaseReferences<_$AppDatabase, $ArtworkCacheTableTable, ArtworkRow>,
+          ),
+          ArtworkRow,
+          PrefetchHooks Function()
+        > {
+  $$ArtworkCacheTableTableTableManager(
+    _$AppDatabase db,
+    $ArtworkCacheTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ArtworkCacheTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ArtworkCacheTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ArtworkCacheTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> kind = const Value.absent(),
+                Value<String> titleKey = const Value.absent(),
+                Value<String?> posterUrl = const Value.absent(),
+                Value<String?> backdropUrl = const Value.absent(),
+                Value<bool> missing = const Value.absent(),
+                Value<int> fetchedAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ArtworkCacheTableCompanion(
+                kind: kind,
+                titleKey: titleKey,
+                posterUrl: posterUrl,
+                backdropUrl: backdropUrl,
+                missing: missing,
+                fetchedAtMillisUtc: fetchedAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String kind,
+                required String titleKey,
+                Value<String?> posterUrl = const Value.absent(),
+                Value<String?> backdropUrl = const Value.absent(),
+                Value<bool> missing = const Value.absent(),
+                required int fetchedAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => ArtworkCacheTableCompanion.insert(
+                kind: kind,
+                titleKey: titleKey,
+                posterUrl: posterUrl,
+                backdropUrl: backdropUrl,
+                missing: missing,
+                fetchedAtMillisUtc: fetchedAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ArtworkCacheTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ArtworkCacheTableTable,
+      ArtworkRow,
+      $$ArtworkCacheTableTableFilterComposer,
+      $$ArtworkCacheTableTableOrderingComposer,
+      $$ArtworkCacheTableTableAnnotationComposer,
+      $$ArtworkCacheTableTableCreateCompanionBuilder,
+      $$ArtworkCacheTableTableUpdateCompanionBuilder,
+      (
+        ArtworkRow,
+        BaseReferences<_$AppDatabase, $ArtworkCacheTableTable, ArtworkRow>,
+      ),
+      ArtworkRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8932,6 +11937,17 @@ class $AppDatabaseManager {
       $$EpgCacheTableTableTableManager(_db, _db.epgCacheTable);
   $$CatalogMetaTableTableTableManager get catalogMetaTable =>
       $$CatalogMetaTableTableTableManager(_db, _db.catalogMetaTable);
+  $$CatalogCategoryMetaTableTableTableManager get catalogCategoryMetaTable =>
+      $$CatalogCategoryMetaTableTableTableManager(
+        _db,
+        _db.catalogCategoryMetaTable,
+      );
+  $$DiscoveryTitlesTableTableTableManager get discoveryTitlesTable =>
+      $$DiscoveryTitlesTableTableTableManager(_db, _db.discoveryTitlesTable);
+  $$DiscoveryMatchesTableTableTableManager get discoveryMatchesTable =>
+      $$DiscoveryMatchesTableTableTableManager(_db, _db.discoveryMatchesTable);
   $$SearchHistoryTableTableTableManager get searchHistoryTable =>
       $$SearchHistoryTableTableTableManager(_db, _db.searchHistoryTable);
+  $$ArtworkCacheTableTableTableManager get artworkCacheTable =>
+      $$ArtworkCacheTableTableTableManager(_db, _db.artworkCacheTable);
 }

@@ -54,14 +54,18 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   Account _buildAccount() {
     final server = _server.text.trim();
     final fallbackName = Uri.tryParse(server)?.host ?? '';
+    final username = _type == AccountType.xtream ? _username.text.trim() : '';
     return Account(
-      id: 'acc_${DateTime.now().toUtc().millisecondsSinceEpoch}',
+      // Derived from the playlist, never from the clock — so re-adding the same
+      // source keeps its history, and a second device lands on the same id.
+      id: stableAccountId(
+          type: _type, serverUrl: server, username: username),
       type: _type,
       name: _name.text.trim().isNotEmpty
           ? _name.text.trim()
           : (fallbackName.isNotEmpty ? fallbackName : 'My playlist'),
       serverUrl: server,
-      username: _type == AccountType.xtream ? _username.text.trim() : '',
+      username: username,
       password: _type == AccountType.xtream ? _password.text : '',
       createdAt: DateTime.now().toUtc(),
       epgUrl: _type == AccountType.m3u && _epgUrl.text.trim().isNotEmpty
@@ -107,7 +111,10 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     for (final p in _progress) {
       setState(() => p.status = _KindStatus.running);
       try {
-        await catalog.refreshCatalog(account, kinds: {p.kind});
+        // Seed, don't sweep. Pulling every slice in full is minutes of waiting
+        // on a large playlist before the app is usable at all; browsing fetches
+        // the rest per category as you open it.
+        await catalog.prepareSlice(account, p.kind);
         // COUNT in SQL — loading the rows just to count them held the whole
         // catalog in memory, which on a big playlist was enough to get the
         // app killed right here during onboarding.

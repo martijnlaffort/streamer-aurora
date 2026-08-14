@@ -23,10 +23,89 @@ class LiveScreen extends ConsumerStatefulWidget {
 class _LiveScreenState extends ConsumerState<LiveScreen> {
   String? _categoryId;
 
+  /// The content-language filter in force for the current listing, captured so
+  /// the player can zap through the same set the user is browsing.
+  Set<String>? _allowedCategoryIds;
+  final _scroll = ScrollController();
+
+  final List<Channel> _items = [];
+  bool _loading = false;
+  bool _atEnd = false;
+  Object? _error;
+
+  /// Bumped whenever the category/filter changes, so a page still in flight
+  /// from the previous query is discarded instead of appended.
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+    _reload();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 800) {
+      _loadMore();
+    }
+  }
+
+  void _reload() {
+    _generation++;
+    _items.clear();
+    _atEnd = false;
+    _error = null;
+    _loading = false;
+    _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading || _atEnd) return;
+    _loading = true;
+    final gen = _generation;
+    try {
+      final account = await ref.read(activeAccountProvider.future);
+      if (account == null) {
+        if (mounted && gen == _generation) setState(() => _atEnd = true);
+        return;
+      }
+      final allowed = _categoryId == null
+          ? await ref.read(allowedCategoryIdsProvider(CategoryType.live).future)
+          : null;
+      if (gen != _generation) return; // superseded during the awaits above
+      // Kept so the player can reproduce this exact scope when zapping.
+      _allowedCategoryIds = allowed;
+      final page = await ref.read(catalogRepositoryProvider).channels(
+            account,
+            categoryId: _categoryId,
+            categoryIds: allowed,
+            limit: channelsPageSize,
+            offset: _items.length,
+          );
+      if (!mounted || gen != _generation) return;
+      setState(() {
+        _items.addAll(page);
+        if (page.length < channelsPageSize) _atEnd = true;
+      });
+    } catch (e) {
+      if (mounted && gen == _generation) setState(() => _error = e);
+    } finally {
+      if (gen == _generation) _loading = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(activeAccountProvider, (_, _) => _reload());
+    ref.listen(
+        allowedCategoryIdsProvider(CategoryType.live), (_, _) => _reload());
     final categories = ref.watch(liveCategoriesProvider);
-    final channels = ref.watch(channelsListProvider(_categoryId));
     final hasEpg = ref.watch(hasEpgProvider).value ?? false;
 
     return Scaffold(
@@ -49,42 +128,61 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                 : CategoryChips(
                     categories: list,
                     selectedId: _categoryId,
-                    onSelected: (id) => setState(() => _categoryId = id),
+                    onSelected: (id) {
+                      setState(() => _categoryId = id);
+                      _reload();
+                    },
                   ),
             loading: () => const SizedBox(height: 44),
             error: (e, _) => const SizedBox(height: 44),
           ),
-          Expanded(
-            child: channels.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                  child: Text('$e',
-                      style: const TextStyle(color: AppColors.error))),
-              data: (list) {
-                if (list.isEmpty) {
-                  return const Center(
-                    child: Text('No channels in this playlist.',
-                        style: TextStyle(color: AppColors.textSecondary)),
-                  );
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  itemCount: list.length,
-                  itemBuilder: (context, i) => _ChannelTile(channel: list[i]),
-                );
-              },
-            ),
-          ),
+          Expanded(child: _list()),
         ],
+      ),
+    );
+  }
+
+  Widget _list() {
+    if (_items.isEmpty) {
+      if (_loading) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (_error != null) {
+        return Center(
+            child: Text('$_error',
+                style: const TextStyle(color: AppColors.error)));
+      }
+      return const Center(
+        child: Text('No channels in this playlist.',
+            style: TextStyle(color: AppColors.textSecondary)),
+      );
+    }
+    return ListView.builder(
+      controller: _scroll,
+      padding: const EdgeInsets.only(bottom: 24),
+      itemCount: _items.length,
+      // The tile is handed its position and the list's scope so the player can
+      // offer channel up/down from the same ordering the user is looking at.
+      itemBuilder: (context, i) => _ChannelTile(
+        channel: _items[i],
+        zap: ZapContext(
+          index: i,
+          categoryId: _categoryId,
+          categoryIds: _categoryId == null ? _allowedCategoryIds : null,
+        ),
       ),
     );
   }
 }
 
 class _ChannelTile extends ConsumerWidget {
-  const _ChannelTile({required this.channel});
+  const _ChannelTile({required this.channel, this.zap});
 
   final Channel channel;
+
+  /// Position and scope within the list this tile belongs to — enables channel
+  /// up/down once playing.
+  final ZapContext? zap;
 
   String get _contentKey => contentKeyFor(
       accountId: channel.accountId, type: StreamType.live, id: channel.id);
@@ -106,6 +204,7 @@ class _ChannelTile extends ConsumerWidget {
             isLive: true,
           ),
         ],
+        zap: zap,
       ),
     );
   }

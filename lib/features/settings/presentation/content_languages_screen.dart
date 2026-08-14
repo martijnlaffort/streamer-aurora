@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
 
@@ -31,13 +32,9 @@ class ContentLanguagesScreen extends ConsumerWidget {
       }
       // Everything on → store null so future new languages stay visible too.
       final save = current.length >= allCodes.length ? null : current.toList();
-      await ref.read(preferencesRepositoryProvider).save(Preferences(
-            preferredAudioLang: prefs.preferredAudioLang,
-            preferredSubtitleLang: prefs.preferredSubtitleLang,
-            autoplayNext: prefs.autoplayNext,
-            backgroundPlayback: prefs.backgroundPlayback,
-            contentLanguages: save,
-          ));
+      await ref.read(preferencesRepositoryProvider).save(save == null
+          ? prefs.copyWith(clearContentLanguages: true)
+          : prefs.copyWith(contentLanguages: save));
       ref.invalidate(preferencesProvider);
     }
 
@@ -48,12 +45,9 @@ class ContentLanguagesScreen extends ConsumerWidget {
           if (prefs.contentLanguages != null)
             TextButton(
               onPressed: () async {
-                await ref.read(preferencesRepositoryProvider).save(Preferences(
-                      preferredAudioLang: prefs.preferredAudioLang,
-                      preferredSubtitleLang: prefs.preferredSubtitleLang,
-                      autoplayNext: prefs.autoplayNext,
-                      backgroundPlayback: prefs.backgroundPlayback,
-                    ));
+                await ref
+                    .read(preferencesRepositoryProvider)
+                    .save(prefs.copyWith(clearContentLanguages: true));
                 ref.invalidate(preferencesProvider);
               },
               child: const Text('Show all'),
@@ -62,8 +56,7 @@ class ContentLanguagesScreen extends ConsumerWidget {
       ),
       body: available.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-            child: Text('$e', style: const TextStyle(color: AppColors.error))),
+        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(availableContentLanguagesProvider)),
         data: (langs) {
           if (langs.isEmpty) {
             return const Center(

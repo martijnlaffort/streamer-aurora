@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
+import '../../../core/widgets/my_list_button.dart';
 import '../../../data/providers.dart';
+import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
 import '../../movies/movies_providers.dart';
@@ -49,7 +52,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             streamId: e.id,
             containerExt: e.containerExt,
           ),
-          title: detail.series.name,
+          title: prettyTitle(detail.series.name, year: detail.series.year),
           subtitle: 'S${e.seasonNumber} · E${e.episodeNumber} — ${e.title}',
           contentKey: _episodeKey(accountId, e),
         ),
@@ -108,8 +111,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
       extendBodyBehindAppBar: true,
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-            child: Text('$e', style: const TextStyle(color: AppColors.error))),
+        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(seriesDetailProvider(widget.seriesId))),
         data: (detail) {
           if (detail == null || account == null) {
             return const Center(child: Text('Not found in the catalog.'));
@@ -152,7 +154,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(series.name,
+                    Text(prettyTitle(series.name, year: series.year),
                         style: AppTypography.display.copyWith(fontSize: 28)),
                     const SizedBox(height: 8),
                     Text(meta,
@@ -162,15 +164,32 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                       Text(series.plot!, style: AppTypography.body),
                     ],
                     const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: () => _play(detail, account.id, nextIndex,
-                          resumeFrom:
-                              resume ? nextProgress!.positionSeconds : null),
-                      icon: const Icon(Icons.play_arrow),
-                      label: Text(resume
-                          ? 'Resume S${next.seasonNumber} E${next.episodeNumber} '
-                              'from ${formatSeconds(nextProgress!.positionSeconds)}'
-                          : 'Play S${next.seasonNumber} E${next.episodeNumber}'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => _play(
+                                detail, account.id, nextIndex,
+                                resumeFrom: resume
+                                    ? nextProgress!.positionSeconds
+                                    : null),
+                            icon: const Icon(Icons.play_arrow),
+                            label: Text(
+                              resume
+                                  ? 'Resume S${next.seasonNumber} E${next.episodeNumber} '
+                                      'from ${formatSeconds(nextProgress!.positionSeconds)}'
+                                  : 'Play S${next.seasonNumber} E${next.episodeNumber}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        MyListButton(
+                          contentKey: contentKeyForSeries(
+                              accountId: account.id, id: series.id),
+                        ),
+                      ],
                     ),
                   ],
                 ),

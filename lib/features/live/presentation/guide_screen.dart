@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:linked_scroll_controller/linked_scroll_controller.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../domain/models/models.dart';
 import '../../player/player_request.dart';
@@ -68,6 +69,51 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
     );
   }
 
+  /// Whether the panel can still serve this programme from its recording.
+  ///
+  /// Three conditions, all necessary: the channel is recorded at all, the
+  /// programme has actually started (there is nothing to catch up on for
+  /// something still to air), and it has not fallen out of the archive window.
+  bool _canCatchUp(EpgEntry e, Channel channel) {
+    if (!channel.hasArchive) return false;
+    final now = DateTime.now().toUtc();
+    if (!e.start.isBefore(now)) return false;
+    final horizon = channel.archiveHorizon(now);
+    return horizon != null && e.start.isAfter(horizon);
+  }
+
+  /// Plays a past programme from the channel's recording, from its start.
+  ///
+  /// Unlike live, this has a real beginning and end, so it is handed to the
+  /// player as a normal seekable item rather than a live stream.
+  void _playCatchUp(EpgEntry e, Channel channel) {
+    final minutes = e.stop.difference(e.start).inMinutes;
+    context.push(
+      '/player',
+      extra: PlayerRequest(queue: [
+        PlayerItem(
+          streamRef: StreamRef(
+            accountId: channel.accountId,
+            type: StreamType.live,
+            streamId: channel.id,
+            catchupStart: e.start,
+            // A couple of minutes of headroom: panel clocks and EPG listings
+            // rarely agree to the second, and overrunning is harmless while
+            // stopping short cuts the ending off.
+            catchupMinutes: (minutes > 0 ? minutes : 60) + 2,
+          ),
+          title: e.title,
+          subtitle: '${channel.name} · ${_hhmm(e.start)}',
+          contentKey: contentKeyFor(
+              accountId: channel.accountId,
+              type: StreamType.live,
+              id: '${channel.id}@${e.start.millisecondsSinceEpoch}'),
+          isLive: false,
+        ),
+      ]),
+    );
+  }
+
   void _showProgramme(EpgEntry e, Channel channel) {
     showModalBottomSheet<void>(
       context: context,
@@ -90,13 +136,25 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                 Text(e.description!, style: AppTypography.body),
               ],
               const SizedBox(height: 16),
+              if (_canCatchUp(e, channel))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _playCatchUp(e, channel);
+                    },
+                    icon: const Icon(Icons.replay),
+                    label: const Text('Watch from the start'),
+                  ),
+                ),
               FilledButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
                   _playChannel(channel, nowTitle: e.title);
                 },
                 icon: const Icon(Icons.play_arrow),
-                label: Text('Watch ${channel.name}'),
+                label: Text('Watch ${channel.name} live'),
               ),
             ],
           ),
@@ -116,11 +174,27 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
     final guide = ref.watch(guideProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('TV Guide')),
+      appBar: AppBar(
+        title: const Text('TV Guide'),
+        // Say so when the grid is bounded, rather than quietly omitting rows.
+        bottom: (guide.value?.truncated ?? false)
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(22),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.only(left: 16, bottom: 6),
+                  child: Text(
+                    'Showing the first $guideChannelLimit channels with a guide',
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 11),
+                  ),
+                ),
+              )
+            : null,
+      ),
       body: guide.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-            child: Text('$e', style: const TextStyle(color: AppColors.error))),
+        error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(guideProvider)),
         data: (data) {
           if (data == null || data.channels.isEmpty) {
             return const Center(
@@ -341,8 +415,11 @@ class _ChannelRow extends StatelessWidget {
         width: width,
         top: 4,
         bottom: 4,
-        child: GestureDetector(
+        // InkWell so a D-pad OK press activates the block; GestureDetector
+        // takes focus on a TV and then ignores it.
+        child: InkWell(
           onTap: () => onTap(e),
+          borderRadius: BorderRadius.circular(6),
           child: Container(
             margin: const EdgeInsets.only(right: 2),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

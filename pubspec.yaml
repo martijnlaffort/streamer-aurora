@@ -36,6 +36,7 @@ dependencies:
   google_fonts: ^8.2.0 # display + UI typefaces (PRD §10)
 
   # Models
+  crypto: ^3.0.6 # stable account ids (sha256 of the playlist identity)
   equatable: ^2.1.0
   meta: ^1.18.0 # @visibleForTesting in flutter-free data layer
   audio_session: ^0.2.4
@@ -64,3 +65,6 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+  assets:
+    # Award canon for the offline discovery rails (see canon_source.dart).
+    - assets/canon/canon.json

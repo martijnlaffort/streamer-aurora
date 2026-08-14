@@ -17,63 +17,182 @@
 const MOCK_USER = 'aurora';
 const MOCK_PASS = 'test';
 
-$LIVE = [
-    1 => ['name' => 'Apple Test Pattern (multi audio/subs)', 'epg' => 'apple.test',
-          'url' => 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8'],
-    2 => ['name' => 'DW English', 'epg' => 'dw.en',
-          'url' => 'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8'],
-    3 => ['name' => 'Red Bull TV', 'epg' => 'redbull.tv',
-          'url' => 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8'],
+// Real, publicly available streams. The first few generated live channels map to
+// these so live playback still works at any catalog size; every other generated
+// channel reuses one of them round-robin.
+$REAL_LIVE = [
+    ['name' => 'Apple Test Pattern (multi audio/subs)', 'epg' => 'apple.test',
+     'url' => 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8'],
+    ['name' => 'DW English', 'epg' => 'dw.en',
+     'url' => 'https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8'],
+    ['name' => 'Red Bull TV', 'epg' => 'redbull.tv',
+     'url' => 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8'],
 ];
-
-// A generated catalog large enough to make Home rails and grids feel real.
-// Posters/backdrops come from picsum.photos (stable per seed); every stream
-// URL still resolves to a playable Big Buck Bunny clip.
-$VOD_CAT_NAMES = ['Action', 'Drama', 'Sci-Fi', 'Documentary', 'Comedy', 'Thriller',
-                  'Horror', 'Romance', 'Animation', 'Crime', 'Fantasy', 'Adventure',
-                  'Mystery', 'Family', 'War', 'Western', 'Music', 'History', 'Sport',
-                  'Biography'];
-$VOD_CATEGORIES = [];
-foreach ($VOD_CAT_NAMES as $k => $n) { $VOD_CATEGORIES[20 + $k] = $n; }
 
 $MOVIE_CLIP_URLS = [
     'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4',
     'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
 ];
 
-$MOVIES = [];
+// Category names. Ids: live 1..N, VOD 20..39, series 300..307 (types are stored
+// separately, so the ranges only need to be unique per type).
+$LIVE_CAT_NAMES = ['Sports', 'News', 'Entertainment', 'Movies', 'Kids', 'Music',
+                   'Documentary', 'International', 'Local', 'Premium'];
+$VOD_CAT_NAMES = ['Action', 'Drama', 'Sci-Fi', 'Documentary', 'Comedy', 'Thriller',
+                  'Horror', 'Romance', 'Animation', 'Crime', 'Fantasy', 'Adventure',
+                  'Mystery', 'Family', 'War', 'Western', 'Music', 'History', 'Sport',
+                  'Biography'];
+$SERIES_CAT_NAMES = ['Shows', 'Drama Series', 'Comedy Series', 'Crime Series',
+                     'Sci-Fi Series', 'Kids Series', 'Docuseries', 'Reality'];
+
+$LIVE_CATEGORIES = [];
+foreach ($LIVE_CAT_NAMES as $k => $n) { $LIVE_CATEGORIES[1 + $k] = $n; }
+$VOD_CATEGORIES = [];
+foreach ($VOD_CAT_NAMES as $k => $n) { $VOD_CATEGORIES[20 + $k] = $n; }
+$SERIES_CATEGORIES = [];
+foreach ($SERIES_CAT_NAMES as $k => $n) { $SERIES_CATEGORIES[300 + $k] = $n; }
+
 $adjectives = ['Silent', 'Crimson', 'Endless', 'Broken', 'Golden', 'Hidden',
                'Electric', 'Frozen', 'Burning', 'Midnight', 'Distant', 'Savage'];
 $nouns = ['Harbor', 'Empire', 'Signal', 'Garden', 'Protocol', 'Horizon',
           'Echo', 'Kingdom', 'Circuit', 'Meridian', 'Voyage', 'Frontier'];
-// Catalog size. Small by default so dev is fast; pass ?count=N per request or
-// set MOCK_COUNT in the server env to mimic a large real IPTV VOD catalog
-// (e.g. MOCK_COUNT=40000) and reproduce on-device memory behaviour locally.
-$MOVIE_COUNT = (int) ($_GET['count'] ?? (getenv('MOCK_COUNT') ?: 200));
-$catCount = count($GLOBALS['VOD_CATEGORIES']);
-for ($i = 0; $i < $MOVIE_COUNT; $i++) {
-    $id = 1001 + $i;
-    $MOVIES[$id] = [
-        'name'   => $adjectives[$i % 12] . ' ' . $nouns[($i * 7 + intdiv($i, 12)) % 12]
-                    . ' ' . ($i + 1),
+
+// Catalog sizes. Small by default so dev is fast; set these in the server env
+// (or pass ?count=/?scount=/?lcount= per request) to mimic a large real line and
+// reproduce on-device behaviour locally, e.g. a big provider:
+//   MOCK_LCOUNT=25000 MOCK_COUNT=150000 MOCK_SCOUNT=36000
+$MOVIE_COUNT  = (int) ($_GET['count']  ?? (getenv('MOCK_COUNT')  ?: 200));
+$SERIES_COUNT = (int) ($_GET['scount'] ?? (getenv('MOCK_SCOUNT') ?: 24));
+$LIVE_COUNT   = (int) ($_GET['lcount'] ?? (getenv('MOCK_LCOUNT') ?: 3));
+
+// Rows are GENERATED ON DEMAND from their index rather than materialised into
+// big arrays up front: at 150k movies, building the whole catalog on every
+// request costs seconds of CPU and hundreds of MB in the mock itself, which
+// would swamp the very app-side timings this tool exists to measure. Each
+// row is a pure function of its index, so a single item (get_vod_info, a stream
+// URL) is computed directly and a per-category listing iterates with a stride.
+
+/** Live channel by index (0-based). Ids are 1-based: id = index + 1. */
+function mock_channel(int $i): array
+{
+    $real = $GLOBALS['REAL_LIVE'][$i % count($GLOBALS['REAL_LIVE'])];
+    $catCount = count($GLOBALS['LIVE_CATEGORIES']);
+    // The first channels keep their real names so the Live tab is recognisable.
+    $isReal = $i < count($GLOBALS['REAL_LIVE']);
+    return [
+        'id'   => $i + 1,
+        'name' => $isReal ? $real['name']
+                          : $GLOBALS['LIVE_CAT_NAMES'][$i % $catCount] . ' HD ' . ($i + 1),
+        'epg'  => $isReal ? $real['epg'] : 'ch.' . ($i + 1),
+        'cat'  => (string) (1 + $i % $catCount),
+        'url'  => $real['url'],
+    ];
+}
+
+/**
+ * Real award-winning titles, formatted the messy way a real panel does, so the
+ * discovery rails (which match against TMDB lists and the bundled award canon)
+ * have something to resolve against. The generated `Silent Harbor 12` names
+ * match nothing by design, which would make an empty rail look like a bug.
+ * These occupy the first indices; everything after is generated as before.
+ */
+const CANON_SAMPLE = [
+    ['Oppenheimer 2023 4K', 2023],
+    ['EN - Parasite (2019)', 2019],
+    ['The Godfather 1972 1080p', 1972],
+    ['Casablanca', 1943],
+    ['NL| Forrest Gump 1994 MULTi', 1994],
+    ['Gladiator 2000 WEB-DL', 2000],
+    ['Titanic 1997', 1997],
+    ['Schindlers List 1993', 1993],
+    ['Everything Everywhere All at Once 2022', 2022],
+    ['Anora 2024', 2024],
+    ['Nomadland 2020', 2020],
+    ['Moonlight 2016 x265', 2016],
+    ['Argo 2012', 2012],
+    ['Amadeus 1984', 1984],
+    ['Rocky 1976', 1976],
+    ['Platoon 1986', 1986],
+    ['Braveheart 1995 HDR', 1995],
+    ['The Departed 2006', 2006],
+    ['Spotlight 2015', 2015],
+    ['One Flew Over the Cuckoos Nest 1975', 1975],
+];
+
+/** Movie by index (0-based). Ids start at 1001. */
+function mock_movie(int $i): array
+{
+    $catCount = count($GLOBALS['VOD_CATEGORIES']);
+    if ($i < count(CANON_SAMPLE)) {
+        [$realName, $realYear] = CANON_SAMPLE[$i];
+        return [
+            'id'     => 1001 + $i,
+            'name'   => $realName,
+            'cat'    => (string) (20 + $i % $catCount),
+            'year'   => $realYear,
+            'rating' => number_format(7.5 + ($i % 25) / 10, 1, '.', ''),
+            'added'  => time() - $i * 3600,
+            'url'    => $GLOBALS['MOVIE_CLIP_URLS'][$i % 2],
+        ];
+    }
+    return [
+        'id'     => 1001 + $i,
+        'name'   => $GLOBALS['adjectives'][$i % 12] . ' '
+                    . $GLOBALS['nouns'][($i * 7 + intdiv($i, 12)) % 12] . ' ' . ($i + 1),
         'cat'    => (string) (20 + $i % $catCount),
         'year'   => 1980 + ($i * 13) % 45,
         'rating' => number_format(3.0 + ($i * 37 % 70) / 10, 1, '.', ''),
         'added'  => time() - $i * 3600,
-        'url'    => $MOVIE_CLIP_URLS[$i % 2],
+        'url'    => $GLOBALS['MOVIE_CLIP_URLS'][$i % 2],
     ];
 }
 
-$SERIES = [];
-$SERIES_COUNT = (int) ($_GET['scount'] ?? (getenv('MOCK_SCOUNT') ?: 24));
-for ($i = 0; $i < $SERIES_COUNT; $i++) {
-    $id = 15 + $i;
-    $SERIES[$id] = [
-        'name'   => $adjectives[($i * 5 + 2) % 12] . ' ' . $nouns[($i * 3 + 1) % 12] . 's '
-                    . ($i + 1),
+/** Emmy-winning series, likewise so the series award rail has real matches. */
+const CANON_SAMPLE_SERIES = [
+    ['Breaking Bad', 2008], ['Game of Thrones', 2011], ['The Sopranos', 1999],
+    ['Succession', 2018], ['Mad Men', 2007], ['Friends', 1994],
+    ['Seinfeld', 1989], ['Ted Lasso', 2020], ['The Bear', 2022],
+    ['Fleabag', 2016], ['The Crown', 2016], ['Shogun', 2024],
+];
+
+/** Series by index (0-based). Ids start at 15. */
+function mock_series(int $i): array
+{
+    $catCount = count($GLOBALS['SERIES_CATEGORIES']);
+    if ($i < count(CANON_SAMPLE_SERIES)) {
+        [$realName, $realYear] = CANON_SAMPLE_SERIES[$i];
+        return [
+            'id'     => 15 + $i,
+            'name'   => $realName,
+            'cat'    => (string) (300 + $i % $catCount),
+            'year'   => $realYear,
+            'rating' => number_format(8.0 + ($i % 20) / 10, 1, '.', ''),
+        ];
+    }
+    return [
+        'id'     => 15 + $i,
+        'name'   => $GLOBALS['adjectives'][($i * 5 + 2) % 12] . ' '
+                    . $GLOBALS['nouns'][($i * 3 + 1) % 12] . 's ' . ($i + 1),
+        'cat'    => (string) (300 + $i % $catCount),
         'year'   => 1990 + $i % 35,
         'rating' => number_format(3.0 + ($i * 41 % 70) / 10, 1, '.', ''),
     ];
+}
+
+/**
+ * Indexes of the items in [0,$count) whose category is $want, or all of them
+ * when $want is null. Round-robin assignment means one category is exactly
+ * every $catCount-th index, so this never walks the whole catalog.
+ */
+function mock_indexes(?string $want, int $count, int $firstCatId, int $catCount): iterable
+{
+    if ($want === null) {
+        for ($i = 0; $i < $count; $i++) { yield $i; }
+        return;
+    }
+    $offset = (int) $want - $firstCatId;
+    if ($offset < 0 || $offset >= $catCount) { return; }
+    for ($i = $offset; $i < $count; $i += $catCount) { yield $i; }
 }
 
 $EPISODES = [
@@ -123,7 +242,11 @@ if ($path === '/player_api.php') {
             ]);
 
         case 'get_live_categories':
-            json_out([['category_id' => '1', 'category_name' => 'Test Live', 'parent_id' => 0]]);
+            $rows = [];
+            foreach ($GLOBALS['LIVE_CATEGORIES'] as $id => $name) {
+                $rows[] = ['category_id' => (string) $id, 'category_name' => $name, 'parent_id' => 0];
+            }
+            json_out($rows);
 
         case 'get_vod_categories':
             $rows = [];
@@ -133,7 +256,11 @@ if ($path === '/player_api.php') {
             json_out($rows);
 
         case 'get_series_categories':
-            json_out([['category_id' => '30', 'category_name' => 'Shows', 'parent_id' => 0]]);
+            $rows = [];
+            foreach ($GLOBALS['SERIES_CATEGORIES'] as $id => $name) {
+                $rows[] = ['category_id' => (string) $id, 'category_name' => $name, 'parent_id' => 0];
+            }
+            json_out($rows);
 
         case 'get_live_streams':
             // Honors category_id like a real panel — Aurora refreshes per
@@ -141,13 +268,13 @@ if ($path === '/player_api.php') {
             $want = $_GET['category_id'] ?? null;
             $rows = [];
             $num = 1;
-            foreach ($GLOBALS['LIVE'] as $id => $ch) {
-                if ($want !== null && $want !== '1') continue;
+            foreach (mock_indexes($want, $LIVE_COUNT, 1, count($LIVE_CATEGORIES)) as $i) {
+                $ch = mock_channel($i);
                 $rows[] = [
                     'num' => $num++, 'name' => $ch['name'], 'stream_type' => 'live',
-                    'stream_id' => $id, 'stream_icon' => '',
+                    'stream_id' => $ch['id'], 'stream_icon' => '',
                     'epg_channel_id' => $ch['epg'], 'added' => '1700000000',
-                    'category_id' => '1', 'tv_archive' => 0,
+                    'category_id' => $ch['cat'], 'tv_archive' => 0,
                 ];
             }
             json_out($rows);
@@ -156,8 +283,9 @@ if ($path === '/player_api.php') {
             $want = $_GET['category_id'] ?? null;
             $rows = [];
             $num = 1;
-            foreach ($GLOBALS['MOVIES'] as $id => $m) {
-                if ($want !== null && $m['cat'] !== $want) continue;
+            foreach (mock_indexes($want, $MOVIE_COUNT, 20, count($VOD_CATEGORIES)) as $i) {
+                $m = mock_movie($i);
+                $id = $m['id'];
                 $rows[] = [
                     'num' => $num++, 'name' => $m['name'], 'stream_type' => 'movie',
                     'stream_id' => $id,
@@ -171,10 +299,11 @@ if ($path === '/player_api.php') {
 
         case 'get_vod_info':
             $id = (int) ($_GET['vod_id'] ?? 0);
-            $m = $GLOBALS['MOVIES'][$id] ?? null;
-            if ($m === null) {
+            $index = $id - 1001;
+            if ($index < 0 || $index >= $MOVIE_COUNT) {
                 json_out(['info' => [], 'movie_data' => []]);
             }
+            $m = mock_movie($index);
             json_out([
                 'info' => [
                     'name' => $m['name'],
@@ -196,26 +325,28 @@ if ($path === '/player_api.php') {
 
         case 'get_series':
             $want = $_GET['category_id'] ?? null;
-            if ($want !== null && $want !== '30') {
-                json_out([]);
-            }
             $rows = [];
             $num = 1;
-            foreach ($GLOBALS['SERIES'] as $id => $s) {
+            foreach (mock_indexes($want, $SERIES_COUNT, 300, count($SERIES_CATEGORIES)) as $i) {
+                $s = mock_series($i);
+                $id = $s['id'];
                 $rows[] = [
                     'num' => $num++, 'name' => $s['name'], 'series_id' => $id,
                     'cover' => "https://picsum.photos/seed/auroras$id/300/450",
                     'plot' => "The continuing story of {$s['name']}.",
                     'cast' => 'Big Buck Bunny', 'genre' => 'Drama',
                     'releaseDate' => $s['year'] . '-01-01',
-                    'rating' => $s['rating'], 'category_id' => '30',
+                    'rating' => $s['rating'], 'category_id' => $s['cat'],
                 ];
             }
             json_out($rows);
 
         case 'get_series_info':
             $sid = (int) ($_GET['series_id'] ?? 15);
-            $s = $GLOBALS['SERIES'][$sid] ?? ['name' => 'Unknown Show', 'year' => 2020, 'rating' => '7.0'];
+            $sindex = $sid - 15;
+            $s = ($sindex >= 0 && $sindex < $SERIES_COUNT)
+                ? mock_series($sindex)
+                : ['name' => 'Unknown Show', 'year' => 2020, 'rating' => '7.0', 'cat' => '300'];
             $eps = [];
             foreach ($GLOBALS['EPISODES'] as $id => $e) {
                 $eps[] = [
@@ -237,14 +368,15 @@ if ($path === '/player_api.php') {
                     'plot' => "The continuing story of {$s['name']}.",
                     'genre' => 'Drama', 'cast' => 'Big Buck Bunny',
                     'releaseDate' => $s['year'] . '-01-01',
-                    'rating' => $s['rating'], 'category_id' => '30',
+                    'rating' => $s['rating'], 'category_id' => $s['cat'],
                 ],
                 'episodes' => ['1' => $eps],
             ]);
 
         case 'get_short_epg':
             $id = (int) ($_GET['stream_id'] ?? 0);
-            $name = $GLOBALS['LIVE'][$id]['name'] ?? 'Unknown';
+            $ch = ($id >= 1 && $id <= $LIVE_COUNT) ? mock_channel($id - 1) : null;
+            $name = $ch['name'] ?? 'Unknown';
             $limit = max(1, (int) ($_GET['limit'] ?? 4));
             $rows = [];
             $start = time() - 900; // current programme started 15 min ago
@@ -254,7 +386,7 @@ if ($path === '/player_api.php') {
                     'id' => (string) (9000 + $i), 'epg_id' => (string) $id,
                     'title' => base64_encode($i === 0 ? "Now on $name" : "Later on $name #$i"),
                     'description' => base64_encode('Mock programme for testing.'),
-                    'channel_id' => $GLOBALS['LIVE'][$id]['epg'] ?? '',
+                    'channel_id' => $ch['epg'] ?? '',
                     'start_timestamp' => (string) $start,
                     'stop_timestamp' => (string) $stop,
                 ];
@@ -272,9 +404,11 @@ if ($path === '/playlist.m3u') {
     header('Content-Type: application/x-mpegurl');
     $host = $_SERVER['HTTP_HOST'] ?? '127.0.0.1:8082';
     echo "#EXTM3U url-tvg=\"http://$host/xmltv.php\"\n";
-    foreach ($LIVE as $id => $ch) {
-        echo "#EXTINF:-1 tvg-id=\"{$ch['epg']}\" group-title=\"Test Live\",{$ch['name']}\n";
-        echo "http://$host/live/aurora/test/$id.ts\n";
+    for ($i = 0; $i < $LIVE_COUNT; $i++) {
+        $ch = mock_channel($i);
+        $group = $LIVE_CATEGORIES[(int) $ch['cat']] ?? 'Test Live';
+        echo "#EXTINF:-1 tvg-id=\"{$ch['epg']}\" group-title=\"$group\",{$ch['name']}\n";
+        echo "http://$host/live/aurora/test/{$ch['id']}.ts\n";
     }
     exit;
 }
@@ -282,15 +416,19 @@ if ($path === '/playlist.m3u') {
 // --- XMLTV EPG (Xtream xmltv.php + the M3U url-tvg above) ---------------------
 if ($path === '/xmltv.php') {
     header('Content-Type: application/xml');
+    // Streamed, not buffered: a real guide for tens of thousands of channels is
+    // hundreds of MB, which is the case Aurora's streaming ingest exists for.
     echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<tv>\n";
-    foreach ($LIVE as $ch) {
+    for ($i = 0; $i < $LIVE_COUNT; $i++) {
+        $ch = mock_channel($i);
         $eid = htmlspecialchars($ch['epg']);
         echo "  <channel id=\"$eid\"><display-name>"
             . htmlspecialchars($ch['name']) . "</display-name></channel>\n";
     }
     // A programme every hour from 2h ago to 6h ahead, in UTC.
     $slot = (int) floor(time() / 3600) * 3600 - 2 * 3600;
-    foreach ($LIVE as $ch) {
+    for ($c = 0; $c < $LIVE_COUNT; $c++) {
+        $ch = mock_channel($c);
         $eid = htmlspecialchars($ch['epg']);
         for ($i = 0; $i < 8; $i++) {
             $start = $slot + $i * 3600;
@@ -316,12 +454,14 @@ if (preg_match('#^/(live|movie|series)/([^/]+)/([^/]+)/(\d+)\.\w+$#', $path, $m)
         http_response_code(403);
         exit;
     }
-    $table = match ($kind) {
-        'live' => $GLOBALS['LIVE'],
-        'movie' => $GLOBALS['MOVIES'],
-        'series' => $GLOBALS['EPISODES'],
+    $id = (int) $id;
+    $target = match ($kind) {
+        'live' => ($id >= 1 && $id <= $LIVE_COUNT)
+            ? mock_channel($id - 1)['url'] : null,
+        'movie' => ($id - 1001 >= 0 && $id - 1001 < $MOVIE_COUNT)
+            ? mock_movie($id - 1001)['url'] : null,
+        'series' => $GLOBALS['EPISODES'][$id]['url'] ?? null,
     };
-    $target = $table[(int) $id]['url'] ?? null;
     if ($target === null) {
         http_response_code(404);
         exit;

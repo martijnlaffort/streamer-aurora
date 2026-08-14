@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 import '../../domain/models/models.dart';
+import '../matching/category_label.dart';
 
 /// Horizontal category filter: "All" + one chip per category.
 class CategoryChips extends StatelessWidget {
@@ -26,8 +27,12 @@ class CategoryChips extends StatelessWidget {
         itemCount: categories.length + 1,
         separatorBuilder: (context, i) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
-          final (id, label) =
-              i == 0 ? (null, 'All') : (categories[i - 1].id, categories[i - 1].name);
+          final (id, label) = i == 0
+              ? (null, 'All')
+              : (
+                  categories[i - 1].id,
+                  prettyCategoryName(categories[i - 1].name)
+                );
           final selected = selectedId == id;
           return ChoiceChip(
             label: Text(label),

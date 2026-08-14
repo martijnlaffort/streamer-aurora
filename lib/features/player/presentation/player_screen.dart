@@ -16,7 +16,8 @@ import '../../../core/utils/duration_format.dart';
 import '../../../data/providers.dart';
 import '../../../data/repositories/watch_progress_repository.dart';
 import '../../../data/sync/sync_providers.dart';
-import '../../../domain/models/models.dart' show Preferences;
+import '../../../domain/models/models.dart'
+    show Preferences, StreamRef, StreamType, contentKeyFor;
 import '../player_request.dart';
 
 /// Android emulators stall on hardware video decode (documented media_kit
@@ -127,7 +128,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// than relying on focus traversal between buttons.
   final _keyboardFocus = FocusNode(debugLabel: 'player-keys');
 
-  PlayerItem get _current => widget.request.queue[_index];
+  /// Live zapping state. Starts from the list position the caller handed over
+  /// and moves as the user changes channel.
+  late ZapContext? _zap = widget.request.zap;
+
+  /// The channel currently playing, when it was reached by zapping rather than
+  /// from the queue. Lets the player show the new channel's name and EPG.
+  PlayerItem? _zappedItem;
+  bool _zapping = false;
+  String? _zapToast;
+  Timer? _zapToastTimer;
+
+  PlayerItem get _current => _zappedItem ?? widget.request.queue[_index];
   PlayerItem? get _next => _index + 1 < widget.request.queue.length
       ? widget.request.queue[_index + 1]
       : null;
@@ -259,6 +271,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _upNextTimer?.cancel();
     _liveEpgTimer?.cancel();
     _reconnectTimer?.cancel();
+    _zapToastTimer?.cancel();
     _keyboardFocus.dispose();
     for (final sub in _subs) {
       sub.cancel();
@@ -584,6 +597,77 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     });
   }
 
+  /// Whether channel up/down is available: a live stream launched from a
+  /// channel list. Catch-up playback is a recording, so zapping off it would be
+  /// surprising — it is excluded.
+  bool get _canZap =>
+      _zap != null && _current.isLive && !_current.streamRef.isCatchup;
+
+  /// Channel up (+1) / down (-1), wrapping at both ends.
+  ///
+  /// Neighbours are resolved one row at a time from the catalogue rather than
+  /// from an in-memory list — see [ZapContext].
+  Future<void> _zapBy(int delta) async {
+    final zap = _zap;
+    if (zap == null || _zapping) return;
+    _zapping = true;
+    try {
+      final account = await ref.read(activeAccountProvider.future);
+      if (account == null) return;
+      final catalog = ref.read(catalogRepositoryProvider);
+      final total = await catalog.channelCount(
+        account,
+        categoryId: zap.categoryId,
+        categoryIds: zap.categoryIds,
+      );
+      if (total <= 1) {
+        _showZapToast('No other channels in this list');
+        return;
+      }
+      final nextIndex = (zap.index + delta) % total;
+      final channel = await catalog.channelAt(
+        account,
+        nextIndex,
+        categoryId: zap.categoryId,
+        categoryIds: zap.categoryIds,
+      );
+      if (channel == null || !mounted) return;
+      _saveProgress();
+      _reconnectTimer?.cancel();
+      setState(() {
+        _zap = zap.withIndex(nextIndex);
+        _zappedItem = PlayerItem(
+          streamRef: StreamRef(
+            accountId: channel.accountId,
+            type: StreamType.live,
+            streamId: channel.id,
+          ),
+          title: channel.name,
+          contentKey: contentKeyFor(
+              accountId: channel.accountId,
+              type: StreamType.live,
+              id: channel.id),
+          isLive: true,
+        );
+      });
+      _showZapToast('${nextIndex + 1}/$total · ${channel.name}');
+      await _openCurrent();
+    } finally {
+      _zapping = false;
+    }
+  }
+
+  /// Brief channel banner after a zap — the one piece of feedback that makes
+  /// holding channel-up feel like a TV rather than a series of blind jumps.
+  void _showZapToast(String text) {
+    _zapToastTimer?.cancel();
+    if (!mounted) return;
+    setState(() => _zapToast = text);
+    _zapToastTimer = Timer(const Duration(milliseconds: 2200), () {
+      if (mounted) setState(() => _zapToast = null);
+    });
+  }
+
   /// Brings the overlay back and restarts the auto-hide countdown.
   ///
   /// Every remote press routes through here, and that is the point: the
@@ -678,10 +762,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       return KeyEventResult.handled;
     }
 
-    // Up/Down: reveal the controls and hand the event on, so focus traversal
-    // can reach the buttons in the top bar.
+    // Channel up/down. The remote's dedicated channel keys always zap; the
+    // D-pad's up/down only do so while watching live, where changing channel
+    // is the thing you actually want them for. Everywhere else they are handed
+    // on to focus traversal so the top bar stays reachable.
+    if (key == LogicalKeyboardKey.channelUp) {
+      if (_canZap) unawaited(_zapBy(1));
+      _wake();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.channelDown) {
+      if (_canZap) unawaited(_zapBy(-1));
+      _wake();
+      return KeyEventResult.handled;
+    }
     if (key == LogicalKeyboardKey.arrowUp ||
         key == LogicalKeyboardKey.arrowDown) {
+      if (_canZap) {
+        unawaited(_zapBy(key == LogicalKeyboardKey.arrowUp ? 1 : -1));
+        _wake();
+        return KeyEventResult.handled;
+      }
       _wake();
       return KeyEventResult.ignored;
     }
@@ -902,6 +1003,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(_gestureHint!, style: AppTypography.body),
+                ),
+              ),
+            if (_zapToast != null)
+              Align(
+                alignment: const Alignment(0, -0.55),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.75),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(_zapToast!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.body),
                 ),
               ),
             if (_upNextCountdown != null && _next != null) _upNextCard(),
@@ -1284,7 +1402,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       ),
                       const SizedBox(width: 16),
                     ],
-                    if (!_current.isLive) ...[
+                    // Live gets channel down/up where VOD gets skip back/
+                    // forward: on a channel there is nothing to seek through,
+                    // and zapping is what the position is actually used for.
+                    if (_canZap) ...[
+                      IconButton(
+                        iconSize: 40,
+                        tooltip: 'Channel down',
+                        onPressed: () => _zapBy(-1),
+                        icon: const Icon(Icons.keyboard_arrow_down),
+                      ),
+                      const SizedBox(width: 28),
+                    ] else if (!_current.isLive) ...[
                       IconButton(
                         iconSize: 40,
                         onPressed: () => _seekRelative(-10),
@@ -1302,7 +1431,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           ? Icons.pause_circle_filled
                           : Icons.play_circle_filled),
                     ),
-                    if (!_current.isLive) ...[
+                    if (_canZap) ...[
+                      const SizedBox(width: 28),
+                      IconButton(
+                        iconSize: 40,
+                        tooltip: 'Channel up',
+                        onPressed: () => _zapBy(1),
+                        icon: const Icon(Icons.keyboard_arrow_up),
+                      ),
+                    ] else if (!_current.isLive) ...[
                       const SizedBox(width: 28),
                       IconButton(
                         iconSize: 40,

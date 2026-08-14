@@ -3227,6 +3227,32 @@ class $ChannelsTableTable extends ChannelsTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tvArchiveMeta = const VerificationMeta(
+    'tvArchive',
+  );
+  @override
+  late final GeneratedColumn<bool> tvArchive = GeneratedColumn<bool>(
+    'tv_archive',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("tv_archive" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _tvArchiveDaysMeta = const VerificationMeta(
+    'tvArchiveDays',
+  );
+  @override
+  late final GeneratedColumn<int> tvArchiveDays = GeneratedColumn<int>(
+    'tv_archive_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _cachedAtMillisUtcMeta = const VerificationMeta(
     'cachedAtMillisUtc',
   );
@@ -3247,6 +3273,8 @@ class $ChannelsTableTable extends ChannelsTable
     logoUrl,
     epgChannelId,
     sortOrder,
+    tvArchive,
+    tvArchiveDays,
     cachedAtMillisUtc,
   ];
   @override
@@ -3311,6 +3339,21 @@ class $ChannelsTableTable extends ChannelsTable
         sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
       );
     }
+    if (data.containsKey('tv_archive')) {
+      context.handle(
+        _tvArchiveMeta,
+        tvArchive.isAcceptableOrUnknown(data['tv_archive']!, _tvArchiveMeta),
+      );
+    }
+    if (data.containsKey('tv_archive_days')) {
+      context.handle(
+        _tvArchiveDaysMeta,
+        tvArchiveDays.isAcceptableOrUnknown(
+          data['tv_archive_days']!,
+          _tvArchiveDaysMeta,
+        ),
+      );
+    }
     if (data.containsKey('cached_at_millis_utc')) {
       context.handle(
         _cachedAtMillisUtcMeta,
@@ -3359,6 +3402,14 @@ class $ChannelsTableTable extends ChannelsTable
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       ),
+      tvArchive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}tv_archive'],
+      )!,
+      tvArchiveDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}tv_archive_days'],
+      ),
       cachedAtMillisUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}cached_at_millis_utc'],
@@ -3380,6 +3431,13 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
   final String? logoUrl;
   final String? epgChannelId;
   final int? sortOrder;
+
+  /// Whether the panel keeps a rolling recording of this channel, and for how
+  /// many days (Xtream `tv_archive` / `tv_archive_duration`, schema v7).
+  /// This is what makes "watch it from the start" possible for something that
+  /// already aired.
+  final bool tvArchive;
+  final int? tvArchiveDays;
   final int cachedAtMillisUtc;
   const ChannelRow({
     required this.id,
@@ -3389,6 +3447,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     this.logoUrl,
     this.epgChannelId,
     this.sortOrder,
+    required this.tvArchive,
+    this.tvArchiveDays,
     required this.cachedAtMillisUtc,
   });
   @override
@@ -3406,6 +3466,10 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     }
     if (!nullToAbsent || sortOrder != null) {
       map['sort_order'] = Variable<int>(sortOrder);
+    }
+    map['tv_archive'] = Variable<bool>(tvArchive);
+    if (!nullToAbsent || tvArchiveDays != null) {
+      map['tv_archive_days'] = Variable<int>(tvArchiveDays);
     }
     map['cached_at_millis_utc'] = Variable<int>(cachedAtMillisUtc);
     return map;
@@ -3426,6 +3490,10 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       sortOrder: sortOrder == null && nullToAbsent
           ? const Value.absent()
           : Value(sortOrder),
+      tvArchive: Value(tvArchive),
+      tvArchiveDays: tvArchiveDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tvArchiveDays),
       cachedAtMillisUtc: Value(cachedAtMillisUtc),
     );
   }
@@ -3443,6 +3511,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       logoUrl: serializer.fromJson<String?>(json['logoUrl']),
       epgChannelId: serializer.fromJson<String?>(json['epgChannelId']),
       sortOrder: serializer.fromJson<int?>(json['sortOrder']),
+      tvArchive: serializer.fromJson<bool>(json['tvArchive']),
+      tvArchiveDays: serializer.fromJson<int?>(json['tvArchiveDays']),
       cachedAtMillisUtc: serializer.fromJson<int>(json['cachedAtMillisUtc']),
     );
   }
@@ -3457,6 +3527,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       'logoUrl': serializer.toJson<String?>(logoUrl),
       'epgChannelId': serializer.toJson<String?>(epgChannelId),
       'sortOrder': serializer.toJson<int?>(sortOrder),
+      'tvArchive': serializer.toJson<bool>(tvArchive),
+      'tvArchiveDays': serializer.toJson<int?>(tvArchiveDays),
       'cachedAtMillisUtc': serializer.toJson<int>(cachedAtMillisUtc),
     };
   }
@@ -3469,6 +3541,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     Value<String?> logoUrl = const Value.absent(),
     Value<String?> epgChannelId = const Value.absent(),
     Value<int?> sortOrder = const Value.absent(),
+    bool? tvArchive,
+    Value<int?> tvArchiveDays = const Value.absent(),
     int? cachedAtMillisUtc,
   }) => ChannelRow(
     id: id ?? this.id,
@@ -3478,6 +3552,10 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     logoUrl: logoUrl.present ? logoUrl.value : this.logoUrl,
     epgChannelId: epgChannelId.present ? epgChannelId.value : this.epgChannelId,
     sortOrder: sortOrder.present ? sortOrder.value : this.sortOrder,
+    tvArchive: tvArchive ?? this.tvArchive,
+    tvArchiveDays: tvArchiveDays.present
+        ? tvArchiveDays.value
+        : this.tvArchiveDays,
     cachedAtMillisUtc: cachedAtMillisUtc ?? this.cachedAtMillisUtc,
   );
   ChannelRow copyWithCompanion(ChannelsTableCompanion data) {
@@ -3493,6 +3571,10 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           ? data.epgChannelId.value
           : this.epgChannelId,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      tvArchive: data.tvArchive.present ? data.tvArchive.value : this.tvArchive,
+      tvArchiveDays: data.tvArchiveDays.present
+          ? data.tvArchiveDays.value
+          : this.tvArchiveDays,
       cachedAtMillisUtc: data.cachedAtMillisUtc.present
           ? data.cachedAtMillisUtc.value
           : this.cachedAtMillisUtc,
@@ -3509,6 +3591,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           ..write('logoUrl: $logoUrl, ')
           ..write('epgChannelId: $epgChannelId, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('tvArchive: $tvArchive, ')
+          ..write('tvArchiveDays: $tvArchiveDays, ')
           ..write('cachedAtMillisUtc: $cachedAtMillisUtc')
           ..write(')'))
         .toString();
@@ -3523,6 +3607,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     logoUrl,
     epgChannelId,
     sortOrder,
+    tvArchive,
+    tvArchiveDays,
     cachedAtMillisUtc,
   );
   @override
@@ -3536,6 +3622,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           other.logoUrl == this.logoUrl &&
           other.epgChannelId == this.epgChannelId &&
           other.sortOrder == this.sortOrder &&
+          other.tvArchive == this.tvArchive &&
+          other.tvArchiveDays == this.tvArchiveDays &&
           other.cachedAtMillisUtc == this.cachedAtMillisUtc);
 }
 
@@ -3547,6 +3635,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
   final Value<String?> logoUrl;
   final Value<String?> epgChannelId;
   final Value<int?> sortOrder;
+  final Value<bool> tvArchive;
+  final Value<int?> tvArchiveDays;
   final Value<int> cachedAtMillisUtc;
   final Value<int> rowid;
   const ChannelsTableCompanion({
@@ -3557,6 +3647,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     this.logoUrl = const Value.absent(),
     this.epgChannelId = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.tvArchive = const Value.absent(),
+    this.tvArchiveDays = const Value.absent(),
     this.cachedAtMillisUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -3568,6 +3660,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     this.logoUrl = const Value.absent(),
     this.epgChannelId = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.tvArchive = const Value.absent(),
+    this.tvArchiveDays = const Value.absent(),
     required int cachedAtMillisUtc,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -3583,6 +3677,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     Expression<String>? logoUrl,
     Expression<String>? epgChannelId,
     Expression<int>? sortOrder,
+    Expression<bool>? tvArchive,
+    Expression<int>? tvArchiveDays,
     Expression<int>? cachedAtMillisUtc,
     Expression<int>? rowid,
   }) {
@@ -3594,6 +3690,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
       if (logoUrl != null) 'logo_url': logoUrl,
       if (epgChannelId != null) 'epg_channel_id': epgChannelId,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (tvArchive != null) 'tv_archive': tvArchive,
+      if (tvArchiveDays != null) 'tv_archive_days': tvArchiveDays,
       if (cachedAtMillisUtc != null) 'cached_at_millis_utc': cachedAtMillisUtc,
       if (rowid != null) 'rowid': rowid,
     });
@@ -3607,6 +3705,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     Value<String?>? logoUrl,
     Value<String?>? epgChannelId,
     Value<int?>? sortOrder,
+    Value<bool>? tvArchive,
+    Value<int?>? tvArchiveDays,
     Value<int>? cachedAtMillisUtc,
     Value<int>? rowid,
   }) {
@@ -3618,6 +3718,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
       logoUrl: logoUrl ?? this.logoUrl,
       epgChannelId: epgChannelId ?? this.epgChannelId,
       sortOrder: sortOrder ?? this.sortOrder,
+      tvArchive: tvArchive ?? this.tvArchive,
+      tvArchiveDays: tvArchiveDays ?? this.tvArchiveDays,
       cachedAtMillisUtc: cachedAtMillisUtc ?? this.cachedAtMillisUtc,
       rowid: rowid ?? this.rowid,
     );
@@ -3647,6 +3749,12 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (tvArchive.present) {
+      map['tv_archive'] = Variable<bool>(tvArchive.value);
+    }
+    if (tvArchiveDays.present) {
+      map['tv_archive_days'] = Variable<int>(tvArchiveDays.value);
+    }
     if (cachedAtMillisUtc.present) {
       map['cached_at_millis_utc'] = Variable<int>(cachedAtMillisUtc.value);
     }
@@ -3666,6 +3774,8 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
           ..write('logoUrl: $logoUrl, ')
           ..write('epgChannelId: $epgChannelId, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('tvArchive: $tvArchive, ')
+          ..write('tvArchiveDays: $tvArchiveDays, ')
           ..write('cachedAtMillisUtc: $cachedAtMillisUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -8866,6 +8976,8 @@ typedef $$ChannelsTableTableCreateCompanionBuilder =
       Value<String?> logoUrl,
       Value<String?> epgChannelId,
       Value<int?> sortOrder,
+      Value<bool> tvArchive,
+      Value<int?> tvArchiveDays,
       required int cachedAtMillisUtc,
       Value<int> rowid,
     });
@@ -8878,6 +8990,8 @@ typedef $$ChannelsTableTableUpdateCompanionBuilder =
       Value<String?> logoUrl,
       Value<String?> epgChannelId,
       Value<int?> sortOrder,
+      Value<bool> tvArchive,
+      Value<int?> tvArchiveDays,
       Value<int> cachedAtMillisUtc,
       Value<int> rowid,
     });
@@ -8923,6 +9037,16 @@ class $$ChannelsTableTableFilterComposer
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get tvArchive => $composableBuilder(
+    column: $table.tvArchive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get tvArchiveDays => $composableBuilder(
+    column: $table.tvArchiveDays,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8976,6 +9100,16 @@ class $$ChannelsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get tvArchive => $composableBuilder(
+    column: $table.tvArchive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get tvArchiveDays => $composableBuilder(
+    column: $table.tvArchiveDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get cachedAtMillisUtc => $composableBuilder(
     column: $table.cachedAtMillisUtc,
     builder: (column) => ColumnOrderings(column),
@@ -9015,6 +9149,14 @@ class $$ChannelsTableTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<bool> get tvArchive =>
+      $composableBuilder(column: $table.tvArchive, builder: (column) => column);
+
+  GeneratedColumn<int> get tvArchiveDays => $composableBuilder(
+    column: $table.tvArchiveDays,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get cachedAtMillisUtc => $composableBuilder(
     column: $table.cachedAtMillisUtc,
@@ -9060,6 +9202,8 @@ class $$ChannelsTableTableTableManager
                 Value<String?> logoUrl = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
                 Value<int?> sortOrder = const Value.absent(),
+                Value<bool> tvArchive = const Value.absent(),
+                Value<int?> tvArchiveDays = const Value.absent(),
                 Value<int> cachedAtMillisUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChannelsTableCompanion(
@@ -9070,6 +9214,8 @@ class $$ChannelsTableTableTableManager
                 logoUrl: logoUrl,
                 epgChannelId: epgChannelId,
                 sortOrder: sortOrder,
+                tvArchive: tvArchive,
+                tvArchiveDays: tvArchiveDays,
                 cachedAtMillisUtc: cachedAtMillisUtc,
                 rowid: rowid,
               ),
@@ -9082,6 +9228,8 @@ class $$ChannelsTableTableTableManager
                 Value<String?> logoUrl = const Value.absent(),
                 Value<String?> epgChannelId = const Value.absent(),
                 Value<int?> sortOrder = const Value.absent(),
+                Value<bool> tvArchive = const Value.absent(),
+                Value<int?> tvArchiveDays = const Value.absent(),
                 required int cachedAtMillisUtc,
                 Value<int> rowid = const Value.absent(),
               }) => ChannelsTableCompanion.insert(
@@ -9092,6 +9240,8 @@ class $$ChannelsTableTableTableManager
                 logoUrl: logoUrl,
                 epgChannelId: epgChannelId,
                 sortOrder: sortOrder,
+                tvArchive: tvArchive,
+                tvArchiveDays: tvArchiveDays,
                 cachedAtMillisUtc: cachedAtMillisUtc,
                 rowid: rowid,
               ),

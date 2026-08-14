@@ -174,6 +174,8 @@ extension ChannelRowMapper on ChannelRow {
         logoUrl: logoUrl,
         epgChannelId: epgChannelId,
         sortOrder: sortOrder,
+        hasArchive: tvArchive,
+        archiveDays: tvArchiveDays,
         cachedAt: fromUtcMillis(cachedAtMillisUtc),
       );
 }
@@ -187,6 +189,8 @@ extension ChannelMapper on Channel {
         logoUrl: Value(logoUrl),
         epgChannelId: Value(epgChannelId),
         sortOrder: Value(sortOrder),
+        tvArchive: Value(hasArchive),
+        tvArchiveDays: Value(archiveDays),
         cachedAtMillisUtc: utcMillis(cachedAt),
       );
 }

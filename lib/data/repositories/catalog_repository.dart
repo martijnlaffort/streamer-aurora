@@ -810,6 +810,66 @@ class CatalogRepository {
     return rows.map((r) => r.toModel()).toList();
   }
 
+  /// Applies the same channel scoping as [channels] to an arbitrary query.
+  void _scopeChannels(
+    SimpleSelectStatement<$ChannelsTableTable, ChannelRow> query,
+    Account account,
+    String? categoryId,
+    Set<String>? categoryIds,
+  ) {
+    query.where((t) => t.accountId.equals(account.id));
+    if (categoryId != null) {
+      query.where((t) => t.categoryId.equals(categoryId));
+    } else if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
+    }
+  }
+
+  /// The channel at [index] within the same ordering [channels] uses.
+  ///
+  /// This is what channel up/down zapping rides on. Deliberately a single
+  /// indexed row read rather than "hold the channel list in memory and step
+  /// through it": on this line that list is 25k entries, and keeping it live
+  /// behind the player is exactly the kind of whole-slice residency the
+  /// catalogue work removed everywhere else.
+  Future<Channel?> channelAt(
+    Account account,
+    int index, {
+    String? categoryId,
+    Set<String>? categoryIds,
+  }) async {
+    if (index < 0) return null;
+    if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
+      return null;
+    }
+    final query = _db.channelsTable.select()
+      ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)])
+      ..limit(1, offset: index);
+    _scopeChannels(query, account, categoryId, categoryIds);
+    return (await query.getSingleOrNull())?.toModel();
+  }
+
+  /// How many channels the current scope holds — the wrap-around point for
+  /// zapping. Cache-only; a COUNT over an indexed column.
+  Future<int> channelCount(
+    Account account, {
+    String? categoryId,
+    Set<String>? categoryIds,
+  }) async {
+    if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
+      return 0;
+    }
+    final count = _db.channelsTable.id.count();
+    final query = _db.selectOnly(_db.channelsTable)..addColumns([count]);
+    query.where(_db.channelsTable.accountId.equals(account.id));
+    if (categoryId != null) {
+      query.where(_db.channelsTable.categoryId.equals(categoryId));
+    } else if (categoryIds != null) {
+      query.where(_db.channelsTable.categoryId.isIn(categoryIds));
+    }
+    return (await query.getSingle()).read(count) ?? 0;
+  }
+
   /// Cache-only single-row lookup (no source contact).
   Future<Channel?> channelById(Account account, String channelId) async {
     final row = await (_db.channelsTable.select()

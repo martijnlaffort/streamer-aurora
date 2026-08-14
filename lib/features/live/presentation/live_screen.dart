@@ -22,6 +22,10 @@ class LiveScreen extends ConsumerStatefulWidget {
 
 class _LiveScreenState extends ConsumerState<LiveScreen> {
   String? _categoryId;
+
+  /// The content-language filter in force for the current listing, captured so
+  /// the player can zap through the same set the user is browsing.
+  Set<String>? _allowedCategoryIds;
   final _scroll = ScrollController();
 
   final List<Channel> _items = [];
@@ -75,6 +79,8 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
           ? await ref.read(allowedCategoryIdsProvider(CategoryType.live).future)
           : null;
       if (gen != _generation) return; // superseded during the awaits above
+      // Kept so the player can reproduce this exact scope when zapping.
+      _allowedCategoryIds = allowed;
       final page = await ref.read(catalogRepositoryProvider).channels(
             account,
             categoryId: _categoryId,
@@ -155,15 +161,28 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       controller: _scroll,
       padding: const EdgeInsets.only(bottom: 24),
       itemCount: _items.length,
-      itemBuilder: (context, i) => _ChannelTile(channel: _items[i]),
+      // The tile is handed its position and the list's scope so the player can
+      // offer channel up/down from the same ordering the user is looking at.
+      itemBuilder: (context, i) => _ChannelTile(
+        channel: _items[i],
+        zap: ZapContext(
+          index: i,
+          categoryId: _categoryId,
+          categoryIds: _categoryId == null ? _allowedCategoryIds : null,
+        ),
+      ),
     );
   }
 }
 
 class _ChannelTile extends ConsumerWidget {
-  const _ChannelTile({required this.channel});
+  const _ChannelTile({required this.channel, this.zap});
 
   final Channel channel;
+
+  /// Position and scope within the list this tile belongs to — enables channel
+  /// up/down once playing.
+  final ZapContext? zap;
 
   String get _contentKey => contentKeyFor(
       accountId: channel.accountId, type: StreamType.live, id: channel.id);
@@ -185,6 +204,7 @@ class _ChannelTile extends ConsumerWidget {
             isLive: true,
           ),
         ],
+        zap: zap,
       ),
     );
   }

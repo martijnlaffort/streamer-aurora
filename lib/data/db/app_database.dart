@@ -129,6 +129,13 @@ class ChannelsTable extends Table {
   TextColumn get logoUrl => text().nullable()();
   TextColumn get epgChannelId => text().nullable()();
   IntColumn get sortOrder => integer().nullable()();
+
+  /// Whether the panel keeps a rolling recording of this channel, and for how
+  /// many days (Xtream `tv_archive` / `tv_archive_duration`, schema v7).
+  /// This is what makes "watch it from the start" possible for something that
+  /// already aired.
+  BoolColumn get tvArchive => boolean().withDefault(const Constant(false))();
+  IntColumn get tvArchiveDays => integer().nullable()();
   IntColumn get cachedAtMillisUtc => integer()();
 
   @override
@@ -350,7 +357,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -380,6 +387,13 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(preferencesTable, preferencesTable.tmdbApiKey);
             await m.addColumn(
                 preferencesTable, preferencesTable.discoveryRegion);
+          }
+          // v7: catch-up TV — which channels the panel records, and for how
+          // long. Existing rows default to "no archive" until the next live
+          // refresh fills them in, so nothing has to be re-downloaded eagerly.
+          if (from < 7) {
+            await m.addColumn(channelsTable, channelsTable.tvArchive);
+            await m.addColumn(channelsTable, channelsTable.tvArchiveDays);
           }
         },
         beforeOpen: (details) async {

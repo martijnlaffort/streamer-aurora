@@ -19,6 +19,7 @@ import 'sources/m3u_source.dart';
 import 'sources/playlist_source.dart';
 import 'sources/tmdb_source.dart';
 import 'sources/xtream_source.dart';
+import 'db/account_id_migration.dart';
 
 /// Riverpod wiring for the data layer. The UI depends on these providers and
 /// the domain models — never on sources or drift directly (PRD §5).
@@ -112,13 +113,30 @@ final searchHistoryRepositoryProvider = Provider<SearchHistoryRepository>(
 final recentSearchesProvider = FutureProvider<List<String>>(
     (ref) => ref.watch(searchHistoryRepositoryProvider).recent());
 
+/// Runs the timestamp-id → stable-id rewrite exactly once per launch.
+///
+/// Every account read goes through this first. That ordering is the whole
+/// point: if anything resolved an account before the rewrite, it would cache
+/// the old id and then write content keys under a prefix that is about to stop
+/// existing.
+final accountIdMigrationProvider = FutureProvider<int>((ref) async {
+  return AccountIdMigration(
+    db: ref.watch(appDatabaseProvider),
+    credentials: ref.watch(credentialStoreProvider),
+  ).run();
+});
+
 /// All saved accounts. Invalidate after add/delete.
-final accountsProvider = FutureProvider<List<Account>>(
-    (ref) => ref.watch(accountRepositoryProvider).getAccounts());
+final accountsProvider = FutureProvider<List<Account>>((ref) async {
+  await ref.watch(accountIdMigrationProvider.future);
+  return ref.watch(accountRepositoryProvider).getAccounts();
+});
 
 /// The account the UI is showing. Invalidate after switching.
-final activeAccountProvider = FutureProvider<Account?>(
-    (ref) => ref.watch(accountRepositoryProvider).getActiveAccount());
+final activeAccountProvider = FutureProvider<Account?>((ref) async {
+  await ref.watch(accountIdMigrationProvider.future);
+  return ref.watch(accountRepositoryProvider).getActiveAccount();
+});
 
 /// Global playback preferences. Invalidate after saving.
 final preferencesProvider = FutureProvider<Preferences>(

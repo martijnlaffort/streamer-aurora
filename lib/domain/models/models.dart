@@ -3,6 +3,7 @@
 library;
 
 export 'account.dart';
+export 'account_identity.dart';
 export 'category.dart';
 export 'channel.dart';
 export 'content_key.dart';

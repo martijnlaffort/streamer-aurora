@@ -57,12 +57,26 @@ class AccountRepository {
       await (_db.catalogCategoryMetaTable.delete()
             ..where((t) => t.accountId.equals(id)))
           .go();
-      await (_db.watchProgressTable.delete()
-            ..where((t) => t.contentKey.like('$id:%')))
+      // Was leaking: an account's resolved discovery rails outlived it, so a
+      // deleted account's matches sat in the table forever.
+      await (_db.discoveryMatchesTable.delete()
+            ..where((t) => t.accountId.equals(id)))
           .go();
-      await (_db.favoritesTable.delete()
-            ..where((t) => t.contentKey.like('$id:%')))
-          .go();
+      // substr, not LIKE: every account id contains an underscore, and LIKE
+      // reads `_` as a single-character wildcard, so `acc_123:%` would also
+      // match a different account whose id merely lined up. An over-broad
+      // pattern here deletes someone else's watch history.
+      final keyPrefix = '$id:';
+      await _db.customStatement(
+        'DELETE FROM ${_db.watchProgressTable.actualTableName} '
+        'WHERE substr(${_db.watchProgressTable.contentKey.name}, 1, ?) = ?',
+        [keyPrefix.length, keyPrefix],
+      );
+      await _db.customStatement(
+        'DELETE FROM ${_db.favoritesTable.actualTableName} '
+        'WHERE substr(${_db.favoritesTable.contentKey.name}, 1, ?) = ?',
+        [keyPrefix.length, keyPrefix],
+      );
       // If it was the active account, clear the pointer.
       await (_db.preferencesTable.update()
             ..where((t) => t.activeAccountId.equals(id)))

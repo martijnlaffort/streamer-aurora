@@ -54,14 +54,18 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   Account _buildAccount() {
     final server = _server.text.trim();
     final fallbackName = Uri.tryParse(server)?.host ?? '';
+    final username = _type == AccountType.xtream ? _username.text.trim() : '';
     return Account(
-      id: 'acc_${DateTime.now().toUtc().millisecondsSinceEpoch}',
+      // Derived from the playlist, never from the clock — so re-adding the same
+      // source keeps its history, and a second device lands on the same id.
+      id: stableAccountId(
+          type: _type, serverUrl: server, username: username),
       type: _type,
       name: _name.text.trim().isNotEmpty
           ? _name.text.trim()
           : (fallbackName.isNotEmpty ? fallbackName : 'My playlist'),
       serverUrl: server,
-      username: _type == AccountType.xtream ? _username.text.trim() : '',
+      username: username,
       password: _type == AccountType.xtream ? _password.text : '',
       createdAt: DateTime.now().toUtc(),
       epgUrl: _type == AccountType.m3u && _epgUrl.text.trim().isNotEmpty

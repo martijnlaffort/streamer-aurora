@@ -1,0 +1,158 @@
+<!-- @dsCard group="App mockups" name="Player overlay" subtitle="Controls, seek bar, up-next, and the track selector" viewport="1060x760" -->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Aurora — Player</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+  :root{--bg:#0B0D12;--surface:#12151C;--surface-2:#1A1E27;--line:rgba(255,255,255,.07);--violet:#7C5CFF;--teal:#4FD1C5;--text:#F2F4F8;--muted:#9AA3B2;--dim:#69727F;--display:'Outfit',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;--ui:'Inter',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);padding:40px}
+  h1{font-family:var(--display);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--teal);margin:0 0 6px;font-weight:500}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 26px;max-width:78ch;line-height:1.55}
+  .lbl{font-size:11px;color:var(--dim);letter-spacing:.3px;text-transform:uppercase;margin:26px 0 10px}
+  .wrap{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
+
+  /* landscape device */
+  .device{flex:none;padding:9px;border-radius:30px;background:linear-gradient(150deg,#333A4A,#0C0F15 55%);
+    box-shadow:0 28px 70px -24px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.06)}
+  .stage{position:relative;width:560px;height:280px;border-radius:22px;overflow:hidden;
+    background:radial-gradient(120% 100% at 22% 15%,#28325C,transparent 60%),radial-gradient(90% 90% at 82% 80%,#1E5B63,transparent 62%),linear-gradient(160deg,#141828,#08090D)}
+  .grad-t{position:absolute;inset:0 0 auto 0;height:88px;background:linear-gradient(180deg,rgba(0,0,0,.72),transparent)}
+  .grad-b{position:absolute;inset:auto 0 0 0;height:130px;background:linear-gradient(0deg,rgba(0,0,0,.8),transparent)}
+
+  .top{position:absolute;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:12px;padding:0 16px}
+  .top .ttl{min-width:0}
+  .top .ttl p{margin:0;font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top .ttl span{font-size:11px;color:rgba(255,255,255,.62)}
+  .top .right{margin-left:auto;display:flex;align-items:center;gap:6px}
+  .ib{width:34px;height:34px;border-radius:999px;display:grid;place-items:center;color:#fff;background:rgba(255,255,255,.08)}
+  .ib svg{width:18px;height:18px}
+  .ib.act{background:rgba(124,92,255,.32);box-shadow:inset 0 0 0 1px rgba(124,92,255,.5)}
+
+  .center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:22px}
+  .cb{color:#fff;opacity:.92;display:grid;place-items:center}
+  .cb svg{width:26px;height:26px}
+  .cb.big svg{width:62px;height:62px}
+  .cb.dim{opacity:.55}
+
+  .bottom{position:absolute;left:16px;right:16px;bottom:12px}
+  .seek{position:relative;height:4px;border-radius:2px;background:rgba(255,255,255,.2);margin-bottom:8px}
+  .seek .buf{position:absolute;left:0;top:0;bottom:0;width:72%;background:rgba(255,255,255,.34);border-radius:2px}
+  .seek .fill{position:absolute;left:0;top:0;bottom:0;width:54%;background:var(--violet);border-radius:2px}
+  .seek .knob{position:absolute;left:54%;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:999px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.6)}
+  .times{display:flex;justify-content:space-between;font-size:11px;color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums}
+
+  .upnext{position:absolute;right:11px;bottom:54px;background:rgba(11,13,18,.9);border:1px solid var(--line);
+    border-radius:12px;padding:10px 12px;width:170px;backdrop-filter:blur(10px)}
+  .upnext p{margin:0 0 9px;font-size:11.5px;color:var(--muted)}
+  .upnext p b{color:var(--text);font-weight:600}
+  .upnext .row{display:flex;gap:7px}
+  .mini{font-size:11px;font-weight:600;padding:5px 11px;border-radius:999px}
+  .mini.f{background:var(--violet);color:#fff}
+  .mini.g{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.18)}
+
+  .live{position:absolute;top:60px;left:16px;display:inline-flex;align-items:center;gap:6px;
+    background:rgba(0,0,0,.55);border-radius:999px;padding:4px 10px;font-size:10.5px;font-weight:600;letter-spacing:.4px}
+  .live i{width:6px;height:6px;border-radius:999px;background:#FF5C6C}
+
+  /* track selector */
+  .sheet{flex:none;width:290px;background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .sheet header{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .sheet header p{margin:0;font-family:var(--display);font-size:16px;font-weight:600}
+  .sheet header span{font-size:11.5px;color:var(--dim)}
+  .opt{display:flex;align-items:center;gap:11px;padding:12px 18px;font-size:14px;border-bottom:1px solid rgba(255,255,255,.04)}
+  .opt:last-child{border-bottom:none}
+  .opt .dot{width:16px;height:16px;border-radius:999px;border:1.6px solid var(--dim);flex:none}
+  .opt.on{color:var(--text)}
+  .opt.on .dot{border-color:var(--violet);background:radial-gradient(circle,var(--violet) 45%,transparent 48%)}
+  .opt small{margin-left:auto;font-size:10.5px;color:var(--teal);letter-spacing:.2px}
+  .opt.off{color:var(--muted)}
+  .ico{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .note{font-size:13px;line-height:1.6;color:var(--muted);max-width:80ch;margin:24px 0 0}
+  .note b{color:var(--text);font-weight:600}
+</style>
+
+<h1>Player overlay</h1>
+<p class="sub">The core screen. Two rows of chrome over the video and nothing else: identity and track
+controls on top, transport at the centre, position at the bottom.</p>
+
+<div class="wrap">
+  <div class="device">
+    <div class="stage">
+      <div class="grad-t"></div><div class="grad-b"></div>
+
+      <div class="top">
+        <span class="ib"><svg viewBox="0 0 24 24"><path class="ico" d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+        <span class="ttl"><p>Harbourline</p><span>S2 · E4 — The Undertow</span></span>
+        <span class="right">
+          <span class="ib act"><svg viewBox="0 0 24 24"><g class="ico"><circle cx="9" cy="17.2" r="2.8"/><path d="M11.8 17.2V4.5l6.2 2.3"/></g></svg></span>
+          <span class="ib act"><svg viewBox="0 0 24 24"><g class="ico"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="M6.6 14.6h4.2M13.4 14.6h4M6.6 11h2.6M11.8 11h5.6"/></g></svg></span>
+          <span class="ib"><svg viewBox="0 0 24 24"><g class="ico"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.4 10.5V8a3.6 3.6 0 0 1 6.9-1.4"/></g></svg></span>
+        </span>
+      </div>
+
+      <div class="center">
+        <span class="cb dim"><svg viewBox="0 0 24 24"><path style="fill:currentColor" d="M17 5.5 8.5 12 17 18.5z"/><rect style="fill:currentColor" x="5.5" y="5.5" width="2.2" height="13" rx="1"/></svg></span>
+        <span class="cb"><svg viewBox="0 0 24 24"><g class="ico"><path d="M11.5 5.5a7 7 0 1 1-6.4 4.2"/><path d="M4.2 4.4v5.4h5.4"/></g><text x="12" y="15.8" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.4" font-weight="600" fill="currentColor">10</text></svg></span>
+        <span class="cb big"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="rgba(255,255,255,.14)"/><path style="fill:currentColor" d="M9.4 7.4h2.1v9.2H9.4zM12.9 7.4H15v9.2h-2.1z"/></svg></span>
+        <span class="cb"><svg viewBox="0 0 24 24"><g class="ico"><path d="M12.5 5.5a7 7 0 1 0 6.4 4.2"/><path d="M19.8 4.4v5.4h-5.4"/></g><text x="12" y="15.8" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.4" font-weight="600" fill="currentColor">10</text></svg></span>
+        <span class="cb"><svg viewBox="0 0 24 24"><path style="fill:currentColor" d="M7 5.5 15.5 12 7 18.5z"/><rect style="fill:currentColor" x="16.3" y="5.5" width="2.2" height="13" rx="1"/></svg></span>
+      </div>
+
+      <div class="upnext">
+        <p>Up next in <b>8…</b><br>S2 · E5 — Slack Water</p>
+        <div class="row"><span class="mini f">Play now</span><span class="mini g">Cancel</span></div>
+      </div>
+
+      <div class="bottom">
+        <div class="seek"><div class="buf"></div><div class="fill"></div><div class="knob"></div></div>
+        <div class="times"><span>41:20</span><span>−34:58</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet">
+    <header>
+      <p>Subtitles</p>
+      <span>Embedded and external tracks, with their language tags</span>
+    </header>
+    <div class="opt off"><span class="dot"></span>Off</div>
+    <div class="opt"><span class="dot"></span>English</div>
+    <div class="opt on"><span class="dot"></span>Nederlands <small>your preference</small></div>
+    <div class="opt"><span class="dot"></span>Français</div>
+    <div class="opt"><span class="dot"></span>Türkçe (SDH)</div>
+  </div>
+</div>
+
+<p class="lbl">Live variant — the same overlay, three differences</p>
+<div class="device" style="display:inline-block">
+  <div class="stage" style="width:420px;height:210px">
+    <div class="grad-t"></div><div class="grad-b"></div>
+    <div class="top">
+      <span class="ib"><svg viewBox="0 0 24 24"><path class="ico" d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+      <span class="ttl"><p>NPO 1 HD</p><span>Now: Nieuwsuur · until 22:30</span></span>
+      <span class="right">
+        <span class="ib act"><svg viewBox="0 0 24 24"><g class="ico"><circle cx="9" cy="17.2" r="2.8"/><path d="M11.8 17.2V4.5l6.2 2.3"/></g></svg></span>
+        <span class="ib"><svg viewBox="0 0 24 24"><g class="ico"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.4 10.5V8a3.6 3.6 0 0 1 6.9-1.4"/></g></svg></span>
+      </span>
+    </div>
+    <span class="live"><i></i>LIVE</span>
+    <div class="center" style="gap:18px">
+      <span class="cb"><svg viewBox="0 0 24 24"><path class="ico" d="M7 14.5 12 9.5 17 14.5"/></svg></span>
+      <span class="cb big"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="rgba(255,255,255,.14)"/><path style="fill:currentColor" d="M9.4 7.4h2.1v9.2H9.4zM12.9 7.4H15v9.2h-2.1z"/></svg></span>
+      <span class="cb"><svg viewBox="0 0 24 24"><path class="ico" d="M7 9.5 12 14.5 17 9.5"/></svg></span>
+    </div>
+    <div class="bottom">
+      <div class="seek"><div class="buf" style="width:100%"></div><div class="fill" style="width:100%;background:linear-gradient(90deg,var(--violet),#FF5C6C)"></div></div>
+      <div class="times"><span>Nieuwsuur</span><span>21:00 – 22:30</span></div>
+    </div>
+  </div>
+</div>
+
+<p class="note"><b>What changes on live:</b> a <b>LIVE</b> badge, the current programme's name and end time
+where the episode title would be, and the chevrons become channel up / channel down — you zap without
+leaving the stream. <b>What never changes:</b> the audio and subtitle buttons sit in the same two places,
+because that is the pair of controls this app exists to get right. Both are lit here to mean
+<i>auto-selected</i>: your language preference was applied before the first frame, and if you change one by
+hand it becomes the new preference.</p>

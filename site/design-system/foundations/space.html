@@ -1,0 +1,71 @@
+<!-- @dsCard group="Foundations" name="Space, radius & elevation" subtitle="4pt scale, 10px card radius, glow instead of shadow" viewport="960x680" -->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Aurora — Space, radius &amp; elevation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+  :root{--bg:#0B0D12;--surface:#12151C;--surface-2:#1A1E27;--line:rgba(255,255,255,.07);--violet:#7C5CFF;--teal:#4FD1C5;--text:#F2F4F8;--muted:#9AA3B2;--dim:#69727F;--display:'Outfit',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;--ui:'Inter',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);padding:40px}
+  h1{font-family:var(--display);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--teal);margin:0 0 6px;font-weight:500}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 26px;max-width:74ch;line-height:1.55}
+  h2{font-family:var(--display);font-size:15px;font-weight:600;margin:26px 0 14px}
+  .bars{display:flex;flex-direction:column;gap:8px}
+  .bar{display:flex;align-items:center;gap:14px;font-size:12px;color:var(--dim)}
+  .bar i{display:block;height:14px;border-radius:3px;background:linear-gradient(90deg,var(--violet),rgba(124,92,255,.25))}
+  .bar b{font-family:ui-monospace,Consolas,monospace;color:var(--muted);font-weight:400;width:74px}
+  .bar span{color:var(--dim)}
+  .row{display:flex;flex-wrap:wrap;gap:16px}
+  .radius{width:132px;background:var(--surface);border:1px solid var(--line);padding:14px;text-align:center}
+  .radius div{height:56px;background:var(--surface-2);border:1px solid var(--line);margin-bottom:10px}
+  .radius p{margin:0;font-size:11.5px;color:var(--dim);line-height:1.4}
+  .radius p b{display:block;color:var(--muted);font-family:ui-monospace,Consolas,monospace;font-weight:400}
+  .elev{flex:1;min-width:210px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px}
+  .elev p{margin:0;font-size:12px;color:var(--dim);line-height:1.45}
+  .elev p b{display:block;color:var(--text);font-family:var(--ui);font-size:13px;font-weight:600;margin-bottom:4px}
+  .lift{box-shadow:0 28px 70px -24px rgba(0,0,0,.85)}
+  .glow{box-shadow:0 18px 50px -18px rgba(124,92,255,.55);border-color:rgba(124,92,255,.28)}
+  .note{font-size:13px;line-height:1.6;color:var(--muted);max-width:76ch;margin:24px 0 0}
+  .note b{color:var(--text);font-weight:600}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--teal)}
+</style>
+
+<h1>Space, radius &amp; elevation</h1>
+<p class="sub">A 4pt scale. Sections breathe at 96–128px so the page feels like the app's generous
+spacing rather than a dense marketing template.</p>
+
+<h2>Space</h2>
+<div class="bars">
+  <div class="bar"><b>--s1 · 4</b><i style="width:4px"></i><span>icon-to-label</span></div>
+  <div class="bar"><b>--s2 · 8</b><i style="width:8px"></i><span>inside a chip</span></div>
+  <div class="bar"><b>--s3 · 12</b><i style="width:12px"></i><span>poster caption gap, nav lockup</span></div>
+  <div class="bar"><b>--s4 · 16</b><i style="width:16px"></i><span>rail item gap</span></div>
+  <div class="bar"><b>--s5 · 24</b><i style="width:24px"></i><span>card padding, grid gutter</span></div>
+  <div class="bar"><b>--s6 · 32</b><i style="width:32px"></i><span>heading to body</span></div>
+  <div class="bar"><b>--s7 · 48</b><i style="width:48px"></i><span>block to block inside a section</span></div>
+  <div class="bar"><b>--s8 · 64</b><i style="width:64px"></i><span>section padding, mobile</span></div>
+  <div class="bar"><b>--s9 · 96</b><i style="width:96px"></i><span>section padding, desktop</span></div>
+  <div class="bar"><b>--s10 · 128</b><i style="width:128px"></i><span>hero top, footer top</span></div>
+</div>
+
+<h2>Radius</h2>
+<div class="row">
+  <div class="radius" style="border-radius:8px"><div style="border-radius:8px"></div><p><b>--r-sm 8</b>chips, badges, inputs</p></div>
+  <div class="radius" style="border-radius:10px"><div style="border-radius:10px"></div><p><b>--r 10</b>posters &amp; rail cards — matches <code>PosterCard</code></p></div>
+  <div class="radius" style="border-radius:16px"><div style="border-radius:16px"></div><p><b>--r-lg 16</b>feature cards, panels</p></div>
+  <div class="radius" style="border-radius:24px"><div style="border-radius:24px"></div><p><b>--r-xl 24</b>spotlight frames</p></div>
+  <div class="radius" style="border-radius:999px"><div style="border-radius:999px"></div><p><b>--r-pill</b>buttons, dots</p></div>
+</div>
+
+<h2>Elevation</h2>
+<div class="row">
+  <div class="elev"><p><b>Flat + hairline</b>The default. On a near-black canvas a 1px white-7% border separates surfaces better than any shadow.</p></div>
+  <div class="elev lift"><p><b>--shadow-lift</b>Device mockups only. 0 28px 70px −24px black/85 — the frame has to sit above the page, not float.</p></div>
+  <div class="elev glow"><p><b>--glow-violet</b>The one accent elevation: 0 18px 50px −18px violet/55. Hero device and nothing else.</p></div>
+</div>
+
+<p class="note"><b>Layout.</b> Content maxes at <code>1120px</code> with 24px gutters; the hero is allowed to
+run full-bleed because the ambient ribbons need the room. Breakpoints are 720px (stack everything) and
+1040px (two columns become three). <b>No shadow on a card, ever</b> — that is the one rule that keeps the
+site from looking like a light-theme layout painted dark.</p>

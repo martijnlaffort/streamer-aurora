@@ -1,0 +1,98 @@
+/* ---------------------------------------------------------------------------
+   Aurora — website design tokens
+   ---------------------------------------------------------------------------
+   These mirror the app's own tokens so the site looks like the product it
+   describes. Source of truth for the app side:
+     lib/core/theme/app_colors.dart
+     lib/core/theme/app_typography.dart
+   If a value changes there, change it here too — nowhere else.
+   The site is dark-only on purpose: the app has no light theme, and the
+   "content is the hero, chrome recedes" direction (PRD §10) is a dark idea.
+--------------------------------------------------------------------------- */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  /* Canvas & surfaces ---------------------------------------------------- */
+  --bg: #0B0D12;              /* AppColors.background — near-black, blue cast */
+  --surface: #12151C;         /* AppColors.surface — cards, rails, sheets     */
+  --surface-2: #1A1E27;       /* AppColors.surfaceElevated — raised/hovered   */
+  --line: rgba(255, 255, 255, .07);
+  --line-strong: rgba(255, 255, 255, .14);
+
+  /* Accents -------------------------------------------------------------- */
+  --violet: #7C5CFF;          /* AppColors.accent — the aurora violet         */
+  --teal: #4FD1C5;            /* AppColors.accentAlt — the teal glow          */
+  --violet-soft: rgba(124, 92, 255, .16);
+  --teal-soft: rgba(79, 209, 197, .14);
+
+  /* Text ----------------------------------------------------------------- */
+  --text: #F2F4F8;            /* AppColors.textPrimary  */
+  --muted: #9AA3B2;           /* AppColors.textSecondary */
+  --dim: #69727F;             /* site-only: footer, captions, fine print */
+  --focus: #FFFFFF;           /* AppColors.focusRing — reads on any artwork */
+  --error: #FF5C6C;           /* AppColors.error */
+
+  /* Type ----------------------------------------------------------------- */
+  --display: 'Outfit', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --ui: 'Inter', ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif;
+
+  /* Space — 4pt scale ---------------------------------------------------- */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px; --s5: 24px;
+  --s6: 32px; --s7: 48px; --s8: 64px; --s9: 96px; --s10: 128px;
+
+  /* Radius --------------------------------------------------------------- */
+  --r-sm: 8px;
+  --r: 10px;                  /* poster/continue cards — matches PosterCard */
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-pill: 999px;            /* buttons — Material 3 stadium, as in-app */
+
+  /* Elevation & glow ----------------------------------------------------- */
+  --shadow: 0 1px 2px rgba(0, 0, 0, .45);
+  --shadow-lift: 0 28px 70px -24px rgba(0, 0, 0, .85);
+  --glow-violet: 0 18px 50px -18px rgba(124, 92, 255, .55);
+
+  /* Layout --------------------------------------------------------------- */
+  --maxw: 1120px;
+  --nav-h: 68px;
+}
+
+/* The bottom-up scrim that keeps text legible over artwork.
+   Same three stops as AppColors.scrim. */
+.scrim {
+  background: linear-gradient(180deg,
+    rgba(11, 13, 18, 0) 0%,
+    rgba(11, 13, 18, .8) 62%,
+    rgba(11, 13, 18, 1) 100%);
+}
+
+/* Base ------------------------------------------------------------------- */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--ui);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Type roles — the four in-app styles plus the two the web needs ---------- */
+.t-hero    { font-family: var(--display); font-size: clamp(38px, 6vw, 66px); font-weight: 700; letter-spacing: -1.4px; line-height: 1.04; margin: 0; }
+.t-section { font-family: var(--display); font-size: clamp(28px, 3.6vw, 40px); font-weight: 700; letter-spacing: -.5px; line-height: 1.1;  margin: 0; }
+.t-title   { font-family: var(--display); font-size: 22px; font-weight: 600; letter-spacing: -.2px; line-height: 1.25; margin: 0; }
+.t-lead    { font-size: 19px; line-height: 1.5; color: var(--muted); margin: 0; }
+.t-body    { font-size: 15px; line-height: 1.45; color: var(--muted); margin: 0; }
+.t-eyebrow { font-size: 12px; font-weight: 500; letter-spacing: .3px; text-transform: uppercase; color: var(--teal); margin: 0; }
+.t-label   { font-size: 12px; font-weight: 500; letter-spacing: .3px; color: var(--muted); margin: 0; }
+
+/* Focus is a first-class state here, exactly as in the app: the TV layer
+   navigates by D-pad, so a white ring is the affordance everywhere. */
+:where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}

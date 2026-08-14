@@ -1,0 +1,70 @@
+<!-- @dsCard group="Foundations" name="Typography" subtitle="Outfit display + Inter UI, six roles" viewport="960x760" -->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Aurora — Typography</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+  :root{--bg:#0B0D12;--surface:#12151C;--line:rgba(255,255,255,.07);--violet:#7C5CFF;--teal:#4FD1C5;--text:#F2F4F8;--muted:#9AA3B2;--dim:#69727F;--display:'Outfit',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;--ui:'Inter',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);padding:40px}
+  h1{font-family:var(--display);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--teal);margin:0 0 6px;font-weight:500}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 30px;max-width:74ch;line-height:1.55}
+  .spec{display:grid;grid-template-columns:1fr 220px;gap:24px;align-items:baseline;padding:20px 0;border-top:1px solid var(--line)}
+  .spec:last-of-type{border-bottom:1px solid var(--line)}
+  .meta{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:11.5px;line-height:1.7;color:var(--dim);text-align:right}
+  .meta b{display:block;color:var(--muted);font-family:var(--ui);font-size:12px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;margin-bottom:4px}
+  .t-hero{font-family:var(--display);font-size:62px;font-weight:700;letter-spacing:-1.4px;line-height:1.04;margin:0}
+  .t-section{font-family:var(--display);font-size:38px;font-weight:700;letter-spacing:-.5px;line-height:1.1;margin:0}
+  .t-title{font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:-.2px;margin:0}
+  .t-lead{font-size:19px;line-height:1.5;color:var(--muted);margin:0}
+  .t-body{font-size:15px;line-height:1.45;color:var(--muted);margin:0}
+  .t-eyebrow{font-size:12px;font-weight:500;letter-spacing:.3px;text-transform:uppercase;color:var(--teal);margin:0}
+  .pair{margin-top:34px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 30px}
+  .pair p{margin:0}
+  .rule{font-size:13px;line-height:1.6;color:var(--muted);margin:26px 0 0;max-width:76ch}
+  .rule b{color:var(--text);font-weight:600}
+  code{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:12px;color:var(--teal)}
+</style>
+
+<h1>Typography</h1>
+<p class="sub">Two faces, as in the app (PRD §10): <b style="color:var(--text)">Outfit</b> for anything
+titular, <b style="color:var(--text)">Inter</b> for everything you actually read. Web-only additions are
+the hero size and the 19px lead — the app has no equivalent because a phone never needs one. If Google
+Fonts is unavailable the stack falls back to the system UI face, and nothing about the layout moves.</p>
+
+<div class="spec">
+  <p class="t-hero">IPTV that behaves</p>
+  <p class="meta"><b>hero</b>Outfit 700<br>clamp(38 → 66px)<br>tracking &minus;1.4px<br>leading 1.04</p>
+</div>
+<div class="spec">
+  <p class="t-section">The three things it fixes</p>
+  <p class="meta"><b>section</b>Outfit 700<br>clamp(28 → 40px)<br>tracking &minus;.5px<br>leading 1.1</p>
+</div>
+<div class="spec">
+  <p class="t-title">Languages that learn</p>
+  <p class="meta"><b>title</b>Outfit 600 · 22px<br>tracking &minus;.2px<br><i>= AppTypography.title</i></p>
+</div>
+<div class="spec">
+  <p class="t-lead">Point it at the line you already pay for.</p>
+  <p class="meta"><b>lead</b>Inter 400 · 19px<br>leading 1.5<br>muted</p>
+</div>
+<div class="spec">
+  <p class="t-body">Set audio to English and subtitles to Dutch once. Every stream after that picks them on its own, and if you override it by hand, that becomes the new preference.</p>
+  <p class="meta"><b>body</b>Inter 400 · 15px<br>leading 1.45<br><i>= AppTypography.body</i></p>
+</div>
+<div class="spec">
+  <p class="t-eyebrow">Recently added</p>
+  <p class="meta"><b>eyebrow</b>Inter 500 · 12px<br>tracking .3px · caps<br>teal · <i>= AppTypography.label</i></p>
+</div>
+
+<div class="pair">
+  <p class="t-eyebrow" style="margin-bottom:10px">Continue watching</p>
+  <p class="t-section" style="margin-bottom:14px">It remembers where you stopped</p>
+  <p class="t-lead" style="max-width:56ch">Not roughly. Not the start of the episode. The second you
+    walked away — across app restarts, and across devices if you turn sync on.</p>
+</div>
+
+<p class="rule"><b>Rules.</b> One hero per page. Eyebrows are always teal, always uppercase, and never
+longer than four words. Measure caps at 68ch for body, 56ch for lead. Numerals are tabular in the spec
+strip (<code>font-variant-numeric: tabular-nums</code>) and nowhere else.</p>

@@ -1,0 +1,103 @@
+<!-- @dsCard group="Components" name="Buttons & chips" subtitle="Filled, tonal, ghost, link — plus states" viewport="960x620" -->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Aurora — Buttons</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+  :root{--bg:#0B0D12;--surface:#12151C;--surface-2:#1A1E27;--line:rgba(255,255,255,.07);--line-strong:rgba(255,255,255,.14);--violet:#7C5CFF;--teal:#4FD1C5;--text:#F2F4F8;--muted:#9AA3B2;--dim:#69727F;--display:'Outfit',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;--ui:'Inter',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);padding:40px}
+  h1{font-family:var(--display);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--teal);margin:0 0 6px;font-weight:500}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 28px;max-width:74ch;line-height:1.55}
+  h2{font-family:var(--display);font-size:14px;font-weight:600;margin:26px 0 14px;color:var(--muted)}
+  .row{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--ui);font-size:14.5px;font-weight:600;
+       letter-spacing:.1px;border-radius:999px;padding:11px 22px;border:1px solid transparent;cursor:pointer;
+       text-decoration:none;transition:background .16s ease,transform .12s ease,border-color .16s ease}
+  .btn svg{width:18px;height:18px;flex:none}
+  .btn:active{transform:translateY(1px)}
+
+  .btn-filled{background:var(--violet);color:#fff}
+  .btn-filled:hover{background:#8F73FF}
+
+  .btn-tonal{background:rgba(124,92,255,.16);color:var(--text);border-color:rgba(124,92,255,.26)}
+  .btn-tonal:hover{background:rgba(124,92,255,.24)}
+
+  .btn-ghost{background:transparent;color:var(--text);border-color:var(--line-strong)}
+  .btn-ghost:hover{background:var(--surface-2);border-color:rgba(255,255,255,.22)}
+
+  .btn-link{background:none;border:none;padding:6px 2px;color:var(--text);font-size:14.5px;font-weight:500;
+            display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+  .btn-link i{display:block;width:100%;height:1px;background:var(--violet);margin-top:2px}
+  .btn-link:hover span{color:var(--teal)}
+
+  .btn-sm{padding:8px 16px;font-size:13.5px}
+  .btn-lg{padding:14px 28px;font-size:16px}
+
+  .focused{outline:2px solid #fff;outline-offset:2px}
+  .disabled{background:var(--surface-2);color:var(--dim);border-color:var(--line);cursor:not-allowed}
+
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;letter-spacing:.2px;
+        padding:6px 12px;border-radius:8px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+  .chip.on{background:rgba(124,92,255,.16);border-color:rgba(124,92,255,.3);color:var(--text)}
+  .chip svg{width:14px;height:14px}
+  .chip .dot{width:6px;height:6px;border-radius:999px;background:var(--teal)}
+  .ico{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .lbl{font-size:11px;color:var(--dim);letter-spacing:.3px;text-transform:uppercase;width:100%;margin:0 0 -4px}
+  .note{font-size:13px;line-height:1.6;color:var(--muted);max-width:76ch;margin:28px 0 0}
+  .note b{color:var(--text);font-weight:600}
+</style>
+
+<h1>Buttons &amp; chips</h1>
+<p class="sub">Stadium-shaped, exactly like the app's Material 3 <b style="color:var(--text)">FilledButton</b>
+and <b style="color:var(--text)">FilledButton.tonal</b>. There is one filled button per section, maximum —
+on a personal showcase the loudest thing on screen should be the product, not a call to action.</p>
+
+<h2>Hierarchy</h2>
+<div class="row">
+  <a class="btn btn-filled" href="#"><svg viewBox="0 0 24 24"><g class="ico"><circle cx="12" cy="12" r="8.4"/><path d="M12 11v5.4M12 7.9h.01"/></g></svg>See how it works</a>
+  <a class="btn btn-tonal" href="#"><svg viewBox="0 0 24 24"><path class="ico" d="M12 5v14M5 12h14"/></svg>What it fixes</a>
+  <a class="btn btn-ghost" href="#">Under the hood</a>
+  <button class="btn-link"><span>Read the PRD</span></button>
+</div>
+
+<h2>Sizes</h2>
+<div class="row">
+  <a class="btn btn-filled btn-lg" href="#">Hero · 16 / 14×28</a>
+  <a class="btn btn-filled" href="#">Default · 14.5 / 11×22</a>
+  <a class="btn btn-filled btn-sm" href="#">Compact · 13.5 / 8×16</a>
+</div>
+
+<h2>States</h2>
+<div class="row">
+  <span class="btn btn-filled">Rest</span>
+  <span class="btn btn-filled" style="background:#8F73FF">Hover</span>
+  <span class="btn btn-filled focused">Focus · white ring</span>
+  <span class="btn btn-filled" style="transform:translateY(1px);background:#6E4FE6">Pressed</span>
+  <span class="btn disabled">Disabled</span>
+</div>
+
+<h2>In-app equivalents <span style="font-family:var(--ui);font-size:12px;color:var(--dim);font-weight:400">— the mockups reuse these</span></h2>
+<div class="row">
+  <span class="btn btn-filled btn-sm"><svg viewBox="0 0 24 24"><g class="ico"><circle cx="12" cy="12" r="8.4"/><path d="M12 11v5.4M12 7.9h.01"/></g></svg>Details</span>
+  <span class="btn btn-tonal btn-sm"><svg viewBox="0 0 24 24"><path class="ico" d="M12 5v14M5 12h14"/></svg>My List</span>
+  <span class="btn btn-tonal btn-sm"><svg viewBox="0 0 24 24"><path class="ico" d="M4.6 12.4l4.6 4.6L19.4 6.8"/></svg>In My List</span>
+  <span class="btn btn-filled btn-sm"><svg viewBox="0 0 24 24"><path style="fill:currentColor" d="M8 5.2 19 12 8 18.8z"/></svg>Resume from 41:20</span>
+  <span class="btn btn-ghost btn-sm">Start over</span>
+</div>
+
+<h2>Chips</h2>
+<div class="row">
+  <span class="chip on">All</span>
+  <span class="chip">Films</span>
+  <span class="chip">Series</span>
+  <span class="chip">Documentary</span>
+  <span class="chip"><span class="dot"></span>Live now</span>
+  <span class="chip"><svg viewBox="0 0 24 24"><g class="ico"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.4 2"/></g></svg>Catch-up</span>
+</div>
+
+<p class="note"><b>Rules.</b> Icons sit left of the label at 18px and never appear alone unless the control
+is in a player overlay. Focus is a white ring at 2px/2px offset — not a colour change — because that is
+what the app does and what a D-pad user needs. Hover lightens the fill; it never grows the button.</p>

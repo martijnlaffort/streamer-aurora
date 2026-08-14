@@ -1,0 +1,45 @@
+name: Deploy site
+
+# Publishes the static site in site/ to GitHub Pages.
+#
+# Runs from plexus/site rather than main on purpose: ios-unsigned.yml builds an
+# IPA on every push to main, and a copy edit to a marketing page has no business
+# starting a macOS build. The github-pages environment is configured to allow
+# this branch (deployment branch policy), which is not the default.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ plexus/site ]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; the newest wins.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      # No build step — the site is four static files by design.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

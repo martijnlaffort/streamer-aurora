@@ -1,0 +1,161 @@
+<!-- @dsCard group="Sections" name="Spotlight blocks" subtitle="Alternating copy + device, two per page" viewport="1240x1180" -->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Aurora — Spotlights</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+  :root{--bg:#0B0D12;--surface:#12151C;--surface-2:#1A1E27;--line:rgba(255,255,255,.07);--violet:#7C5CFF;--teal:#4FD1C5;--text:#F2F4F8;--muted:#9AA3B2;--dim:#69727F;--display:'Outfit',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;--ui:'Inter',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui)}
+  .spot{max-width:1216px;margin:0 auto;padding:clamp(48px,6vw,88px) clamp(20px,4vw,48px);
+    display:grid;grid-template-columns:.92fr 1.08fr;gap:clamp(28px,5vw,64px);align-items:center}
+  .spot.flip{grid-template-columns:1.08fr .92fr}
+.spot.flip .copy{order:2}
+  @media (max-width:980px){.spot{grid-template-columns:1fr}.spot.flip .copy{order:0}}
+
+  .eyebrow{font-size:12px;font-weight:500;letter-spacing:.3px;text-transform:uppercase;color:var(--teal);margin:0 0 14px}
+  h2{font-family:var(--display);font-size:clamp(26px,3.2vw,36px);font-weight:700;letter-spacing:-.6px;line-height:1.12;margin:0 0 16px;max-width:20ch}
+  .copy > p{font-size:16.5px;line-height:1.6;color:var(--muted);margin:0 0 22px;max-width:50ch}
+  .copy > p b{color:var(--text);font-weight:500}
+  ul{list-style:none;margin:0;padding:0;display:grid;gap:13px;max-width:50ch}
+  li{position:relative;padding-left:28px;font-size:14.5px;line-height:1.5;color:var(--muted)}
+  li b{color:var(--text);font-weight:600}
+  li svg{position:absolute;left:0;top:2px;width:17px;height:17px;color:var(--violet)}
+  .ico{fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ---------- compact landscape player ---------- */
+  .device{padding:8px;border-radius:24px;background:linear-gradient(150deg,#333A4A,#0C0F15 55%);
+    box-shadow:0 34px 80px -28px rgba(0,0,0,.92),inset 0 0 0 1px rgba(255,255,255,.06)}
+  .stage{position:relative;aspect-ratio:16/9;border-radius:17px;overflow:hidden;
+    background:radial-gradient(120% 100% at 22% 15%,#28325C,transparent 60%),radial-gradient(90% 90% at 82% 80%,#1E5B63,transparent 62%),linear-gradient(160deg,#141828,#08090D)}
+  .gt{position:absolute;inset:0 0 auto 0;height:34%;background:linear-gradient(180deg,rgba(0,0,0,.7),transparent)}
+  .gb{position:absolute;inset:auto 0 0 0;height:44%;background:linear-gradient(0deg,rgba(0,0,0,.8),transparent)}
+  .ptop{position:absolute;top:0;left:0;right:0;height:16%;display:flex;align-items:center;gap:2.2%;padding:0 3.4%}
+  .ptop .t{min-width:0}
+  .ptop .t p{margin:0;font-family:var(--display);font-size:2.6cqw;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ptop .t span{font-size:2cqw;color:rgba(255,255,255,.62)}
+  .ib{flex:none;width:5.8cqw;height:5.8cqw;border-radius:999px;display:grid;place-items:center;color:#fff;background:rgba(255,255,255,.09)}
+  .ib svg{width:56%;height:56%}
+  .ib.act{background:rgba(124,92,255,.34);box-shadow:inset 0 0 0 1px rgba(124,92,255,.5)}
+  .pr{margin-left:auto;display:flex;gap:1.2cqw;flex:none;justify-content:flex-end}
+  .pctr{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:4.6%;color:#fff}
+  .pctr svg{width:5.4%;height:auto;opacity:.9}
+  .pctr svg.big{width:11.5%;opacity:1}
+  .pbot{position:absolute;left:3.4%;right:3.4%;bottom:4.5%}
+  .seek{position:relative;height:3px;border-radius:2px;background:rgba(255,255,255,.2);margin-bottom:2.4%}
+  .seek .buf{position:absolute;inset:0 auto 0 0;width:72%;background:rgba(255,255,255,.34);border-radius:2px}
+  .seek .fill{position:absolute;inset:0 auto 0 0;width:54%;background:var(--violet);border-radius:2px}
+  .seek .kn{position:absolute;left:54%;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:999px;background:#fff}
+  .tm{display:flex;justify-content:space-between;font-size:2cqw;color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums}
+  .stage{container-type:inline-size}
+  .un{position:absolute;right:3.4%;bottom:15%;background:rgba(11,13,18,.9);border:1px solid var(--line);
+    border-radius:9px;padding:2.2% 2.6%;width:30%}
+  .un p{margin:0 0 5%;font-size:2.1cqw;color:var(--muted);line-height:1.4}
+  .un p b{color:var(--text)}
+  .un span{display:inline-block;font-size:2cqw;font-weight:600;padding:3% 8%;border-radius:999px;background:var(--violet);color:#fff}
+
+  /* ---------- compact television ---------- */
+  .tvpanel{padding:9px;border-radius:16px;background:linear-gradient(150deg,#2E3542,#0B0E13 60%);
+    box-shadow:0 34px 80px -28px rgba(0,0,0,.92),inset 0 0 0 1px rgba(255,255,255,.05)}
+  .tvscreen{position:relative;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:var(--bg);display:flex;container-type:inline-size}
+  .stand{width:24%;height:8px;border-radius:0 0 7px 7px;background:linear-gradient(180deg,#2E3542,#171B23);margin:0 auto}
+  .foot{width:40%;height:6px;border-radius:6px;background:#1B2029;margin:4px auto 0}
+  .trail{flex:none;width:9%;background:rgba(18,21,28,.9);border-right:1px solid var(--line);
+    padding:3% 0;display:flex;flex-direction:column;align-items:center;gap:6%}
+  .trail i{display:block;width:62%;aspect-ratio:1.25;border-radius:5px;background:rgba(255,255,255,.06)}
+  .trail i.on{background:rgba(124,92,255,.26)}
+  .tbody{flex:1;min-width:0;padding:3.4% 3.6% 0}
+  .tbody h4{font-family:var(--display);font-size:3.4cqw;font-weight:700;letter-spacing:-.4px;margin:0 0 3%}
+  .tr{display:grid;grid-template-columns:18% 1fr;gap:2%;margin-bottom:1.8%;align-items:center}
+  .tc{display:flex;align-items:center;gap:6%;font-size:2.1cqw;color:var(--muted);min-width:0}
+  .tc b{flex:none;width:36%;aspect-ratio:1.35;border-radius:4px;background:var(--surface-2);border:1px solid var(--line)}
+  .tp{display:flex;gap:1%;min-width:0}
+  .blk{flex:none;background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:1.4% 2%;
+    font-size:2cqw;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .blk.now{background:linear-gradient(180deg,rgba(124,92,255,.18),var(--surface) 70%);border-color:rgba(124,92,255,.3);color:var(--text)}
+  .blk.fc{outline:2px solid #fff;outline-offset:1.5px;background:var(--surface-2);color:var(--text)}
+  .nl{position:absolute;top:11%;bottom:0;left:34%;width:2px;background:linear-gradient(180deg,var(--violet),transparent)}
+  .nl i{position:absolute;top:-3px;left:-3px;width:8px;height:8px;border-radius:999px;background:var(--violet);box-shadow:0 0 9px rgba(124,92,255,.9)}
+</style>
+
+<!-- Spotlight A: copy left, device right -->
+<section class="spot">
+  <div class="copy">
+    <p class="eyebrow">The player</p>
+    <h2>Two rows of chrome, then it gets out of the way</h2>
+    <p>Everything you need is one tap deep and always in the same place. <b>The two buttons in the top-right
+      are audio and subtitles</b> — the pair this app was built to get right.</p>
+    <ul>
+      <li><svg viewBox="0 0 24 24"><path class="ico" d="M5 12.5 10 17.5 19 7"/></svg>Track lists show the <b>language of every track</b>, embedded or external, with an explicit Off for subtitles.</li>
+      <li><svg viewBox="0 0 24 24"><path class="ico" d="M5 12.5 10 17.5 19 7"/></svg>Skip ten seconds, drag to seek, or swipe for <b>brightness and volume</b> without a menu.</li>
+      <li><svg viewBox="0 0 24 24"><path class="ico" d="M5 12.5 10 17.5 19 7"/></svg><b>Up next</b> counts down between episodes, and you can take it or leave it.</li>
+      <li><svg viewBox="0 0 24 24"><path class="ico" d="M5 12.5 10 17.5 19 7"/></svg>Lock the controls so a pocket can't seek, and <b>keep the audio playing</b> with the screen off.</li>
+    </ul>
+  </div>
+  <div class="device">
+    <div class="stage">
+      <div class="gt"></div><div class="gb"></div>
+      <div class="ptop">
+        <span class="ib"><svg viewBox="0 0 24 24"><path class="ico" d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+        <span class="t"><p>Harbourline</p><span>S2 · E4 — The Undertow</span></span>
+        <span class="pr">
+          <span class="ib act"><svg viewBox="0 0 24 24"><g class="ico"><circle cx="9" cy="17.2" r="2.8"/><path d="M11.8 17.2V4.5l6.2 2.3"/></g></svg></span>
+          <span class="ib act"><svg viewBox="0 0 24 24"><g class="ico"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="M6.6 14.6h4.2M13.4 14.6h4M6.6 11h2.6M11.8 11h5.6"/></g></svg></span>
+          <span class="ib"><svg viewBox="0 0 24 24"><g class="ico"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.4 10.5V8a3.6 3.6 0 0 1 6.9-1.4"/></g></svg></span>
+        </span>
+      </div>
+      <div class="pctr">
+        <svg viewBox="0 0 24 24" style="opacity:.5"><path fill="currentColor" d="M17 5.5 8.5 12 17 18.5z"/><rect fill="currentColor" x="5.5" y="5.5" width="2.2" height="13" rx="1"/></svg>
+        <svg viewBox="0 0 24 24"><g class="ico" style="stroke-width:1.8"><path d="M11.5 5.5a7 7 0 1 1-6.4 4.2"/><path d="M4.2 4.4v5.4h5.4"/></g><text x="12" y="15.8" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.4" font-weight="600" fill="currentColor">10</text></svg>
+        <svg class="big" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="rgba(255,255,255,.16)"/><path fill="currentColor" d="M9.4 7.4h2.1v9.2H9.4zM12.9 7.4H15v9.2h-2.1z"/></svg>
+        <svg viewBox="0 0 24 24"><g class="ico" style="stroke-width:1.8"><path d="M12.5 5.5a7 7 0 1 0 6.4 4.2"/><path d="M19.8 4.4v5.4h-5.4"/></g><text x="12" y="15.8" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.4" font-weight="600" fill="currentColor">10</text></svg>
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 5.5 15.5 12 7 18.5z"/><rect fill="currentColor" x="16.3" y="5.5" width="2.2" height="13" rx="1"/></svg>
+      </div>
+      <div class="un"><p>Up next in <b>8…</b><br>S2 · E5 — Slack Water</p><span>Play now</span></div>
+      <div class="pbot">
+        <div class="seek"><div class="buf"></div><div class="fill"></div><div class="kn"></div></div>
+        <div class="tm"><span>41:20</span><span>−34:58</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Spotlight B: device left, copy right -->
+<section class="spot flip">
+  <div class="copy">
+    <p class="eyebrow">Live TV &amp; the big screen</p>
+    <h2>It grew a television</h2>
+    <p>The same components, with focus turned up: a navigation rail instead of a tab bar, and a white ring
+      wherever the D-pad is. <b>Nothing was forked to get there.</b></p>
+    <ul>
+      <li><svg viewBox="0 0 24 24"><path class="ico" d="M5 12.5 10 17.5 19 7"/></svg>A day-bounded guide with <b>now and next</b> on every channel, from your provider's XMLTV feed.</li>
+      <li><svg viewBox="0 0 24 24"><path class="ico" d="M5 12.5 10 17.5 19 7"/></svg>Missed the first four minutes? <b>Watch from the start</b>, where the provider offers catch-up.</li>
+      <li><svg viewBox="0 0 24 24"><path class="ico" d="M5 12.5 10 17.5 19 7"/></svg><b>Channel up and down</b> from inside the stream — zapping, not back-out-and-pick-again.</li>
+      <li><svg viewBox="0 0 24 24"><path class="ico" d="M5 12.5 10 17.5 19 7"/></svg>Adding the TV is <b>a pairing code</b>, not your provider password typed with a remote.</li>
+    </ul>
+  </div>
+  <div>
+    <div class="tvpanel">
+      <div class="tvscreen">
+        <div class="trail"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        <div class="tbody">
+          <h4>TV Guide</h4>
+          <div class="tr"><div class="tc"><b></b>NPO 1 HD</div><div class="tp">
+            <span class="blk" style="width:20%">Het Klokhuis</span><span class="blk now fc" style="width:46%">Nieuwsuur</span><span class="blk" style="flex:1">Op1</span></div></div>
+          <div class="tr"><div class="tc"><b></b>NPO 2 HD</div><div class="tp">
+            <span class="blk" style="width:30%">Kunstuur</span><span class="blk now" style="width:26%">Nooit meer slapen</span><span class="blk" style="flex:1">Tegenlicht</span></div></div>
+          <div class="tr"><div class="tc"><b></b>BBC One</div><div class="tp">
+            <span class="blk" style="width:14%">News</span><span class="blk now" style="width:40%">The Repair Shop</span><span class="blk" style="flex:1">Question of Sport</span></div></div>
+          <div class="tr"><div class="tc"><b></b>Sky Sport 1</div><div class="tp">
+            <span class="blk" style="width:12%">Build-up</span><span class="blk now" style="width:54%">Arsenal – Everton</span><span class="blk" style="flex:1">Highlights</span></div></div>
+          <div class="tr"><div class="tc"><b></b>Arte HD</div><div class="tp">
+            <span class="blk" style="width:24%">Karambolage</span><span class="blk now" style="width:34%">Les mondes perdus</span><span class="blk" style="flex:1">Court-circuit</span></div></div>
+        </div>
+        <div class="nl"><i></i></div>
+      </div>
+    </div>
+    <div class="stand"></div>
+    <div class="foot"></div>
+  </div>
+</section>

@@ -1,0 +1,69 @@
+<!-- @dsCard group="Components" name="How-it-works steps" subtitle="Three numbered steps on a hairline track" viewport="1100x620" -->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Aurora — Steps</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+  :root{--bg:#0B0D12;--surface:#12151C;--surface-2:#1A1E27;--line:rgba(255,255,255,.07);--violet:#7C5CFF;--teal:#4FD1C5;--text:#F2F4F8;--muted:#9AA3B2;--dim:#69727F;--display:'Outfit',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;--ui:'Inter',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);padding:40px 30px}
+  h1{font-family:var(--display);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--teal);margin:0 0 6px;font-weight:500}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 34px;max-width:74ch;line-height:1.55}
+
+  .steps{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:34px;max-width:1060px}
+  /* The track: a hairline that runs behind the numerals and fades at both ends. */
+  .steps::before{content:'';position:absolute;left:8px;right:8px;top:27px;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.12) 12%,rgba(255,255,255,.12) 88%,transparent)}
+  .step{position:relative}
+  .num{position:relative;display:inline-flex;align-items:baseline;font-family:var(--display);font-size:44px;
+       font-weight:800;letter-spacing:-2px;line-height:1;margin:0 0 18px;
+       background:linear-gradient(140deg,#fff 0%,var(--violet) 62%,var(--teal) 100%);
+       -webkit-background-clip:text;background-clip:text;color:transparent}
+  .num::before{content:'';position:absolute;left:-10px;right:-14px;top:-6px;bottom:-4px;background:var(--bg);z-index:-1}
+  .step h3{font-family:var(--display);font-size:20px;font-weight:600;letter-spacing:-.2px;line-height:1.25;margin:0 0 10px}
+  .step p{font-size:14.5px;line-height:1.55;color:var(--muted);margin:0}
+  .step p + p{margin-top:10px}
+  .kbd{display:inline-block;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--text);
+       background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+  @media (max-width:760px){
+    .steps{grid-template-columns:1fr;gap:26px}
+    .steps::before{left:21px;right:auto;top:8px;bottom:8px;width:1px;height:auto;
+      background:linear-gradient(180deg,transparent,rgba(255,255,255,.12) 8%,rgba(255,255,255,.12) 92%,transparent)}
+    .step{padding-left:60px}
+    .num{position:absolute;left:0;top:-2px;font-size:34px}
+  }
+  .note{font-size:13px;line-height:1.6;color:var(--muted);max-width:76ch;margin:34px 0 0}
+  .note b{color:var(--text);font-weight:600}
+</style>
+
+<h1>How-it-works steps</h1>
+<p class="sub">Three steps, because there are three. The numerals carry the gradient so the section reads
+as a sequence at a glance, and the hairline track behind them does the arrow's job without an arrow.</p>
+
+<div class="steps">
+  <div class="step">
+    <p class="num">01</p>
+    <h3>Point it at your line</h3>
+    <p>An Xtream Codes server URL with your username and password, or an M3U playlist plus an optional
+      XMLTV guide URL. Aurora checks the credentials before it saves them, and the password goes to the
+      device keychain — never into its database.</p>
+  </div>
+  <div class="step">
+    <p class="num">02</p>
+    <h3>It takes the catalogue in</h3>
+    <p>Films, series and channels are cached locally and indexed, then refreshed a category at a time as
+      you browse rather than in one sweep. A line with a hundred thousand titles stays scrollable, and
+      what you already loaded still opens with the network off.</p>
+  </div>
+  <div class="step">
+    <p class="num">03</p>
+    <h3>Then it keeps up with you</h3>
+    <p>Resume points, language choices and My List are yours from the first minute. Turn sync on and a
+      second device picks up the same positions.</p>
+    <p>Pairing one is a code, not a re-typed password: <span class="kbd">Settings → Pair a device</span>.</p>
+  </div>
+</div>
+
+<p class="note"><b>Rules.</b> Steps describe what happens, not what to click. Each one is at most three
+sentences; the keyboard-style chip is the only place a literal UI path appears, and only in the last step.</p>

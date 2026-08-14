@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Unlisted on purpose: reachable by anyone with the link, absent from search.
+     This meta tag is what actually enforces it (see site/robots.txt). -->
+<meta name="robots" content="noindex, nofollow">
+<title>Aurora — IPTV that behaves like a streaming service</title>
+<meta name="description" content="Aurora points at the Xtream Codes or M3U line you already pay for and makes it worth opening: playback that holds, resume that works, and languages it learns. A personal project — it ships no content.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Aurora — IPTV that behaves like a streaming service">
+<meta property="og:description" content="Playback that holds, resume that works, languages it learns. Phone, desktop and television, one codebase. Ships no content.">
+<meta name="theme-color" content="#171C25">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23151A24'/%3E%3Cg fill='none' stroke='%237C5CFF' stroke-linecap='round'%3E%3Cpath d='M20 6C34 20 18 32 30 46c5 6 4 9 2 12' stroke-width='12'/%3E%3Cpath d='M44 6C30 20 46 32 34 46c-5 6-4 9-2 12' stroke-width='7' stroke='%234FD1C5' opacity='.8'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Reading progress: the only fixed thing above the nav. -->
+<div class="progress" aria-hidden="true"><i data-progress></i></div>
+
+<header class="nav" data-nav>
+  <div class="wrap nav__in">
+    <a class="lockup" href="#top">
+      <svg width="28" height="28" viewBox="0 0 64 64" aria-label="Aurora">
+        <defs><linearGradient id="rib" x1="32" y1="2" x2="32" y2="60" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#8C6BFF"/><stop offset=".55" stop-color="#6E7BFF"/><stop offset="1" stop-color="#4FD1C5"/>
+        </linearGradient></defs>
+        <rect width="64" height="64" rx="15" fill="#151A24"/>
+        <g fill="none" stroke="url(#rib)" stroke-linecap="round">
+          <path d="M20 6C34 20 18 32 30 46c5 6 4 9 2 12" stroke-width="12" opacity=".92"/>
+          <path d="M44 6C30 20 46 32 34 46c-5 6-4 9-2 12" stroke-width="7" opacity=".72"/>
+        </g>
+      </svg>
+      <span>Aurora</span>
+    </a>
+    <nav class="navlinks" data-navlinks>
+      <a href="#fixes">What it fixes</a>
+      <a href="#catalogue">Films &amp; series</a>
+      <a href="#tv">Television</a>
+      <a href="#built">Under the hood</a>
+      <a class="nav-cta" href="#how">Get set up</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============================== hero ============================== -->
+<section class="hero" id="top">
+  <div class="field" aria-hidden="true">
+    <span class="rib rib--1" data-ambient></span>
+    <span class="rib rib--2" data-ambient></span>
+    <span class="rib rib--3" data-ambient></span>
+  </div>
+  <div class="veil" aria-hidden="true"></div>
+
+  <div class="wrap hero__in">
+    <div>
+      <p class="badge"><i data-ambient></i>A personal project</p>
+      <h1 class="h1">IPTV that behaves like a <em>streaming service</em>.</h1>
+      <p class="lead lead--hero">Aurora points at the Xtream Codes or M3U line you already pay for and makes it
+        worth opening. <b class="strong">It remembers where you stopped, which languages you watch in, and what
+        you meant to watch next</b> — the three things every other player on that list gets wrong.</p>
+      <div class="btn-row">
+        <a class="btn btn--primary" href="#fixes">See what it fixes</a>
+        <a class="btn btn--ghost" href="#built">Under the hood</a>
+      </div>
+      <ul class="factlist">
+        <li><i></i>Xtream Codes &amp; M3U</li>
+        <li><i></i>libmpv playback</li>
+        <li><i></i>XMLTV guide</li>
+        <li><i></i>iPhone · Android · Windows · Android TV</li>
+      </ul>
+    </div>
+
+    <!-- Television with the phone laid over its corner: one resume point, two screens. -->
+    <div class="duo">
+      <svg class="duo__line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <defs><linearGradient id="syncline" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#7C5CFF"/><stop offset="1" stop-color="#4FD1C5"/>
+        </linearGradient></defs>
+        <path d="M58.5 60 C 63.5 65.5, 67.5 69.5, 73.8 72.5" fill="none" stroke="url(#syncline)" stroke-width="1.5" stroke-dasharray="5 6" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+        <path d="M58.5 60 h0" stroke="#7C5CFF" stroke-width="6.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+        <path d="M73.8 72.5 h0" stroke="#4FD1C5" stroke-width="6.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+      </svg>
+      <span class="duo__pill"><i></i>Same position, both screens</span>
+
+      <div class="duo__tv">
+        <div class="tv-shell">
+          <div class="tv-shell__screen art-tv-hero">
+            <div class="scrim-tv"></div>
+            <div style="position:absolute;left:4%;right:4%;bottom:5%">
+              <p class="dev-eyebrow" style="font-size:1.9cqw;letter-spacing:.18em;margin-bottom:1.4%">Continue watching · Living room</p>
+              <h3 class="dev-title" style="font-size:5cqw;margin-bottom:1.6%">Harbourline</h3>
+              <p style="margin:0 0 2.6%;font-size:2.1cqw;color:var(--muted)">S2 · E4 — The Undertow · 22 min left</p>
+              <div style="position:relative;height:3px;border-radius:2px;background:rgba(255,255,255,.18);width:46%">
+                <i style="position:absolute;inset:0 auto 0 0;width:64%;border-radius:2px;background:var(--violet)"></i>
+              </div>
+            </div>
+            <span style="position:absolute;top:5%;right:4%;display:inline-flex;align-items:center;font-size:1.9cqw;font-weight:600;color:var(--text);background:rgba(23,28,37,.72);border:1px solid var(--line-strong);border-radius:999px;padding:1.1% 2.6%">Android TV</span>
+          </div>
+        </div>
+        <div class="stand" style="width:22%"></div>
+        <div class="stand-foot" style="width:36%"></div>
+      </div>
+
+      <div class="duo__phone">
+        <div class="phone">
+          <div class="phone__screen">
+            <div class="notch"></div>
+            <div class="art-hero" style="position:relative;height:224px;flex:none">
+              <div class="scrim-hero"></div>
+              <div style="position:absolute;left:15px;right:15px;bottom:13px">
+                <p class="dev-eyebrow" style="font-size:9.5px;letter-spacing:.7px;margin-bottom:4px">Recently added</p>
+                <h3 class="dev-title" style="font-size:21px;letter-spacing:-.5px;line-height:1.1;margin-bottom:10px;max-width:190px">The Quiet Coast</h3>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="chip chip--primary">Details</span>
+                  <span class="chip chip--tonal">My List</span>
+                  <span class="dots"><i class="on"></i><i></i><i></i><i></i></span>
+                </div>
+              </div>
+            </div>
+            <div class="rail">
+              <h4>Continue Watching</h4>
+              <div class="rail__track">
+                <div class="cw">
+                  <div class="cw__thumb art-blue"><div class="bar"><i style="width:64%"></i></div></div>
+                  <p class="cw__title">Harbourline</p><span class="cw__sub">S2 · E4 — 22 min left</span>
+                </div>
+                <div class="cw">
+                  <div class="cw__thumb art-amber"><div class="bar"><i style="width:31%"></i></div></div>
+                  <p class="cw__title">Ashfall</p><span class="cw__sub">1 h 14 min left</span>
+                </div>
+              </div>
+            </div>
+            <div class="rail">
+              <h4>Award-winning series &amp; films</h4>
+              <div class="rail__track">
+                <div class="poster art-rose"></div>
+                <div class="poster art-teal"></div>
+                <div class="poster art-plum"></div>
+                <div class="poster art-blue"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ what it fixes ============================ -->
+<section class="sec sec--fixes" id="fixes">
+  <div class="wrap">
+    <div class="head head--wide" data-reveal>
+      <p class="eyebrow">Why it exists</p>
+      <h2 class="h2">Three things every other player got wrong</h2>
+      <p class="lead">Aurora is not trying to have more features than the app it replaced. It is trying to have
+        <b class="strong">fewer, working</b>. These three were the whole brief.</p>
+    </div>
+    <div class="grid3">
+      <div class="fixcard" data-reveal>
+        <div class="fixcard__was">
+          <p class="tag tag--was"><span class="tag__mark">✕</span>Before</p>
+          <p class="copy copy--tight">A raw MPEG-TS channel or an HEVC film opens to a black screen, and the app
+            dies instead of saying why. When the panel drops the connection, that's the end of the evening.</p>
+        </div>
+        <div class="fixcard__now">
+          <p class="tag tag--now"><span class="tag__mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>In Aurora</p>
+          <h3 class="h3">Playback that holds</h3>
+          <p class="copy">libmpv does the decoding, so <b class="strong">MPEG-TS, HLS, HEVC and MKV all just
+            open</b>. When a stream does fail you get a plain error and a retry, and the player reconnects on its own.</p>
+          <p class="foot-note">Chosen for this, not for convenience — it is why Aurora isn't built on the platform players.</p>
+        </div>
+      </div>
+      <div class="fixcard" data-reveal>
+        <div class="fixcard__was">
+          <p class="tag tag--was"><span class="tag__mark">✕</span>Before</p>
+          <p class="copy copy--tight">Leave a film 40 minutes in, come back tomorrow, start from zero. Finish an
+            episode and the whole series disappears from the row instead of moving on.</p>
+        </div>
+        <div class="fixcard__now">
+          <p class="tag tag--now"><span class="tag__mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>In Aurora</p>
+          <h3 class="h3">It remembers where you stopped</h3>
+          <p class="copy">Your position is saved every few seconds and on every exit, so reopening puts you back
+            <b class="strong">within seconds of where you were</b> — across restarts. Finish an episode and
+            Continue Watching advances to the next one.</p>
+          <p class="foot-note">Turn sync on and the same positions show up on your other device.</p>
+        </div>
+      </div>
+      <div class="fixcard" data-reveal>
+        <div class="fixcard__was">
+          <p class="tag tag--was"><span class="tag__mark">✕</span>Before</p>
+          <p class="copy copy--tight">Every single episode: open the menus, find the English audio track, find the
+            Dutch subtitles, pick both again. Twenty-two minutes of television, four taps of admin.</p>
+        </div>
+        <div class="fixcard__now">
+          <p class="tag tag--now"><span class="tag__mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>In Aurora</p>
+          <h3 class="h3">Languages that learn</h3>
+          <p class="copy">Set audio and subtitles once and <b class="strong">every stream that has them picks them
+            before the first frame</b>. Change one by hand and Aurora takes that as the new preference.</p>
+          <p class="foot-note">Possible because libmpv reports each track's language tag — most players never see them.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== the player ============================== -->
+<section class="split" id="player">
+  <div data-reveal>
+    <p class="eyebrow">The player</p>
+    <h2 class="h2 h2--split">Two rows of chrome, then it gets out of the way</h2>
+    <p class="lead lead--split">Everything you need is one tap deep and always in the same place.
+      <b class="strong">The two buttons in the top-right are audio and subtitles</b> — the pair this app was
+      built to get right.</p>
+    <ul class="checks">
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Track lists show the <b>language of every track</b>, embedded or external, with an explicit Off for subtitles.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Skip ten seconds, drag to seek, or swipe for <b>brightness and volume</b> without a menu.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg><b>Up next</b> counts down between episodes, and you can take it or leave it.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Lock the controls so a pocket can't seek, and <b>keep the audio playing</b> with the screen off.</li>
+    </ul>
+  </div>
+  <div data-reveal>
+    <div class="player-shell">
+      <div class="stage art-player">
+        <div class="stage__top-fade"></div>
+        <div class="stage__bot-fade"></div>
+        <div class="pbar">
+          <span class="ib"><svg viewBox="0 0 24 24" width="56%" height="56%" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+          <span class="pbar__title"><p>Harbourline</p><span>S2 · E4 — The Undertow</span></span>
+          <span class="pbar__right">
+            <span class="ib ib--on"><svg viewBox="0 0 24 24" width="56%" height="56%" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="17.2" r="2.8"/><path d="M11.8 17.2V4.5l6.2 2.3"/></svg></span>
+            <span class="ib ib--on"><svg viewBox="0 0 24 24" width="56%" height="56%" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5.5" width="18" height="13" rx="3"/><path d="M6.6 14.6h4.2M13.4 14.6h4M6.6 11h2.6M11.8 11h5.6"/></svg></span>
+            <span class="ib"><svg viewBox="0 0 24 24" width="56%" height="56%" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2.5"/><path d="M8.4 10.5V8a3.6 3.6 0 0 1 6.9-1.4"/></svg></span>
+          </span>
+        </div>
+        <div class="pctr">
+          <svg class="is-dim" viewBox="0 0 24 24"><path fill="currentColor" d="M17 5.5 8.5 12 17 18.5z"/><rect fill="currentColor" x="5.5" y="5.5" width="2.2" height="13" rx="1"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 5.5a7 7 0 1 1-6.4 4.2"/><path d="M4.2 4.4v5.4h5.4"/><text x="12" y="15.8" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.4" font-weight="600" fill="currentColor" stroke="none">10</text></svg>
+          <svg class="is-big" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="rgba(255,255,255,.16)"/><path fill="currentColor" d="M9.4 7.4h2.1v9.2H9.4zM12.9 7.4H15v9.2h-2.1z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 5.5a7 7 0 1 0 6.4 4.2"/><path d="M19.8 4.4v5.4h-5.4"/><text x="12" y="15.8" text-anchor="middle" font-family="Inter,sans-serif" font-size="7.4" font-weight="600" fill="currentColor" stroke="none">10</text></svg>
+          <svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 5.5 15.5 12 7 18.5z"/><rect fill="currentColor" x="16.3" y="5.5" width="2.2" height="13" rx="1"/></svg>
+        </div>
+        <div class="upnext">
+          <p>Up next in <b data-upnext>20…</b><br>S2 · E5 — Slack Water</p>
+          <span>Play now</span>
+        </div>
+        <div class="pfoot">
+          <div class="seek">
+            <div class="seek__buf"></div>
+            <div class="seek__fill" data-seekfill style="width:98.5%"></div>
+            <div class="seek__knob" data-seekknob style="left:98.5%"></div>
+          </div>
+          <div class="times"><span data-tcur>1:15:38</span><span data-trem>−00:20</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================== features =============================== -->
+<section class="sec" id="features">
+  <div class="wrap">
+    <div class="head" data-reveal>
+      <p class="eyebrow">What's in it</p>
+      <h2 class="h2">Only the features that get used</h2>
+      <p class="lead">No recording, no profiles, no settings sprawl. Six things, done properly.</p>
+    </div>
+    <div class="grid3">
+      <div class="feature" data-reveal>
+        <div class="tile"><svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5.2 19 12 8 18.8z"/></svg></div>
+        <h3>Plays what others choke on</h3>
+        <p>libmpv under the hood: raw MPEG-TS, HLS, HEVC and MKV open without ceremony.</p>
+      </div>
+      <div class="feature" data-reveal>
+        <div class="tile"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.4 2"/></svg></div>
+        <h3>It remembers where you stopped</h3>
+        <p>Position saved every few seconds and on every exit. Finish an episode and the show advances to the next one instead of vanishing from the row.</p>
+      </div>
+      <div class="feature feature--teal" data-reveal>
+        <div class="tile tile--teal"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M3.7 12h16.6M12 3.6c2.2 2.4 3.3 5.2 3.3 8.4s-1.1 6-3.3 8.4c-2.2-2.4-3.3-5.2-3.3-8.4s1.1-6 3.3-8.4z"/></svg></div>
+        <h3>Languages that learn</h3>
+        <p>Pick your audio and subtitle language once. Override one by hand and that becomes the new preference — no settings trip required.</p>
+      </div>
+      <div class="feature" data-reveal>
+        <div class="tile"><svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8L3.6 9.7l5.8-.8z"/></svg></div>
+        <h3>A catalogue worth browsing</h3>
+        <p>Top 10, Trending and New Releases ranked by something real, rails that deal a fresh hand each session, and missing posters filled in from TMDB.</p>
+      </div>
+      <div class="feature" data-reveal>
+        <div class="tile"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="4.4" width="18.8" height="12.4" rx="2.4"/><path d="M8.4 19.8h7.2"/></svg></div>
+        <h3>Live TV with a real guide</h3>
+        <p>Now and next on every channel, a day grid that stays bounded, channel up/down without leaving the stream, and catch-up where the provider offers it.</p>
+      </div>
+      <div class="feature feature--teal" data-reveal>
+        <div class="tile tile--teal"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.4 11.4a7.6 7.6 0 0 1 12.9-4.3l2.3 2.2"/><path d="M19.6 4.9v4.4h-4.4"/><path d="M19.6 12.6a7.6 7.6 0 0 1-12.9 4.3l-2.3-2.2"/><path d="M4.4 19.1v-4.4h4.4"/></svg></div>
+        <h3>Phone, desktop, television</h3>
+        <p>One Flutter codebase, an Android TV layer that takes a D-pad, remote control support, and progress that follows you between devices.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== catalogue ============================== -->
+<section class="split split--flip" id="catalogue">
+  <div class="cat-shell" data-reveal>
+    <div class="cat-screen">
+      <div class="cat-hero art-cat">
+        <div class="cat-hero__scrim"></div>
+        <div style="position:absolute;left:4%;right:4%;bottom:5%">
+          <p class="dev-eyebrow" style="font-size:1.7cqw;letter-spacing:.18em;margin-bottom:1.2%">Series · 3 seasons · 2024</p>
+          <h3 class="dev-title" style="font-size:4.6cqw;line-height:1.04;margin-bottom:1.6%">Nightfold</h3>
+          <p style="margin:0 0 2.4%;font-size:1.9cqw;line-height:1.45;color:var(--muted);max-width:52%">A harbour town closes ranks after a winter storm. Continue with S2 · E4 — 22 minutes left.</p>
+          <div style="display:flex;align-items:center;gap:1.6%">
+            <span style="display:inline-flex;align-items:center;font-size:1.8cqw;font-weight:600;padding:1.2% 3%;border-radius:999px;background:var(--violet);color:#fff">Resume S2 · E4</span>
+            <span style="display:inline-flex;align-items:center;font-size:1.8cqw;font-weight:600;padding:1.2% 3%;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line-strong);color:var(--text)">My List</span>
+          </div>
+        </div>
+      </div>
+      <div class="cat-body">
+        <div style="display:flex;align-items:center;gap:1.6%;margin-bottom:2.4%">
+          <span class="season">Season 1</span>
+          <span class="season is-on">Season 2</span>
+          <span class="season">Season 3</span>
+        </div>
+        <div style="display:flex;gap:2%">
+          <div class="ep">
+            <div class="ep__thumb art-blue-2"><div class="bar" style="height:3px;background:rgba(255,255,255,.16)"><i style="width:64%"></i></div></div>
+            <p class="ep__title">E4 — The Undertow</p><span class="ep__meta">22 min left</span>
+          </div>
+          <div class="ep">
+            <div class="ep__thumb art-teal-2"></div>
+            <p class="ep__title">E5 — Slack Water</p><span class="ep__meta">48 min</span>
+          </div>
+          <div class="ep">
+            <div class="ep__thumb art-amber-2"></div>
+            <p class="ep__title">E6 — Ashfall</p><span class="ep__meta">51 min</span>
+          </div>
+          <div class="ep">
+            <div class="ep__thumb art-plum-2"></div>
+            <p class="ep__title">E7 — Vesper Bay</p><span class="ep__meta">46 min</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div data-reveal>
+    <p class="eyebrow">Films &amp; series</p>
+    <h2 class="h2 h2--split">A catalogue you can actually browse</h2>
+    <p class="lead lead--split">The same line, sorted into something readable: rails with a reason to exist,
+      series that know which episode you are on, and posters for the titles your provider never sent artwork
+      for. <b class="strong">A hundred thousand titles stays scrollable.</b></p>
+    <ul class="checks">
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Trending, New Releases and <b>award-winning</b> rails, ranked by something real rather than provider order.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Series open on the <b>episode you are due</b>, with the part-watched one marked and the rest of the season in order.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Search across films, series and channels at once — <b>no category to pick first</b>.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Missing posters and synopses are <b>filled in from TMDB</b>, and what you loaded still opens offline.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================== television ============================== -->
+<section class="split" id="tv">
+  <div data-reveal>
+    <p class="eyebrow">Live TV &amp; the big screen</p>
+    <h2 class="h2 h2--split">It grew a television</h2>
+    <p class="lead lead--split">The same components, with focus turned up: a navigation rail instead of a tab
+      bar, and a white ring wherever the D-pad is. <b class="strong">Nothing was forked to get there.</b></p>
+    <ul class="checks">
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>A day-bounded guide with <b>now and next</b> on every channel, from your provider's XMLTV feed.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Missed the first four minutes? <b>Watch from the start</b>, where the provider offers catch-up.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg><b>Channel up and down</b> from inside the stream — zapping, not back-out-and-pick-again.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Adding the TV is <b>a pairing code</b>, not your provider password typed with a remote.</li>
+    </ul>
+  </div>
+  <div data-reveal>
+    <div class="guide-shell">
+      <div class="guide-screen">
+        <div class="tvrail">
+          <span><svg viewBox="0 0 24 24" width="58%" height="58%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4.6l8 6.6V19a1.4 1.4 0 0 1-1.4 1.4H5.4A1.4 1.4 0 0 1 4 19z"/></svg></span>
+          <span><svg viewBox="0 0 24 24" width="58%" height="58%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="5.4" width="17.6" height="13.2" rx="2.4"/><path d="M8.4 5.4 7 9.2M13.4 5.4 12 9.2M18.4 5.4 17 9.2"/></svg></span>
+          <span><svg viewBox="0 0 24 24" width="58%" height="58%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="7.8" width="13.4" height="10.4" rx="2"/><path d="M7.4 4.6h10.6a2 2 0 0 1 2 2v9"/></svg></span>
+          <span class="is-on"><svg viewBox="0 0 24 24" width="58%" height="58%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="5.4" width="18.8" height="12.4" rx="2.4"/><path d="M8.4 20.6h7.2"/></svg></span>
+          <span><svg viewBox="0 0 24 24" width="58%" height="58%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.4"/><path d="m15.8 15.8 4.4 4.4"/></svg></span>
+        </div>
+        <div class="guide-body">
+          <h4>TV Guide</h4>
+          <div class="grow">
+            <div class="gchan"><b></b>BBC One HD</div>
+            <div class="gprogs">
+              <span class="gprog" style="width:20%">Antiques Roadshow</span>
+              <span class="gprog gprog--focus" style="width:46%">Ten O’Clock News</span>
+              <span class="gprog gprog--fill">Newsnight</span>
+            </div>
+          </div>
+          <div class="grow">
+            <div class="gchan"><b></b>BBC Two HD</div>
+            <div class="gprogs">
+              <span class="gprog" style="width:30%">Gardeners’ World</span>
+              <span class="gprog gprog--now" style="width:26%">Only Connect</span>
+              <span class="gprog gprog--fill">Storyville</span>
+            </div>
+          </div>
+          <div class="grow">
+            <div class="gchan"><b></b>ITV1 HD</div>
+            <div class="gprogs">
+              <span class="gprog" style="width:14%">Regional News</span>
+              <span class="gprog gprog--now" style="width:40%">The Repair Shop</span>
+              <span class="gprog gprog--fill">Question of Sport</span>
+            </div>
+          </div>
+          <div class="grow">
+            <div class="gchan"><b></b>Sky Sport 1</div>
+            <div class="gprogs">
+              <span class="gprog" style="width:12%">Build-up</span>
+              <span class="gprog gprog--now" style="width:54%">Arsenal – Everton</span>
+              <span class="gprog gprog--fill">Highlights</span>
+            </div>
+          </div>
+          <div class="grow">
+            <div class="gchan"><b></b>Channel 4 HD</div>
+            <div class="gprogs">
+              <span class="gprog" style="width:24%">Countdown</span>
+              <span class="gprog gprog--now" style="width:34%">Grand Designs</span>
+              <span class="gprog gprog--fill">Taskmaster</span>
+            </div>
+          </div>
+        </div>
+        <div class="nowline"><i></i></div>
+      </div>
+    </div>
+    <div class="stand" style="width:24%;background:linear-gradient(180deg,#2E3542,#171B23)"></div>
+    <div class="stand-foot" style="width:40%;background:#1B2029"></div>
+  </div>
+</section>
+
+<!-- =============================== screens =============================== -->
+<section class="sec" id="screens">
+  <div class="wrap">
+    <div class="screens__head" data-reveal>
+      <div style="max-width:56ch">
+        <p class="eyebrow">One app, three screens</p>
+        <h2 class="h2">The same home, wherever you opened it</h2>
+        <p class="lead">One Flutter codebase. The rails, the artwork and your resume points are identical — only
+          the input changes: thumb, mouse, D-pad.</p>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Device">
+        <button type="button" role="tab" data-device="phone" aria-selected="true" aria-controls="screen-phone">Phone</button>
+        <button type="button" role="tab" data-device="desktop" aria-selected="false" aria-controls="screen-desktop">Windows</button>
+        <button type="button" role="tab" data-device="tv" aria-selected="false" aria-controls="screen-tv">Television</button>
+      </div>
+    </div>
+
+    <div class="screens__panel" data-reveal>
+      <!-- phone -->
+      <div class="phone phone--gallery" id="screen-phone" data-screen="phone" role="tabpanel">
+        <div class="phone__screen">
+          <div class="notch"></div>
+          <div class="art-hero-2" style="position:relative;height:206px;flex:none">
+            <div class="scrim-hero" style="background:linear-gradient(180deg,rgba(23,28,37,.3) 0%,rgba(23,28,37,0) 28%,rgba(23,28,37,.84) 72%,var(--bg) 100%)"></div>
+            <div style="position:absolute;left:14px;right:14px;bottom:12px">
+              <p class="dev-eyebrow" style="font-size:9.5px;letter-spacing:.7px;margin-bottom:4px">Recently added</p>
+              <h3 class="dev-title" style="font-size:20px;letter-spacing:-.5px;line-height:1.1;margin-bottom:9px">The Quiet Coast</h3>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="chip chip--primary">Details</span>
+                <span class="chip chip--tonal">My List</span>
+              </div>
+            </div>
+          </div>
+          <div class="rail" style="padding-top:12px">
+            <h4 style="font-size:12.5px;padding:0 14px">Continue Watching</h4>
+            <div class="rail__track" style="padding:0 14px">
+              <div class="cw" style="width:124px">
+                <div class="cw__thumb art-blue-2" style="border-radius:8px"><div class="bar" style="height:3px;background:rgba(255,255,255,.16)"><i style="width:64%"></i></div></div>
+                <p class="cw__title">Harbourline</p><span class="cw__sub">22 min left</span>
+              </div>
+              <div class="cw" style="width:124px">
+                <div class="cw__thumb art-amber-2" style="border-radius:8px"><div class="bar" style="height:3px;background:rgba(255,255,255,.16)"><i style="width:31%"></i></div></div>
+                <p class="cw__title">Ashfall</p><span class="cw__sub">1 h 14 min left</span>
+              </div>
+            </div>
+          </div>
+          <div class="rail" style="padding-top:12px">
+            <h4 style="font-size:12.5px;padding:0 14px">Award-winning series &amp; films</h4>
+            <div class="rail__track" style="padding:0 14px">
+              <div class="poster art-rose-2" style="width:70px;border-radius:8px"></div>
+              <div class="poster art-teal-2" style="width:70px;border-radius:8px"></div>
+              <div class="poster art-plum-2" style="width:70px;border-radius:8px"></div>
+              <div class="poster art-blue-2" style="width:70px;border-radius:8px"></div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <span class="is-on"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4.6l8 6.6V19a1.4 1.4 0 0 1-1.4 1.4H5.4A1.4 1.4 0 0 1 4 19z"/></svg><b>Home</b></span>
+            <span><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="5.4" width="17.6" height="13.2" rx="2.4"/><path d="M8.4 5.4 7 9.2M13.4 5.4 12 9.2M18.4 5.4 17 9.2"/></svg><b>Films</b></span>
+            <span><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="7.8" width="13.4" height="10.4" rx="2"/><path d="M7.4 4.6h10.6a2 2 0 0 1 2 2v9"/></svg><b>Series</b></span>
+            <span><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="5.4" width="18.8" height="12.4" rx="2.4"/><path d="M8.4 20.6h7.2"/></svg><b>Live TV</b></span>
+            <span><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.4"/><path d="m15.8 15.8 4.4 4.4"/></svg><b>Search</b></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- windows -->
+      <div class="win" id="screen-desktop" data-screen="desktop" role="tabpanel" hidden>
+        <div class="win__bar"><i></i><i></i><i></i><span>Aurora — Home</span></div>
+        <div class="win__screen">
+          <div class="art-hero-2" style="position:relative;flex:none;height:58%">
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(23,28,37,.25) 0%,rgba(23,28,37,0) 30%,rgba(23,28,37,.88) 78%,var(--bg) 100%)"></div>
+            <div style="position:absolute;top:4%;left:3%;right:3%;display:flex;align-items:center;gap:2.4%">
+              <span style="font-family:var(--display);font-size:2.4cqw;font-weight:700;letter-spacing:-.03em">Aurora</span>
+              <span style="font-size:1.6cqw;color:var(--text);border-bottom:2px solid var(--violet);padding-bottom:.4%">Home</span>
+              <span style="font-size:1.6cqw;color:var(--muted)">Films</span>
+              <span style="font-size:1.6cqw;color:var(--muted)">Series</span>
+              <span style="font-size:1.6cqw;color:var(--muted)">Live TV</span>
+              <span style="margin-left:auto;font-size:1.5cqw;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:.6% 2.2%">Search</span>
+            </div>
+            <div style="position:absolute;left:3%;bottom:6%;max-width:46%">
+              <p class="dev-eyebrow" style="font-size:1.5cqw;letter-spacing:.16em;margin-bottom:1.4%">Recently added</p>
+              <h3 class="dev-title" style="font-size:4cqw;line-height:1.04;margin-bottom:2%">The Quiet Coast</h3>
+              <div style="display:flex;gap:1.6%">
+                <span style="font-size:1.6cqw;font-weight:600;padding:1.1% 2.8%;border-radius:999px;background:var(--violet);color:#fff">Play</span>
+                <span style="font-size:1.6cqw;font-weight:600;padding:1.1% 2.8%;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line-strong);color:var(--text)">Details</span>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1;min-width:0;padding:2.4% 3% 0">
+            <h4 style="font-family:var(--display);font-size:1.9cqw;font-weight:600;margin:0 0 1.6%">Continue Watching</h4>
+            <div style="display:flex;gap:1.4%">
+              <div style="flex:none;width:19%"><div class="ep__thumb art-blue-2" style="border-radius:6px"><div class="bar" style="height:3px;background:rgba(255,255,255,.16)"><i style="width:64%"></i></div></div></div>
+              <div style="flex:none;width:19%"><div class="ep__thumb art-amber-2" style="border-radius:6px"><div class="bar" style="height:3px;background:rgba(255,255,255,.16)"><i style="width:31%"></i></div></div></div>
+              <div class="ep__thumb art-teal-2" style="flex:none;width:19%;border-radius:6px"></div>
+              <div class="ep__thumb art-plum-2" style="flex:none;width:19%;border-radius:6px"></div>
+              <div class="ep__thumb art-rose-2" style="flex:none;width:19%;border-radius:6px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- television -->
+      <div class="tvset" id="screen-tv" data-screen="tv" role="tabpanel" hidden>
+        <div class="tvset__shell">
+          <div class="tvset__screen">
+            <div class="tvrail" style="width:8%;background:rgba(31,37,48,.92);padding:2.4% 0;gap:5%">
+              <span class="is-on" style="width:64%;aspect-ratio:1.2"><svg viewBox="0 0 24 24" width="62%" height="62%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4.6l8 6.6V19a1.4 1.4 0 0 1-1.4 1.4H5.4A1.4 1.4 0 0 1 4 19z"/></svg></span>
+              <span style="width:64%;aspect-ratio:1.2"><svg viewBox="0 0 24 24" width="62%" height="62%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.2" y="5.4" width="17.6" height="13.2" rx="2.4"/><path d="M8.4 5.4 7 9.2M13.4 5.4 12 9.2M18.4 5.4 17 9.2"/></svg></span>
+              <span style="width:64%;aspect-ratio:1.2"><svg viewBox="0 0 24 24" width="62%" height="62%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="7.8" width="13.4" height="10.4" rx="2"/><path d="M7.4 4.6h10.6a2 2 0 0 1 2 2v9"/></svg></span>
+              <span style="width:64%;aspect-ratio:1.2"><svg viewBox="0 0 24 24" width="62%" height="62%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="5.4" width="18.8" height="12.4" rx="2.4"/><path d="M8.4 20.6h7.2"/></svg></span>
+              <span style="width:64%;aspect-ratio:1.2"><svg viewBox="0 0 24 24" width="62%" height="62%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.4"/><path d="m15.8 15.8 4.4 4.4"/></svg></span>
+            </div>
+            <div style="flex:1;min-width:0;position:relative;display:flex;flex-direction:column">
+              <div class="art-hero-2" style="position:relative;flex:none;height:55%">
+                <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(23,28,37,.2) 0%,rgba(23,28,37,0) 32%,rgba(23,28,37,.88) 80%,var(--bg) 100%)"></div>
+                <div style="position:absolute;left:4%;bottom:7%;max-width:52%">
+                  <p class="dev-eyebrow" style="font-size:1.5cqw;letter-spacing:.16em;margin-bottom:1.4%">Continue watching</p>
+                  <h3 class="dev-title" style="font-size:4.4cqw;line-height:1.03;margin-bottom:2%">Harbourline</h3>
+                  <p style="margin:0 0 2.4%;font-size:1.7cqw;color:var(--muted)">S2 · E4 — The Undertow · 22 min left</p>
+                  <span style="display:inline-block;font-size:1.6cqw;font-weight:600;padding:1.1% 3%;border-radius:999px;background:var(--violet);color:#fff;outline:2px solid #fff;outline-offset:2px">Resume</span>
+                </div>
+              </div>
+              <div style="flex:1;padding:2.2% 4% 0">
+                <h4 style="font-family:var(--display);font-size:1.8cqw;font-weight:600;margin:0 0 1.8%">Award-winning series &amp; films</h4>
+                <div style="display:flex;gap:1.6%">
+                  <div class="ep__thumb art-rose-2" style="flex:none;width:11%;aspect-ratio:2/3;border-radius:6px"></div>
+                  <div class="ep__thumb art-teal-2" style="flex:none;width:11%;aspect-ratio:2/3;border-radius:6px"></div>
+                  <div class="ep__thumb art-plum-2" style="flex:none;width:11%;aspect-ratio:2/3;border-radius:6px"></div>
+                  <div class="ep__thumb art-blue-2" style="flex:none;width:11%;aspect-ratio:2/3;border-radius:6px"></div>
+                  <div class="ep__thumb art-amber-2" style="flex:none;width:11%;aspect-ratio:2/3;border-radius:6px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="stand" style="width:20%;height:9px;background:linear-gradient(180deg,#39414F,#1B2029)"></div>
+        <div class="stand-foot" style="width:34%"></div>
+      </div>
+    </div>
+    <p class="screens__note" data-devicenote>Phone: a six-tab bar, rails you flick through, and posters sized for a thumb.</p>
+  </div>
+</section>
+
+<!-- ============================== how it works ============================== -->
+<section class="sec" id="how">
+  <div class="wrap">
+    <div class="head" data-reveal style="margin-bottom:clamp(34px,4vw,52px)">
+      <p class="eyebrow">How it works</p>
+      <h2 class="h2">Three steps, and none of them is a signup</h2>
+      <p class="lead">Aurora has no account, no store page and nothing to buy. It needs one thing from you: the
+        line you already have.</p>
+    </div>
+    <div class="steps">
+      <div class="steps__track" aria-hidden="true"></div>
+      <div class="step" data-reveal>
+        <p class="step__num"><span>01</span></p>
+        <h3>Point it at your line</h3>
+        <p>An Xtream Codes server URL with your username and password, or an M3U playlist plus an optional XMLTV
+          guide URL. Aurora checks the credentials before it saves them, and the password goes to the device
+          keychain — never into its database.</p>
+      </div>
+      <div class="step" data-reveal>
+        <p class="step__num"><span>02</span></p>
+        <h3>It takes the catalogue in</h3>
+        <p>Films, series and channels are cached locally and indexed, then refreshed a category at a time as you
+          browse rather than in one sweep. A line with a hundred thousand titles stays scrollable, and what you
+          already loaded still opens with the network off.</p>
+      </div>
+      <div class="step" data-reveal>
+        <p class="step__num"><span>03</span></p>
+        <h3>Then it keeps up with you</h3>
+        <p>Resume points, language choices and My List are yours from the first minute. Turn sync on and a second
+          device picks up the same positions.</p>
+        <p>Pairing one is a code, not a re-typed password: <span class="kbd">Settings → Pair a device</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== under the hood ============================== -->
+<section class="sec" id="built">
+  <div class="wrap">
+    <div class="head" data-reveal style="margin-bottom:clamp(28px,4vw,40px)">
+      <p class="eyebrow">Under the hood</p>
+      <h2 class="h2" style="margin:0">What it's made of, and what it isn't</h2>
+    </div>
+    <div class="built-grid">
+      <div class="spec-strip" data-reveal>
+        <dl>
+          <div class="spec"><dt>Framework</dt><dd>Flutter 3.44 — one codebase for iOS, Android, Windows and Android TV</dd></div>
+          <div class="spec"><dt>Playback</dt><dd>libmpv via <em>media_kit</em> — chosen because it exposes audio and subtitle tracks <em>with</em> their language tags</dd></div>
+          <div class="spec"><dt>Sources</dt><dd>Xtream Codes <em>player_api.php</em>, or M3U with an optional XMLTV guide</dd></div>
+          <div class="spec"><dt>Storage</dt><dd>SQLite via drift, indexed for large catalogues · credentials in the platform keychain</dd></div>
+          <div class="spec"><dt>State</dt><dd>Riverpod, over repositories the UI can't see past — no screen knows whether it is talking to Xtream or M3U</dd></div>
+          <div class="spec"><dt>Sync</dt><dd>Optional Laravel API with Sanctum tokens · last-write-wins on UTC timestamps</dd></div>
+          <div class="spec"><dt>Artwork</dt><dd>Provider posters first, gaps filled from TMDB</dd></div>
+        </dl>
+      </div>
+      <div class="plainly" data-reveal>
+        <h3><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.6v5M12 15.9h.01"/></svg>Worth saying plainly</h3>
+        <ul>
+          <li><i></i><b>Aurora is a player, not a service.</b> It ships no channels and no content. You point it at a line you already have.</li>
+          <li><i></i><b>You won't find it in a store.</b> Players that connect to IPTV panels get rejected, so it is built for sideloading — which is also why it isn't for sale.</li>
+          <li><i></i><b>It's a personal project.</b> Built for one household, with no roadmap promises and no support desk.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== footer ============================== -->
+<footer class="site-footer">
+  <div class="site-footer__glow" aria-hidden="true"></div>
+  <div class="wrap site-footer__in">
+    <div class="site-footer__top">
+      <div>
+        <div class="footmark">
+          <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+            <!-- Its own gradient: a mark must not depend on the nav being in the document. -->
+            <defs><linearGradient id="ribf" x1="32" y1="2" x2="32" y2="60" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#8C6BFF"/><stop offset=".55" stop-color="#6E7BFF"/><stop offset="1" stop-color="#4FD1C5"/>
+            </linearGradient></defs>
+            <rect width="64" height="64" rx="15" fill="#151A24"/>
+            <g fill="none" stroke="url(#ribf)" stroke-linecap="round">
+              <path d="M20 6C34 20 18 32 30 46c5 6 4 9 2 12" stroke-width="12" opacity=".92"/>
+              <path d="M44 6C30 20 46 32 34 46c-5 6-4 9-2 12" stroke-width="7" opacity=".72"/>
+            </g>
+          </svg>
+          <span>Aurora</span>
+        </div>
+        <p class="byline">A personal project. Built because the alternatives were annoying.</p>
+      </div>
+      <div class="footlinks">
+        <a href="#fixes">What it fixes</a>
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#built">Under the hood</a>
+      </div>
+    </div>
+    <div class="rule"></div>
+    <div class="fine">
+      <p class="fine__note"><b>Aurora ships no content.</b> No channels, no films, no provider — it plays the
+        Xtream Codes or M3U line you already subscribe to, and it is not affiliated with any provider.</p>
+      <p class="tmdb"><i></i>Some artwork and metadata from TMDB. Not endorsed or certified by TMDB.</p>
+      <p>© 2026</p>
+    </div>
+  </div>
+</footer>
+
+<script src="main.js" defer></script>
+</body>
+</html>

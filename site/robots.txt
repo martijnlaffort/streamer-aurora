@@ -1,0 +1,10 @@
+# Aurora is an unlisted personal showcase: shareable by link, not via search.
+#
+# NOTE: crawlers only read robots.txt from a DOMAIN ROOT. On the current GitHub
+# Pages project URL this file is served at /streamer-aurora/robots.txt, which is
+# NOT the root, so it is inert there — the <meta name="robots" content="noindex">
+# in index.html is what actually keeps the page out of search results.
+# This file becomes the effective control the moment a custom domain is attached.
+
+User-agent: *
+Disallow: /

@@ -1,0 +1,78 @@
+<!-- @dsCard group="Foundations" name="Colour" subtitle="Canvas, surfaces, accents, text — lifted from the app" viewport="960x720" -->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Aurora — Colour</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@600;700&family=Inter:wght@400;500;600&display=swap');
+  :root{--bg:#0B0D12;--surface:#12151C;--surface-2:#1A1E27;--line:rgba(255,255,255,.07);--violet:#7C5CFF;--teal:#4FD1C5;--text:#F2F4F8;--muted:#9AA3B2;--dim:#69727F;--error:#FF5C6C;--display:'Outfit',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;--ui:'Inter',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);padding:40px}
+  h1{font-family:var(--display);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--teal);margin:0 0 6px;font-weight:500}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 28px}
+  h2{font-family:var(--display);font-size:15px;font-weight:600;margin:28px 0 12px;color:var(--text)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:14px}
+  .sw{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
+  .chip{height:74px;display:flex;align-items:flex-end;padding:8px 10px}
+  .meta{padding:10px 12px 12px}
+  .nm{font-size:13px;font-weight:600;letter-spacing:-.1px}
+  .hex{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:11.5px;color:var(--muted);margin-top:2px}
+  .use{font-size:11.5px;color:var(--dim);margin-top:6px;line-height:1.35}
+  .tag{font-size:10px;letter-spacing:.4px;text-transform:uppercase;background:rgba(0,0,0,.45);border-radius:999px;padding:2px 7px;color:#fff}
+  .scrimdemo{position:relative;height:150px;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:linear-gradient(120deg,#2A3350,#5B4B8A 45%,#2E6D6A)}
+  .scrimdemo .sc{position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,13,18,0) 0%,rgba(11,13,18,.8) 62%,rgba(11,13,18,1) 100%)}
+  .scrimdemo .txt{position:absolute;left:16px;bottom:14px}
+  .scrimdemo .eb{font-size:12px;letter-spacing:.3px;text-transform:uppercase;color:var(--teal);margin:0 0 4px}
+  .scrimdemo .ti{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.4px;margin:0}
+  .note{font-size:13px;line-height:1.55;color:var(--muted);max-width:70ch;margin:18px 0 0}
+  code{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-size:12px;color:var(--teal)}
+</style>
+
+<h1>Colour</h1>
+<p class="sub">Every value below is the app's own token (<code>lib/core/theme/app_colors.dart</code>). The site borrows them so it reads as the same product.</p>
+
+<h2>Canvas &amp; surfaces</h2>
+<div class="grid">
+  <div class="sw"><div class="chip" style="background:#0B0D12;border-bottom:1px solid var(--line)"><span class="tag">canvas</span></div>
+    <div class="meta"><div class="nm">background</div><div class="hex">#0B0D12</div><div class="use">Page. Near-black with a blue cast — never pure #000.</div></div></div>
+  <div class="sw"><div class="chip" style="background:#12151C"></div>
+    <div class="meta"><div class="nm">surface</div><div class="hex">#12151C</div><div class="use">Cards, rails, footer, code blocks.</div></div></div>
+  <div class="sw"><div class="chip" style="background:#1A1E27"></div>
+    <div class="meta"><div class="nm">surfaceElevated</div><div class="hex">#1A1E27</div><div class="use">Hover state, image placeholders, nested panels.</div></div></div>
+  <div class="sw"><div class="chip" style="background:rgba(255,255,255,.07)"></div>
+    <div class="meta"><div class="nm">line</div><div class="hex">rgba(255,255,255,.07)</div><div class="use">Hairline borders. Site-only; does the work a shadow would do in daylight.</div></div></div>
+</div>
+
+<h2>Accents</h2>
+<div class="grid">
+  <div class="sw"><div class="chip" style="background:#7C5CFF"><span class="tag">primary</span></div>
+    <div class="meta"><div class="nm">accent — aurora violet</div><div class="hex">#7C5CFF</div><div class="use">Primary buttons, progress fill, active dot, links.</div></div></div>
+  <div class="sw"><div class="chip" style="background:#4FD1C5"></div>
+    <div class="meta"><div class="nm">accentAlt — teal glow</div><div class="hex">#4FD1C5</div><div class="use">Eyebrows, rating stars, small affirmatives. Never a button fill.</div></div></div>
+  <div class="sw"><div class="chip" style="background:rgba(124,92,255,.16);box-shadow:inset 0 0 0 1px rgba(124,92,255,.3)"></div>
+    <div class="meta"><div class="nm">accent / tonal</div><div class="hex">rgba(124,92,255,.16)</div><div class="use">Secondary buttons — the app's FilledButton.tonal.</div></div></div>
+  <div class="sw"><div class="chip" style="background:#FF5C6C"></div>
+    <div class="meta"><div class="nm">error</div><div class="hex">#FF5C6C</div><div class="use">Only where the site admits a limitation.</div></div></div>
+</div>
+
+<h2>Text &amp; focus</h2>
+<div class="grid">
+  <div class="sw"><div class="chip" style="background:#0B0D12;border-bottom:1px solid var(--line);align-items:center"><span style="color:#F2F4F8;font-size:20px;font-weight:600">Aa</span></div>
+    <div class="meta"><div class="nm">textPrimary</div><div class="hex">#F2F4F8</div><div class="use">Headings, button labels. 17.6:1 on canvas.</div></div></div>
+  <div class="sw"><div class="chip" style="background:#0B0D12;border-bottom:1px solid var(--line);align-items:center"><span style="color:#9AA3B2;font-size:20px;font-weight:600">Aa</span></div>
+    <div class="meta"><div class="nm">textSecondary</div><div class="hex">#9AA3B2</div><div class="use">Body copy. 7.7:1 — safe at any size.</div></div></div>
+  <div class="sw"><div class="chip" style="background:#0B0D12;border-bottom:1px solid var(--line);align-items:center"><span style="color:#69727F;font-size:20px;font-weight:600">Aa</span></div>
+    <div class="meta"><div class="nm">dim</div><div class="hex">#69727F</div><div class="use">Site-only: captions, fine print, footer. 4.0:1 — never below 13px, never a sentence that matters.</div></div></div>
+  <div class="sw"><div class="chip" style="background:#1A1E27;align-items:center;justify-content:center"><span style="display:block;width:56px;height:34px;border-radius:8px;background:#12151C;outline:2px solid #fff;outline-offset:2px"></span></div>
+    <div class="meta"><div class="nm">focusRing</div><div class="hex">#FFFFFF</div><div class="use">2px, 2px offset. White because it has to read on any artwork — the same reason the TV layer uses it.</div></div></div>
+</div>
+
+<h2>Scrim over artwork</h2>
+<div class="scrimdemo">
+  <div class="sc"></div>
+  <div class="txt"><p class="eb">Recently added</p><p class="ti">Anything can go behind this</p></div>
+</div>
+
+<p class="note">The scrim is the app's <code>AppColors.scrim</code> — three stops of the canvas colour from
+transparent to solid, bottom-up. It is the only sanctioned way to put text over an image, and it is why
+the site never needs a text shadow.</p>

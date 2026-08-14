@@ -4,7 +4,8 @@
 // playlists must not collide.
 //
 //   dart run tool/check_account_identity.dart
-
+//
+// ignore_for_file: avoid_print — command-line tool; stdout IS its UI.
 import 'package:aurora/domain/models/account_identity.dart';
 import 'package:aurora/domain/models/enums.dart';
 

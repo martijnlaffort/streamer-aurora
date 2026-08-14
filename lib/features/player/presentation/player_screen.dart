@@ -104,6 +104,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Timer? _upNextTimer;
   int? _upNextCountdown;
 
+  /// Automatic recovery from a dropped stream.
+  ///
+  /// IPTV transports drop constantly — a few seconds of bad wifi, a panel
+  /// hiccup, a re-negotiated CDN edge. Surfacing the error screen on the first
+  /// failure turned every one of those into a manual Retry tap, which on a TV
+  /// means finding the remote. We now reopen silently a few times first, and
+  /// only fall through to the error screen once it is clear the stream is
+  /// genuinely gone.
+  static const _maxReconnectAttempts = 3;
+  int _reconnectAttempt = 0;
+  bool _reconnecting = false;
+  Timer? _reconnectTimer;
+
+  /// Set once the current media has actually produced playback, which is what
+  /// makes a later failure a *drop* (worth retrying silently) rather than a
+  /// stream that never opened at all.
+  bool _everPlayed = false;
+
+  /// Focus node for remote/keyboard input. The player is the one screen where
+  /// the entire UI is a video surface, so it owns key handling directly rather
+  /// than relying on focus traversal between buttons.
+  final _keyboardFocus = FocusNode(debugLabel: 'player-keys');
+
   PlayerItem get _current => widget.request.queue[_index];
   PlayerItem? get _next => _index + 1 < widget.request.queue.length
       ? widget.request.queue[_index + 1]
@@ -115,6 +138,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // PopScope's canPop depends on where focus currently sits, and focus
+    // changes do not rebuild by themselves.
+    _keyboardFocus.addListener(() {
+      if (mounted) setState(() {});
+    });
     // logLevel: info so the mpv log stream carries HTTP status / open-failure
     // detail (the default `error` level drops it).
     _player = Player(
@@ -142,7 +170,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
 
     _subs.add(_player.stream.playing.listen((v) {
-      setState(() => _playing = v);
+      setState(() {
+        _playing = v;
+        if (v) {
+          // Playback is live again: clear any recovery state so a *later*
+          // unrelated drop gets its own full set of attempts rather than
+          // inheriting a used-up budget.
+          _everPlayed = true;
+          _reconnectAttempt = 0;
+          _reconnecting = false;
+        }
+      });
       // Save on pause (PRD §8.9).
       if (!v && _position > Duration.zero && _duration > Duration.zero) {
         _saveProgress();
@@ -169,12 +207,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _subs.add(_player.stream.track.listen((v) {
       setState(() => _selected = v);
     }));
-    _subs.add(_player.stream.error.listen((message) {
-      setState(() {
-        _error = message;
-        _controlsVisible = true;
-      });
-    }));
+    _subs.add(_player.stream.error.listen(_onStreamError));
     // mpv's own log stream — the only place open/decode failures explain
     // themselves. debugPrint is compiled out of release builds.
     _subs.add(_player.stream.log.listen((event) {
@@ -225,6 +258,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _hintTimer?.cancel();
     _upNextTimer?.cancel();
     _liveEpgTimer?.cancel();
+    _reconnectTimer?.cancel();
+    _keyboardFocus.dispose();
     for (final sub in _subs) {
       sub.cancel();
     }
@@ -346,13 +381,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     ref.invalidate(preferencesProvider);
   }
 
-  Future<void> _openCurrent({int? resumeFrom}) async {
+  /// Opens [_current]. [isRetry] marks an automatic reconnect, which keeps the
+  /// attempt counter running; anything else (a queue advance, a manual Retry)
+  /// is a fresh start and resets it.
+  Future<void> _openCurrent({int? resumeFrom, bool isRetry = false}) async {
     setState(() {
       _error = null;
       _upNextCountdown = null;
       _liveNow = null;
       _diagLog.clear();
       _showErrorDetails = false;
+      if (!isRetry) {
+        _reconnectAttempt = 0;
+        _reconnecting = false;
+        _everPlayed = false;
+      }
     });
     _upNextTimer?.cancel();
     _liveEpgTimer?.cancel();
@@ -391,7 +434,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             const Duration(seconds: 60), (_) => _refreshLiveEpg());
       }
     } on Exception catch (e) {
-      setState(() => _error = '$e');
+      // Same path as a playback failure: building the URL can fail for
+      // transient reasons too, and a reconnect in progress should keep trying.
+      _onStreamError('$e');
     }
   }
 
@@ -409,7 +454,59 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (mounted) setState(() => _liveNow = programme?.title);
   }
 
+  /// A stream failed. Retry quietly a few times before admitting defeat —
+  /// see [_maxReconnectAttempts].
+  void _onStreamError(String message) {
+    if (!mounted) return;
+    // A stream that never opened is usually a real problem (wrong URL, denied,
+    // offline) and retrying it just delays a useful message. A stream that was
+    // playing and stopped is a drop, and is worth reopening.
+    if (_everPlayed && _reconnectAttempt < _maxReconnectAttempts) {
+      _scheduleReconnect();
+      return;
+    }
+    setState(() {
+      _error = message;
+      _reconnecting = false;
+      _controlsVisible = true;
+    });
+  }
+
+  /// Reopens the current item after a backoff, resuming where it dropped.
+  void _scheduleReconnect() {
+    _reconnectTimer?.cancel();
+    final attempt = _reconnectAttempt + 1;
+    // 1s, 2s, 4s — long enough for a brief outage to pass, short enough that a
+    // recoverable blip doesn't feel like a failure.
+    final delay = Duration(seconds: 1 << (attempt - 1));
+    setState(() {
+      _reconnectAttempt = attempt;
+      _reconnecting = true;
+      _error = null;
+    });
+    // Live has no meaningful resume point; VOD picks up where it stopped.
+    final resumeFrom = _current.isLive ? null : _position.inSeconds;
+    _reconnectTimer = Timer(delay, () {
+      if (mounted) _openCurrent(resumeFrom: resumeFrom, isRetry: true);
+    });
+  }
+
   void _onCompleted() {
+    // A live stream does not "complete" — if it reports completion the feed
+    // dropped, and stopping here would leave a dead screen with the channel
+    // apparently still on. Recover it the same way as an error.
+    if (_current.isLive) {
+      if (_reconnectAttempt < _maxReconnectAttempts) {
+        _scheduleReconnect();
+      } else {
+        setState(() {
+          _error = 'The channel stopped responding.';
+          _reconnecting = false;
+          _controlsVisible = true;
+        });
+      }
+      return;
+    }
     // Completion drops it from Continue Watching and, for series,
     // advances the next-unwatched pointer (PRD §8.9).
     _progressRepo.markCompleted(_current.contentKey);
@@ -485,6 +582,111 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _hintTimer = Timer(const Duration(milliseconds: 900), () {
       if (mounted) setState(() => _gestureHint = null);
     });
+  }
+
+  /// Brings the overlay back and restarts the auto-hide countdown.
+  ///
+  /// Every remote press routes through here, and that is the point: the
+  /// controls hid themselves after 3.2 seconds and *tap* was the only thing
+  /// that brought them back, so on a television they became unreachable the
+  /// first time they faded.
+  void _wake() {
+    if (!_controlsVisible) setState(() => _controlsVisible = true);
+    _scheduleHide();
+  }
+
+  /// Remote and keyboard input.
+  ///
+  /// Handled here at the top of the player rather than by focus traversal
+  /// between the overlay's buttons: a video player's primary controls are the
+  /// directional pad itself (left/right scrubs, centre pauses), not a set of
+  /// widgets you tab through. Up/Down are deliberately left unhandled so
+  /// traversal can still reach the top bar's audio/subtitle/lock buttons.
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+
+    // Key events bubble up from whatever descendant holds focus. Once the user
+    // has moved up into the overlay's buttons, the arrows belong to focus
+    // traversal — hijacking them here would make the audio, subtitle and lock
+    // buttons unreachable, since moving between them IS left/right.
+    if (!_keyboardFocus.hasPrimaryFocus) {
+      _wake();
+      return KeyEventResult.ignored;
+    }
+
+    // Locked: swallow everything except the wake, so the unlock button can be
+    // focused. This mirrors the touch behaviour.
+    if (_locked) {
+      _wake();
+      return KeyEventResult.handled;
+    }
+
+    // Play/pause — the remote's dedicated keys plus the D-pad centre.
+    if (key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.gameButtonA ||
+        key == LogicalKeyboardKey.mediaPlayPause) {
+      _player.playOrPause();
+      _wake();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPlay) {
+      _player.play();
+      _wake();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPause) {
+      _player.pause();
+      _wake();
+      return KeyEventResult.handled;
+    }
+
+    // Scrubbing. On a live stream there is nothing to seek through, so the
+    // keys only wake the overlay rather than appearing to do nothing.
+    if (key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.mediaRewind) {
+      if (!_current.isLive) {
+        _seekRelative(-10);
+      } else {
+        _wake();
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.mediaFastForward) {
+      if (!_current.isLive) {
+        _seekRelative(10);
+      } else {
+        _wake();
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Episode queue.
+    if (key == LogicalKeyboardKey.mediaTrackNext) {
+      if (_next != null) _playNext();
+      _wake();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaTrackPrevious) {
+      if (_hasPrevious) _playPrevious();
+      _wake();
+      return KeyEventResult.handled;
+    }
+
+    // Up/Down: reveal the controls and hand the event on, so focus traversal
+    // can reach the buttons in the top bar.
+    if (key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown) {
+      _wake();
+      return KeyEventResult.ignored;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   void _seekRelative(int seconds) {
@@ -650,9 +852,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      // Back inside the overlay steps out of the controls rather than leaving
+      // playback altogether; a second Back then exits. Without this, reaching
+      // for the subtitle button and changing your mind drops you out of the
+      // film — a costly mistake with a remote.
+      canPop: _keyboardFocus.hasPrimaryFocus,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _keyboardFocus.requestFocus();
+      },
+      child: Scaffold(
       backgroundColor: Colors.black,
-      body: LayoutBuilder(
+      body: Focus(
+        focusNode: _keyboardFocus,
+        autofocus: true,
+        onKeyEvent: _onKey,
+        child: LayoutBuilder(
         builder: (context, constraints) => Stack(
           fit: StackFit.expand,
           children: [
@@ -671,9 +886,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   _onHorizontalDragUpdate(d, constraints),
               onHorizontalDragEnd: _onHorizontalDragEnd,
             ),
-            if (_buffering && _error == null)
+            if (_buffering && _error == null && !_reconnecting)
               const Center(
                   child: CircularProgressIndicator(color: AppColors.accent)),
+            if (_reconnecting) _reconnectingView(),
             if (_error != null) _errorView(),
             if (_gestureHint != null)
               Align(
@@ -693,6 +909,38 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             _controlsOverlay(),
           ],
         ),
+      ),
+      ),
+      ),
+    );
+  }
+
+  /// Shown while a dropped stream is being reopened. Deliberately quiet: this
+  /// is the state that used to be a full error screen, and most of the time it
+  /// resolves itself within a couple of seconds.
+  Widget _reconnectingView() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+                color: AppColors.accent, strokeWidth: 3),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Reconnecting…',
+            style: AppTypography.body,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Attempt $_reconnectAttempt of $_maxReconnectAttempts',
+            style: const TextStyle(
+                color: AppColors.textSecondary, fontSize: 12),
+          ),
+        ],
       ),
     );
   }

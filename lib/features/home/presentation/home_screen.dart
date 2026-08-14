@@ -430,22 +430,66 @@ class _ContinueCard extends ConsumerWidget {
   final ContinueEntry entry;
 
   /// Play straight from the card, at the point you stopped.
+  ///
+  /// For an episode this queues the WHOLE series from that point, not just the
+  /// one episode. Resuming used to open the detail page, which built the full
+  /// queue on the way through; playing directly skipped that and handed the
+  /// player a queue of one, which silently disabled both the Next Episode
+  /// button and autoplay-next — they only exist when there is a next item.
   Future<void> _resume(BuildContext context, WidgetRef ref) async {
-    await context.push(
-      '/player',
-      extra: PlayerRequest(
-        queue: [
-          PlayerItem(
-            streamRef: entry.streamRef,
-            title: entry.title,
-            subtitle: entry.subtitle,
-            contentKey: entry.progress.contentKey,
-          ),
-        ],
-        resumeFromSeconds: entry.resumeFromSeconds,
-      ),
-    );
+    final request = await _buildRequest(ref);
+    if (!context.mounted) return;
+    await context.push('/player', extra: request);
     ref.invalidate(homeDataProvider);
+  }
+
+  Future<PlayerRequest> _buildRequest(WidgetRef ref) async {
+    final single = PlayerRequest(
+      queue: [
+        PlayerItem(
+          streamRef: entry.streamRef,
+          title: entry.title,
+          subtitle: entry.subtitle,
+          contentKey: entry.progress.contentKey,
+        ),
+      ],
+      resumeFromSeconds: entry.resumeFromSeconds,
+    );
+    if (entry.streamRef.type != StreamType.episode) return single;
+
+    final account = await ref.read(activeAccountProvider.future);
+    if (account == null) return single;
+    final catalog = ref.read(catalogRepositoryProvider);
+    final episode =
+        await catalog.episodeById(account, entry.streamRef.streamId);
+    if (episode == null) return single;
+    final episodes = await catalog.episodesOfSeries(account, episode.seriesId);
+    final startIndex = episodes.indexWhere((e) => e.id == episode.id);
+    // Cache-only: if the series' episodes aren't cached we cannot build a
+    // queue, and playing the one episode beats refusing to play at all.
+    if (startIndex == -1) return single;
+
+    return PlayerRequest(
+      queue: [
+        for (final e in episodes)
+          PlayerItem(
+            streamRef: StreamRef(
+              accountId: account.id,
+              type: StreamType.episode,
+              streamId: e.id,
+              containerExt: e.containerExt,
+            ),
+            title: entry.title,
+            subtitle: 'S${e.seasonNumber} · E${e.episodeNumber} — ${e.title}',
+            contentKey: contentKeyFor(
+                accountId: account.id,
+                type: StreamType.episode,
+                id: e.id),
+          ),
+      ],
+      startIndex: startIndex,
+      resumeFromSeconds: entry.resumeFromSeconds,
+    );
   }
 
   /// Long-press: the escape hatch. Without a way to remove, something you

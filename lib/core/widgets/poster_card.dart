@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/providers.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
@@ -18,7 +20,14 @@ class PosterCard extends StatefulWidget {
     this.rating,
     this.rank,
     this.autofocus = false,
+    this.artwork,
   });
+
+  /// What to ask TMDB for when [imageUrl] is null. Set it and a title the panel
+  /// has no poster for gets one anyway; leave it null and the card falls back
+  /// to showing its title. Only consulted for cards with no image, so this
+  /// never becomes a lookup per catalogue row.
+  final ArtworkQuery? artwork;
 
   /// Takes focus when first built — a TV needs *something* focused or the remote
   /// has nowhere to start. Set on the first card of the first rail only.
@@ -145,7 +154,11 @@ class _PosterCardState extends State<PosterCard> {
                                   // rather than an anonymous icon. A rail of
                                   // identical grey placeholders tells you
                                   // nothing about what is behind them.
-                                  : _NoArtwork(title: widget.title),
+                                  : _NoArtwork(
+                                      title: widget.title,
+                                      query: widget.artwork,
+                                      decodeWidth: decodeWidth,
+                                    ),
                             ),
                           )),
                         ),
@@ -181,16 +194,43 @@ class _PosterCardState extends State<PosterCard> {
   }
 }
 
-/// Stand-in for a poster the provider does not supply. Shows the title, so the
-/// card is still identifiable — some titles simply have no artwork on the
-/// panel, and until artwork backfill lands this is all we have.
-class _NoArtwork extends StatelessWidget {
-  const _NoArtwork({required this.title});
+/// Stand-in for a poster the provider does not supply.
+///
+/// First tries to find real artwork from TMDB (only when the caller supplied a
+/// [query], and only ever for cards with no image of their own), and falls back
+/// to showing the title so the card stays identifiable either way — a rail of
+/// identical grey placeholders tells you nothing about what is behind them.
+class _NoArtwork extends ConsumerWidget {
+  const _NoArtwork({
+    required this.title,
+    required this.decodeWidth,
+    this.query,
+  });
 
   final String title;
+  final int decodeWidth;
+  final ArtworkQuery? query;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final q = query;
+    if (q != null) {
+      final found = ref.watch(artworkProvider(q)).value;
+      if (found != null) {
+        return CachedNetworkImage(
+          imageUrl: found,
+          fit: BoxFit.cover,
+          memCacheWidth: decodeWidth,
+          fadeInDuration: const Duration(milliseconds: 180),
+          placeholder: (context, url) => _titleFallback(),
+          errorWidget: (context, url, error) => _titleFallback(),
+        );
+      }
+    }
+    return _titleFallback();
+  }
+
+  Widget _titleFallback() {
     return Padding(
       padding: const EdgeInsets.all(10),
       child: Column(

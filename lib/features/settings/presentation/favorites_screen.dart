@@ -200,11 +200,27 @@ class FavoritesScreen extends ConsumerWidget {
                   'heart on a live channel. Saved items appear on Home.',
             );
           }
-          final posterItems = [
+          final posterItems = <(String, String?, String, ArtworkQuery)>[
             for (final m in data.movies)
-              (prettyTitle(m.name, year: m.year), m.posterUrl, '/movie/${m.id}'),
+              (
+                prettyTitle(m.name, year: m.year),
+                m.posterUrl,
+                '/movie/${m.id}',
+                ArtworkQuery(
+                    name: prettyTitle(m.name, year: m.year),
+                    year: m.year,
+                    isSeries: false),
+              ),
             for (final s in data.series)
-              (prettyTitle(s.name, year: s.year), s.posterUrl, '/series/${s.id}'),
+              (
+                prettyTitle(s.name, year: s.year),
+                s.posterUrl,
+                '/series/${s.id}',
+                ArtworkQuery(
+                    name: prettyTitle(s.name, year: s.year),
+                    year: s.year,
+                    isSeries: true),
+              ),
           ];
           return ListView(
             padding: const EdgeInsets.only(bottom: 24),
@@ -238,10 +254,11 @@ class FavoritesScreen extends ConsumerWidget {
                   ),
                   itemCount: posterItems.length,
                   itemBuilder: (context, i) {
-                    final (title, image, route) = posterItems[i];
+                    final (title, image, route, artwork) = posterItems[i];
                     return PosterCard(
                       title: title,
                       imageUrl: image,
+                      artwork: artwork,
                       onTap: () => context.push(route),
                     );
                   },

@@ -316,6 +316,35 @@ class DiscoveryMatchesTable extends Table {
   Set<Column> get primaryKey => {accountId, listId, rank};
 }
 
+/// Artwork fetched from TMDB for titles the panel supplies no image for.
+///
+/// Global rather than account-scoped, and keyed by the *title* rather than by a
+/// local row id: the same film on two playlists is the same film, and a lookup
+/// paid for once should serve both. It also survives a catalogue refresh, which
+/// writing into `movies.posterUrl` would not — the panel's null would simply
+/// overwrite it again on the next fetch.
+///
+/// [missing] records a lookup that came back empty. Without it, every title
+/// TMDB does not know would be re-requested on every scroll past it forever.
+@DataClassName('ArtworkRow')
+class ArtworkCacheTable extends Table {
+  @override
+  String get tableName => 'artwork_cache';
+
+  /// 'movie' or 'series'.
+  TextColumn get kind => text()();
+
+  /// Normalised title (+ year when known) — see `artworkKeyFor`.
+  TextColumn get titleKey => text()();
+  TextColumn get posterUrl => text().nullable()();
+  TextColumn get backdropUrl => text().nullable()();
+  BoolColumn get missing => boolean().withDefault(const Constant(false))();
+  IntColumn get fetchedAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {kind, titleKey};
+}
+
 /// Catalog slices tracked for TTL purposes.
 enum CatalogKind { live, vod, series }
 
@@ -349,6 +378,7 @@ class SearchHistoryTable extends Table {
   DiscoveryTitlesTable,
   DiscoveryMatchesTable,
   SearchHistoryTable,
+  ArtworkCacheTable,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
@@ -357,7 +387,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -394,6 +424,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 7) {
             await m.addColumn(channelsTable, channelsTable.tvArchive);
             await m.addColumn(channelsTable, channelsTable.tvArchiveDays);
+          }
+          // v8: artwork for titles the panel has no image for.
+          if (from < 8) {
+            await m.createTable(artworkCacheTable);
           }
         },
         beforeOpen: (details) async {

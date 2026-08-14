@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import '../domain/models/models.dart';
 import 'db/app_database.dart';
 import 'db/credential_store.dart';
 import 'repositories/account_repository.dart';
+import 'repositories/artwork_repository.dart';
 import 'repositories/catalog_repository.dart';
 import 'repositories/discovery_repository.dart';
 import 'repositories/epg_repository.dart';
@@ -96,6 +98,56 @@ final discoveryRepositoryProvider = Provider<DiscoveryRepository>((ref) {
     },
   );
 });
+
+/// Artwork for titles the panel has no image for. Shares the TMDB key with the
+/// discovery rails; with no key configured it simply never finds anything.
+final artworkRepositoryProvider = Provider<ArtworkRepository>((ref) {
+  final prefs = ref.watch(preferencesProvider).value;
+  return ArtworkRepository(
+    ref.watch(appDatabaseProvider),
+    () {
+      final key = prefs?.tmdbApiKey;
+      if (key == null || key.isEmpty) return null;
+      return TmdbSource(
+          apiKey: key, region: _resolveRegion(prefs?.discoveryRegion));
+    },
+  );
+});
+
+/// Poster for a title the panel gave us none for, or null. Resolved lazily by
+/// the card that needs it, so nothing is fetched for titles never scrolled to.
+final artworkProvider = FutureProvider.autoDispose
+    .family<String?, ArtworkQuery>((ref, query) async {
+  // Keep a resolved poster around briefly so scrolling a rail back and forth
+  // does not re-read for every rebuild.
+  final link = ref.keepAlive();
+  Timer(const Duration(minutes: 5), link.close);
+  return ref.watch(artworkRepositoryProvider).posterFor(
+        name: query.name,
+        year: query.year,
+        isSeries: query.isSeries,
+      );
+});
+
+/// Identity of an artwork lookup — value equality so the family caches.
+class ArtworkQuery {
+  const ArtworkQuery(
+      {required this.name, required this.isSeries, this.year});
+
+  final String name;
+  final int? year;
+  final bool isSeries;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ArtworkQuery &&
+      other.name == name &&
+      other.year == year &&
+      other.isSeries == isSeries;
+
+  @override
+  int get hashCode => Object.hash(name, year, isSeries);
+}
 
 final watchProgressRepositoryProvider = Provider<WatchProgressRepository>(
     (ref) => WatchProgressRepository(db: ref.watch(appDatabaseProvider)));

@@ -9,6 +9,7 @@ import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/category_rails_view.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../../core/matching/title_label.dart';
+import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
 import '../../home/presentation/widgets/media_rail.dart';
 import '../movies_providers.dart';
@@ -94,6 +95,10 @@ class _MovieCategoryRail extends ConsumerWidget {
             return PosterCard(
               title: prettyTitle(movie.name, year: movie.year),
               imageUrl: movie.posterUrl,
+              artwork: ArtworkQuery(
+                  name: prettyTitle(movie.name, year: movie.year),
+                  year: movie.year,
+                  isSeries: false),
               rating: movie.rating,
               heroTag: tag,
               onTap: () => context.push('/movie/${movie.id}', extra: tag),

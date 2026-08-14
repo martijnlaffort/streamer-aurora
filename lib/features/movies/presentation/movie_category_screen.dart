@@ -96,6 +96,10 @@ class _MovieCategoryScreenState extends ConsumerState<MovieCategoryScreen> {
           return PosterCard(
             title: prettyTitle(movie.name, year: movie.year),
             imageUrl: movie.posterUrl,
+            artwork: ArtworkQuery(
+                name: prettyTitle(movie.name, year: movie.year),
+                year: movie.year,
+                isSeries: false),
             rating: movie.rating,
             heroTag: tag,
             onTap: () => context.push('/movie/${movie.id}', extra: tag),

@@ -136,6 +136,10 @@ class _HomeContent extends ConsumerWidget {
                   return PosterCard(
                     title: prettyTitle(movie.name, year: movie.year),
                     imageUrl: movie.posterUrl,
+                    artwork: ArtworkQuery(
+                        name: prettyTitle(movie.name, year: movie.year),
+                        year: movie.year,
+                        isSeries: false),
                     heroTag: tag,
                     onTap: () => context.push('/movie/${movie.id}', extra: tag),
                   );
@@ -183,6 +187,10 @@ Widget _posterFor(BuildContext context, Object item, String tagPrefix,
     return PosterCard(
       title: prettyTitle(item.name, year: item.year),
       imageUrl: item.posterUrl,
+      artwork: ArtworkQuery(
+          name: prettyTitle(item.name, year: item.year),
+          year: item.year,
+          isSeries: false),
       rating: showRating ? item.rating : null,
       rank: rank,
       heroTag: tag,
@@ -194,6 +202,10 @@ Widget _posterFor(BuildContext context, Object item, String tagPrefix,
   return PosterCard(
     title: prettyTitle(series.name, year: series.year),
     imageUrl: series.posterUrl,
+    artwork: ArtworkQuery(
+        name: prettyTitle(series.name, year: series.year),
+        year: series.year,
+        isSeries: true),
     rating: showRating ? series.rating : null,
     rank: rank,
     heroTag: tag,

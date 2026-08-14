@@ -7391,6 +7391,441 @@ class SearchHistoryTableCompanion extends UpdateCompanion<SearchHistoryRow> {
   }
 }
 
+class $ArtworkCacheTableTable extends ArtworkCacheTable
+    with TableInfo<$ArtworkCacheTableTable, ArtworkRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ArtworkCacheTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleKeyMeta = const VerificationMeta(
+    'titleKey',
+  );
+  @override
+  late final GeneratedColumn<String> titleKey = GeneratedColumn<String>(
+    'title_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _posterUrlMeta = const VerificationMeta(
+    'posterUrl',
+  );
+  @override
+  late final GeneratedColumn<String> posterUrl = GeneratedColumn<String>(
+    'poster_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _backdropUrlMeta = const VerificationMeta(
+    'backdropUrl',
+  );
+  @override
+  late final GeneratedColumn<String> backdropUrl = GeneratedColumn<String>(
+    'backdrop_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _missingMeta = const VerificationMeta(
+    'missing',
+  );
+  @override
+  late final GeneratedColumn<bool> missing = GeneratedColumn<bool>(
+    'missing',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("missing" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _fetchedAtMillisUtcMeta =
+      const VerificationMeta('fetchedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> fetchedAtMillisUtc = GeneratedColumn<int>(
+    'fetched_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    kind,
+    titleKey,
+    posterUrl,
+    backdropUrl,
+    missing,
+    fetchedAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'artwork_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ArtworkRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('title_key')) {
+      context.handle(
+        _titleKeyMeta,
+        titleKey.isAcceptableOrUnknown(data['title_key']!, _titleKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleKeyMeta);
+    }
+    if (data.containsKey('poster_url')) {
+      context.handle(
+        _posterUrlMeta,
+        posterUrl.isAcceptableOrUnknown(data['poster_url']!, _posterUrlMeta),
+      );
+    }
+    if (data.containsKey('backdrop_url')) {
+      context.handle(
+        _backdropUrlMeta,
+        backdropUrl.isAcceptableOrUnknown(
+          data['backdrop_url']!,
+          _backdropUrlMeta,
+        ),
+      );
+    }
+    if (data.containsKey('missing')) {
+      context.handle(
+        _missingMeta,
+        missing.isAcceptableOrUnknown(data['missing']!, _missingMeta),
+      );
+    }
+    if (data.containsKey('fetched_at_millis_utc')) {
+      context.handle(
+        _fetchedAtMillisUtcMeta,
+        fetchedAtMillisUtc.isAcceptableOrUnknown(
+          data['fetched_at_millis_utc']!,
+          _fetchedAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fetchedAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {kind, titleKey};
+  @override
+  ArtworkRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ArtworkRow(
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      titleKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title_key'],
+      )!,
+      posterUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}poster_url'],
+      ),
+      backdropUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}backdrop_url'],
+      ),
+      missing: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}missing'],
+      )!,
+      fetchedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fetched_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $ArtworkCacheTableTable createAlias(String alias) {
+    return $ArtworkCacheTableTable(attachedDatabase, alias);
+  }
+}
+
+class ArtworkRow extends DataClass implements Insertable<ArtworkRow> {
+  /// 'movie' or 'series'.
+  final String kind;
+
+  /// Normalised title (+ year when known) — see `artworkKeyFor`.
+  final String titleKey;
+  final String? posterUrl;
+  final String? backdropUrl;
+  final bool missing;
+  final int fetchedAtMillisUtc;
+  const ArtworkRow({
+    required this.kind,
+    required this.titleKey,
+    this.posterUrl,
+    this.backdropUrl,
+    required this.missing,
+    required this.fetchedAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['kind'] = Variable<String>(kind);
+    map['title_key'] = Variable<String>(titleKey);
+    if (!nullToAbsent || posterUrl != null) {
+      map['poster_url'] = Variable<String>(posterUrl);
+    }
+    if (!nullToAbsent || backdropUrl != null) {
+      map['backdrop_url'] = Variable<String>(backdropUrl);
+    }
+    map['missing'] = Variable<bool>(missing);
+    map['fetched_at_millis_utc'] = Variable<int>(fetchedAtMillisUtc);
+    return map;
+  }
+
+  ArtworkCacheTableCompanion toCompanion(bool nullToAbsent) {
+    return ArtworkCacheTableCompanion(
+      kind: Value(kind),
+      titleKey: Value(titleKey),
+      posterUrl: posterUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(posterUrl),
+      backdropUrl: backdropUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(backdropUrl),
+      missing: Value(missing),
+      fetchedAtMillisUtc: Value(fetchedAtMillisUtc),
+    );
+  }
+
+  factory ArtworkRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ArtworkRow(
+      kind: serializer.fromJson<String>(json['kind']),
+      titleKey: serializer.fromJson<String>(json['titleKey']),
+      posterUrl: serializer.fromJson<String?>(json['posterUrl']),
+      backdropUrl: serializer.fromJson<String?>(json['backdropUrl']),
+      missing: serializer.fromJson<bool>(json['missing']),
+      fetchedAtMillisUtc: serializer.fromJson<int>(json['fetchedAtMillisUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'kind': serializer.toJson<String>(kind),
+      'titleKey': serializer.toJson<String>(titleKey),
+      'posterUrl': serializer.toJson<String?>(posterUrl),
+      'backdropUrl': serializer.toJson<String?>(backdropUrl),
+      'missing': serializer.toJson<bool>(missing),
+      'fetchedAtMillisUtc': serializer.toJson<int>(fetchedAtMillisUtc),
+    };
+  }
+
+  ArtworkRow copyWith({
+    String? kind,
+    String? titleKey,
+    Value<String?> posterUrl = const Value.absent(),
+    Value<String?> backdropUrl = const Value.absent(),
+    bool? missing,
+    int? fetchedAtMillisUtc,
+  }) => ArtworkRow(
+    kind: kind ?? this.kind,
+    titleKey: titleKey ?? this.titleKey,
+    posterUrl: posterUrl.present ? posterUrl.value : this.posterUrl,
+    backdropUrl: backdropUrl.present ? backdropUrl.value : this.backdropUrl,
+    missing: missing ?? this.missing,
+    fetchedAtMillisUtc: fetchedAtMillisUtc ?? this.fetchedAtMillisUtc,
+  );
+  ArtworkRow copyWithCompanion(ArtworkCacheTableCompanion data) {
+    return ArtworkRow(
+      kind: data.kind.present ? data.kind.value : this.kind,
+      titleKey: data.titleKey.present ? data.titleKey.value : this.titleKey,
+      posterUrl: data.posterUrl.present ? data.posterUrl.value : this.posterUrl,
+      backdropUrl: data.backdropUrl.present
+          ? data.backdropUrl.value
+          : this.backdropUrl,
+      missing: data.missing.present ? data.missing.value : this.missing,
+      fetchedAtMillisUtc: data.fetchedAtMillisUtc.present
+          ? data.fetchedAtMillisUtc.value
+          : this.fetchedAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ArtworkRow(')
+          ..write('kind: $kind, ')
+          ..write('titleKey: $titleKey, ')
+          ..write('posterUrl: $posterUrl, ')
+          ..write('backdropUrl: $backdropUrl, ')
+          ..write('missing: $missing, ')
+          ..write('fetchedAtMillisUtc: $fetchedAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    kind,
+    titleKey,
+    posterUrl,
+    backdropUrl,
+    missing,
+    fetchedAtMillisUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ArtworkRow &&
+          other.kind == this.kind &&
+          other.titleKey == this.titleKey &&
+          other.posterUrl == this.posterUrl &&
+          other.backdropUrl == this.backdropUrl &&
+          other.missing == this.missing &&
+          other.fetchedAtMillisUtc == this.fetchedAtMillisUtc);
+}
+
+class ArtworkCacheTableCompanion extends UpdateCompanion<ArtworkRow> {
+  final Value<String> kind;
+  final Value<String> titleKey;
+  final Value<String?> posterUrl;
+  final Value<String?> backdropUrl;
+  final Value<bool> missing;
+  final Value<int> fetchedAtMillisUtc;
+  final Value<int> rowid;
+  const ArtworkCacheTableCompanion({
+    this.kind = const Value.absent(),
+    this.titleKey = const Value.absent(),
+    this.posterUrl = const Value.absent(),
+    this.backdropUrl = const Value.absent(),
+    this.missing = const Value.absent(),
+    this.fetchedAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ArtworkCacheTableCompanion.insert({
+    required String kind,
+    required String titleKey,
+    this.posterUrl = const Value.absent(),
+    this.backdropUrl = const Value.absent(),
+    this.missing = const Value.absent(),
+    required int fetchedAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : kind = Value(kind),
+       titleKey = Value(titleKey),
+       fetchedAtMillisUtc = Value(fetchedAtMillisUtc);
+  static Insertable<ArtworkRow> custom({
+    Expression<String>? kind,
+    Expression<String>? titleKey,
+    Expression<String>? posterUrl,
+    Expression<String>? backdropUrl,
+    Expression<bool>? missing,
+    Expression<int>? fetchedAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (kind != null) 'kind': kind,
+      if (titleKey != null) 'title_key': titleKey,
+      if (posterUrl != null) 'poster_url': posterUrl,
+      if (backdropUrl != null) 'backdrop_url': backdropUrl,
+      if (missing != null) 'missing': missing,
+      if (fetchedAtMillisUtc != null)
+        'fetched_at_millis_utc': fetchedAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ArtworkCacheTableCompanion copyWith({
+    Value<String>? kind,
+    Value<String>? titleKey,
+    Value<String?>? posterUrl,
+    Value<String?>? backdropUrl,
+    Value<bool>? missing,
+    Value<int>? fetchedAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return ArtworkCacheTableCompanion(
+      kind: kind ?? this.kind,
+      titleKey: titleKey ?? this.titleKey,
+      posterUrl: posterUrl ?? this.posterUrl,
+      backdropUrl: backdropUrl ?? this.backdropUrl,
+      missing: missing ?? this.missing,
+      fetchedAtMillisUtc: fetchedAtMillisUtc ?? this.fetchedAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (titleKey.present) {
+      map['title_key'] = Variable<String>(titleKey.value);
+    }
+    if (posterUrl.present) {
+      map['poster_url'] = Variable<String>(posterUrl.value);
+    }
+    if (backdropUrl.present) {
+      map['backdrop_url'] = Variable<String>(backdropUrl.value);
+    }
+    if (missing.present) {
+      map['missing'] = Variable<bool>(missing.value);
+    }
+    if (fetchedAtMillisUtc.present) {
+      map['fetched_at_millis_utc'] = Variable<int>(fetchedAtMillisUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ArtworkCacheTableCompanion(')
+          ..write('kind: $kind, ')
+          ..write('titleKey: $titleKey, ')
+          ..write('posterUrl: $posterUrl, ')
+          ..write('backdropUrl: $backdropUrl, ')
+          ..write('missing: $missing, ')
+          ..write('fetchedAtMillisUtc: $fetchedAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -7420,6 +7855,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $DiscoveryMatchesTableTable(this);
   late final $SearchHistoryTableTable searchHistoryTable =
       $SearchHistoryTableTable(this);
+  late final $ArtworkCacheTableTable artworkCacheTable =
+      $ArtworkCacheTableTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -7440,6 +7877,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     discoveryTitlesTable,
     discoveryMatchesTable,
     searchHistoryTable,
+    artworkCacheTable,
   ];
 }
 
@@ -11245,6 +11683,234 @@ typedef $$SearchHistoryTableTableProcessedTableManager =
       SearchHistoryRow,
       PrefetchHooks Function()
     >;
+typedef $$ArtworkCacheTableTableCreateCompanionBuilder =
+    ArtworkCacheTableCompanion Function({
+      required String kind,
+      required String titleKey,
+      Value<String?> posterUrl,
+      Value<String?> backdropUrl,
+      Value<bool> missing,
+      required int fetchedAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$ArtworkCacheTableTableUpdateCompanionBuilder =
+    ArtworkCacheTableCompanion Function({
+      Value<String> kind,
+      Value<String> titleKey,
+      Value<String?> posterUrl,
+      Value<String?> backdropUrl,
+      Value<bool> missing,
+      Value<int> fetchedAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$ArtworkCacheTableTableFilterComposer
+    extends Composer<_$AppDatabase, $ArtworkCacheTableTable> {
+  $$ArtworkCacheTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get titleKey => $composableBuilder(
+    column: $table.titleKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get posterUrl => $composableBuilder(
+    column: $table.posterUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get backdropUrl => $composableBuilder(
+    column: $table.backdropUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get missing => $composableBuilder(
+    column: $table.missing,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ArtworkCacheTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $ArtworkCacheTableTable> {
+  $$ArtworkCacheTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get titleKey => $composableBuilder(
+    column: $table.titleKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get posterUrl => $composableBuilder(
+    column: $table.posterUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get backdropUrl => $composableBuilder(
+    column: $table.backdropUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get missing => $composableBuilder(
+    column: $table.missing,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ArtworkCacheTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ArtworkCacheTableTable> {
+  $$ArtworkCacheTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get titleKey =>
+      $composableBuilder(column: $table.titleKey, builder: (column) => column);
+
+  GeneratedColumn<String> get posterUrl =>
+      $composableBuilder(column: $table.posterUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get backdropUrl => $composableBuilder(
+    column: $table.backdropUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get missing =>
+      $composableBuilder(column: $table.missing, builder: (column) => column);
+
+  GeneratedColumn<int> get fetchedAtMillisUtc => $composableBuilder(
+    column: $table.fetchedAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$ArtworkCacheTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ArtworkCacheTableTable,
+          ArtworkRow,
+          $$ArtworkCacheTableTableFilterComposer,
+          $$ArtworkCacheTableTableOrderingComposer,
+          $$ArtworkCacheTableTableAnnotationComposer,
+          $$ArtworkCacheTableTableCreateCompanionBuilder,
+          $$ArtworkCacheTableTableUpdateCompanionBuilder,
+          (
+            ArtworkRow,
+            BaseReferences<_$AppDatabase, $ArtworkCacheTableTable, ArtworkRow>,
+          ),
+          ArtworkRow,
+          PrefetchHooks Function()
+        > {
+  $$ArtworkCacheTableTableTableManager(
+    _$AppDatabase db,
+    $ArtworkCacheTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ArtworkCacheTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ArtworkCacheTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ArtworkCacheTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> kind = const Value.absent(),
+                Value<String> titleKey = const Value.absent(),
+                Value<String?> posterUrl = const Value.absent(),
+                Value<String?> backdropUrl = const Value.absent(),
+                Value<bool> missing = const Value.absent(),
+                Value<int> fetchedAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ArtworkCacheTableCompanion(
+                kind: kind,
+                titleKey: titleKey,
+                posterUrl: posterUrl,
+                backdropUrl: backdropUrl,
+                missing: missing,
+                fetchedAtMillisUtc: fetchedAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String kind,
+                required String titleKey,
+                Value<String?> posterUrl = const Value.absent(),
+                Value<String?> backdropUrl = const Value.absent(),
+                Value<bool> missing = const Value.absent(),
+                required int fetchedAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => ArtworkCacheTableCompanion.insert(
+                kind: kind,
+                titleKey: titleKey,
+                posterUrl: posterUrl,
+                backdropUrl: backdropUrl,
+                missing: missing,
+                fetchedAtMillisUtc: fetchedAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ArtworkCacheTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ArtworkCacheTableTable,
+      ArtworkRow,
+      $$ArtworkCacheTableTableFilterComposer,
+      $$ArtworkCacheTableTableOrderingComposer,
+      $$ArtworkCacheTableTableAnnotationComposer,
+      $$ArtworkCacheTableTableCreateCompanionBuilder,
+      $$ArtworkCacheTableTableUpdateCompanionBuilder,
+      (
+        ArtworkRow,
+        BaseReferences<_$AppDatabase, $ArtworkCacheTableTable, ArtworkRow>,
+      ),
+      ArtworkRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -11282,4 +11948,6 @@ class $AppDatabaseManager {
       $$DiscoveryMatchesTableTableTableManager(_db, _db.discoveryMatchesTable);
   $$SearchHistoryTableTableTableManager get searchHistoryTable =>
       $$SearchHistoryTableTableTableManager(_db, _db.searchHistoryTable);
+  $$ArtworkCacheTableTableTableManager get artworkCacheTable =>
+      $$ArtworkCacheTableTableTableManager(_db, _db.artworkCacheTable);
 }

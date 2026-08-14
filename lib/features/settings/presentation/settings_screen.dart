@@ -235,6 +235,12 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.push('/favorites'),
           ),
           ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('About & credits'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/about'),
+          ),
+          ListTile(
             leading: const Icon(Icons.sync),
             title: const Text('Sync'),
             subtitle: Text(

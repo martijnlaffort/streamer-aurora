@@ -155,6 +155,48 @@ class TmdbSource {
       _map(await _results('/tv/top_rated', const {}), isTv: true);
 
   /// Cheap credential check for the Settings screen.
+  // --- Artwork ---------------------------------------------------------------
+
+  /// TMDB's CDN. w500 is the smallest poster size that still looks right on a
+  /// 2:3 card at phone density; the cards cap the decode anyway.
+  static const _posterBase = 'https://image.tmdb.org/t/p/w500';
+  static const _backdropBase = 'https://image.tmdb.org/t/p/w1280';
+
+  /// Finds artwork for one title. Returns nulls when TMDB has the title but no
+  /// image, and null overall when it has no confident match at all — the caller
+  /// records both outcomes so a fruitless lookup is not repeated forever.
+  ///
+  /// Used only for titles the panel supplies no image for, so this is a small
+  /// tail rather than a per-title lookup of a 150k catalogue.
+  Future<({String? posterUrl, String? backdropUrl})?> findArtwork({
+    required String title,
+    int? year,
+    required bool isTv,
+  }) async {
+    final query = title.trim();
+    if (query.isEmpty) return null;
+    final rows = await _results(isTv ? '/search/tv' : '/search/movie', {
+      'query': query,
+      'include_adult': 'false',
+      if (year != null)
+        if (isTv) 'first_air_date_year': '$year' else 'primary_release_year': '$year',
+    });
+    for (final row in rows) {
+      final map = optMap(row);
+      if (map == null) continue;
+      final poster = optString(map['poster_path']);
+      final backdrop = optString(map['backdrop_path']);
+      if (poster == null && backdrop == null) continue;
+      return (
+        posterUrl: poster == null ? null : '$_posterBase$poster',
+        backdropUrl: backdrop == null ? null : '$_backdropBase$backdrop',
+      );
+    }
+    // Searched and found nothing usable. Distinct from a network failure,
+    // which throws — only this outcome should be cached as "no artwork".
+    return (posterUrl: null, backdropUrl: null);
+  }
+
   Future<void> verifyKey() async {
     await _results('/configuration', const {});
   }

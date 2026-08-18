@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:aurora/data/sources/m3u_parser.dart';
-import 'package:aurora/data/sources/m3u_source.dart';
-import 'package:aurora/data/sources/playlist_source.dart';
-import 'package:aurora/domain/models/models.dart';
+import 'package:dawnplayer/data/sources/m3u_parser.dart';
+import 'package:dawnplayer/data/sources/m3u_source.dart';
+import 'package:dawnplayer/data/sources/playlist_source.dart';
+import 'package:dawnplayer/domain/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

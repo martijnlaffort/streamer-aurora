@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:aurora/data/sources/playlist_source.dart';
-import 'package:aurora/data/sources/xtream_source.dart';
-import 'package:aurora/domain/models/models.dart';
+import 'package:dawnplayer/data/sources/playlist_source.dart';
+import 'package:dawnplayer/data/sources/xtream_source.dart';
+import 'package:dawnplayer/domain/models/models.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 

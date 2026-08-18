@@ -384,6 +384,10 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   /// Production database in the app's documents directory.
+  // Deliberately still 'aurora' after the rename to Dawn Player: this string is
+  // the on-disk SQLite filename. Changing it would point the app at a fresh,
+  // empty database and silently orphan every saved watch position, favourite
+  // and account. A rename is not worth losing the user's history over.
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override

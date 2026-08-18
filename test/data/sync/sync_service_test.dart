@@ -1,11 +1,11 @@
-import 'package:aurora/data/db/app_database.dart';
-import 'package:aurora/data/repositories/favorites_repository.dart';
-import 'package:aurora/data/repositories/preferences_repository.dart';
-import 'package:aurora/data/repositories/sync_backend.dart';
-import 'package:aurora/data/repositories/watch_progress_repository.dart';
-import 'package:aurora/data/sync/sync_config.dart' show SyncStateStore;
-import 'package:aurora/data/sync/sync_service.dart';
-import 'package:aurora/domain/models/models.dart';
+import 'package:dawnplayer/data/db/app_database.dart';
+import 'package:dawnplayer/data/repositories/favorites_repository.dart';
+import 'package:dawnplayer/data/repositories/preferences_repository.dart';
+import 'package:dawnplayer/data/repositories/sync_backend.dart';
+import 'package:dawnplayer/data/repositories/watch_progress_repository.dart';
+import 'package:dawnplayer/data/sync/sync_config.dart' show SyncStateStore;
+import 'package:dawnplayer/data/sync/sync_service.dart';
+import 'package:dawnplayer/domain/models/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/test_support.dart';

@@ -21,9 +21,9 @@ import '../../../domain/models/models.dart'
 import '../player_request.dart';
 
 /// Android emulators stall on hardware video decode (documented media_kit
-/// quirk): run with `--dart-define=AURORA_SW_DECODE=true` there. Real
+/// quirk): run with `--dart-define=DAWN_SW_DECODE=true` there. Real
 /// devices keep hardware decoding.
-const bool _forceSoftwareDecode = bool.fromEnvironment('AURORA_SW_DECODE');
+const bool _forceSoftwareDecode = bool.fromEnvironment('DAWN_SW_DECODE');
 
 /// Many Xtream panels serve `player_api.php` to anything but only hand out the
 /// actual video to whitelisted player User-Agents — libmpv's default

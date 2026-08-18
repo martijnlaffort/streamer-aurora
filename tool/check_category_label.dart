@@ -4,7 +4,7 @@
 // Or:   dart run tool/check_category_label.dart "| MULTI / LINGO | 4K HDR |"
 //
 // ignore_for_file: avoid_print — command-line tool; stdout IS its UI.
-import 'package:aurora/core/matching/category_label.dart';
+import 'package:dawnplayer/core/matching/category_label.dart';
 
 /// Real category names seen on the user's line, plus shapes other panels use.
 const _samples = <String>[

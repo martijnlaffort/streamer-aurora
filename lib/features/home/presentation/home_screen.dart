@@ -53,7 +53,7 @@ class _NoAccount extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Aurora', style: AppTypography.display),
+          Text('Dawn Player', style: AppTypography.display),
           const SizedBox(height: 8),
           Text(
             tv

@@ -1,7 +1,7 @@
-import 'package:aurora/core/theme/app_theme.dart';
-import 'package:aurora/features/live/live_providers.dart';
-import 'package:aurora/features/live/presentation/guide_screen.dart';
-import 'package:aurora/domain/models/models.dart';
+import 'package:dawnplayer/core/theme/app_theme.dart';
+import 'package:dawnplayer/features/live/live_providers.dart';
+import 'package:dawnplayer/features/live/presentation/guide_screen.dart';
+import 'package:dawnplayer/domain/models/models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

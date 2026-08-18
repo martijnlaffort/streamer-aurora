@@ -1,0 +1,93 @@
+<!-- @dsCard group="Components" name="Feature card" subtitle="Anatomy, hover state, and the 6-up grid it lives in" viewport="1100x900" -->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Dawn Player — Feature card</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+  :root{--bg:#0B0D12;--surface:#12151C;--surface-2:#1A1E27;--line:rgba(255,255,255,.07);--violet:#7C5CFF;--teal:#4FD1C5;--text:#F2F4F8;--muted:#9AA3B2;--dim:#69727F;--display:'Outfit',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;--ui:'Inter',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);padding:40px 30px}
+  h1{font-family:var(--display);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--teal);margin:0 0 6px;font-weight:500}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 26px;max-width:74ch;line-height:1.55}
+  .lbl{font-size:11px;color:var(--dim);letter-spacing:.3px;text-transform:uppercase;margin:26px 0 10px}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 26px 28px;
+        transition:border-color .18s ease,background .18s ease,transform .18s ease}
+  .card h3{font-family:var(--display);font-size:19px;font-weight:600;letter-spacing:-.2px;line-height:1.25;margin:16px 0 8px}
+  .card p{font-size:14.5px;line-height:1.5;color:var(--muted);margin:0}
+  .tile{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;
+        background:rgba(124,92,255,.14);border:1px solid rgba(124,92,255,.24);color:#B9A6FF}
+  .tile svg{width:24px;height:24px}
+  .card.hover{border-color:rgba(124,92,255,.3);background:linear-gradient(180deg,rgba(124,92,255,.06),var(--surface) 60%);transform:translateY(-2px)}
+  .card.hover .tile{background:rgba(124,92,255,.2);color:#CFC2FF}
+  .card.teal .tile{background:rgba(79,209,197,.13);border-color:rgba(79,209,197,.24);color:#7FE0D6}
+
+  .demo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;max-width:660px}
+  .grid6{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+  @media (max-width:1040px){.grid6{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:720px){.grid6,.demo{grid-template-columns:1fr}}
+
+  .anat{position:relative}
+  .anat span{position:absolute;right:-8px;font-size:10.5px;color:var(--dim);letter-spacing:.3px;white-space:nowrap}
+  .ico{fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+  .note{font-size:13px;line-height:1.6;color:var(--muted);max-width:76ch;margin:26px 0 0}
+  .note b{color:var(--text);font-weight:600}
+</style>
+
+<h1>Feature card</h1>
+<p class="sub">The workhorse of the features section. Icon tile, one Outfit title, two or three lines of
+Inter — never more, because a card that needs a paragraph is really a spotlight.</p>
+
+<p class="lbl">Rest · hover</p>
+<div class="demo">
+  <div class="card">
+    <div class="tile"><svg viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="M8 5.2 19 12 8 18.8z"/></svg></div>
+    <h3>Plays what other players choke on</h3>
+    <p>libmpv does the decoding, so raw MPEG-TS, HLS, HEVC and MKV all just open — including the streams that make store-bought players show a black screen.</p>
+  </div>
+  <div class="card hover">
+    <div class="tile"><svg viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="M8 5.2 19 12 8 18.8z"/></svg></div>
+    <h3>Plays what other players choke on</h3>
+    <p>libmpv does the decoding, so raw MPEG-TS, HLS, HEVC and MKV all just open — including the streams that make store-bought players show a black screen.</p>
+  </div>
+</div>
+
+<p class="lbl">The grid it lives in — three up at 1120px, two at 1040, one at 720</p>
+<div class="grid6">
+  <div class="card">
+    <div class="tile"><svg viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="M8 5.2 19 12 8 18.8z"/></svg></div>
+    <h3>Plays what others choke on</h3>
+    <p>libmpv under the hood: raw MPEG-TS, HLS, HEVC and MKV open without ceremony.</p>
+  </div>
+  <div class="card">
+    <div class="tile"><svg viewBox="0 0 24 24"><g class="ico"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.4 2"/></g></svg></div>
+    <h3>It remembers where you stopped</h3>
+    <p>Position saved every few seconds and on every exit. Finish an episode and the show advances to the next one instead of vanishing from the row.</p>
+  </div>
+  <div class="card teal">
+    <div class="tile"><svg viewBox="0 0 24 24"><g class="ico"><circle cx="12" cy="12" r="8.4"/><path d="M3.7 12h16.6M12 3.6c2.2 2.4 3.3 5.2 3.3 8.4s-1.1 6-3.3 8.4c-2.2-2.4-3.3-5.2-3.3-8.4s1.1-6 3.3-8.4z"/></g></svg></div>
+    <h3>Languages that learn</h3>
+    <p>Pick your audio and subtitle language once. Override one by hand and that becomes the new preference — no settings trip required.</p>
+  </div>
+  <div class="card">
+    <div class="tile"><svg viewBox="0 0 24 24"><g class="ico"><rect x="2.6" y="4.4" width="18.8" height="12.4" rx="2.4"/><path d="M8.4 19.8h7.2"/></g></svg></div>
+    <h3>Live TV with a real guide</h3>
+    <p>Now and next on every channel, a day grid that stays bounded, channel up/down without leaving the stream, and catch-up where the provider offers it.</p>
+  </div>
+  <div class="card">
+    <div class="tile"><svg viewBox="0 0 24 24"><path style="fill:currentColor;stroke:none" d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8L3.6 9.7l5.8-.8z"/></svg></div>
+    <h3>A catalogue worth browsing</h3>
+    <p>Top 10, Trending and New Releases ranked by something real, rails that deal a fresh hand each session, and missing posters filled in from TMDB.</p>
+  </div>
+  <div class="card teal">
+    <div class="tile"><svg viewBox="0 0 24 24"><g class="ico"><path d="M4.4 11.4a7.6 7.6 0 0 1 12.9-4.3l2.3 2.2"/><path d="M19.6 4.9v4.4h-4.4"/><path d="M19.6 12.6a7.6 7.6 0 0 1-12.9 4.3l-2.3-2.2"/><path d="M4.4 19.1v-4.4h4.4"/></g></svg></div>
+    <h3>Phone, desktop, television</h3>
+    <p>One Flutter codebase, an Android TV layer that takes a D-pad, remote control support, and progress that follows you between devices.</p>
+  </div>
+</div>
+
+<p class="note"><b>Rules.</b> Violet tiles by default; teal for the two cards you most want read, never more
+than two per grid. Titles are three to five words and start with a verb or a noun, never with "Dawn Player".
+Hover lifts 2px and warms the border — it never scales the card, because the poster rails in the mockups
+already own that gesture.</p>

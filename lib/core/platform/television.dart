@@ -5,23 +5,23 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Whether Aurora is running on a television, which selects the D-pad /
+/// Whether Dawn Player is running on a television, which selects the D-pad /
 /// 10-foot UI (PRD Phase 3).
 ///
 /// Answered by the platform (`UiModeManager`), not guessed from screen size:
 /// a tablet and the Windows desktop build are just as large as a TV, so a size
 /// heuristic would put the wrong shell on the wrong device.
-const _channel = MethodChannel('aurora/platform');
+const _channel = MethodChannel('dawnplayer/platform');
 
 /// Debug-only override so the TV shell can be exercised on a phone emulator —
 /// a TV system image is a multi-gigabyte download, and the parts most likely to
 /// be wrong (focus traversal, remote activation) are testable with
 /// `adb shell input keyevent KEYCODE_DPAD_*` on any device.
 ///
-/// Set with `--dart-define=AURORA_FORCE_TV=true`. Ignored in release builds so
+/// Set with `--dart-define=DAWN_FORCE_TV=true`. Ignored in release builds so
 /// it can never ship a TV layout to a phone.
 const _forceTvFlag =
-    bool.fromEnvironment('AURORA_FORCE_TV', defaultValue: false);
+    bool.fromEnvironment('DAWN_FORCE_TV', defaultValue: false);
 
 Future<bool> detectTelevision() async {
   if (!kReleaseMode && _forceTvFlag) return true;

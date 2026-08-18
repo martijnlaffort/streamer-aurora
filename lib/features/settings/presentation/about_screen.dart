@@ -7,9 +7,9 @@ import '../../../core/theme/app_typography.dart';
 /// About & credits.
 ///
 /// Exists primarily because TMDB's terms require attribution wherever their
-/// data or images are used, and Aurora uses both: the discovery rails are built
+/// data or images are used, and Dawn Player uses both: the discovery rails are built
 /// from TMDB's ranked lists, and missing posters are filled from their image
-/// CDN. The wording below is the acknowledgement TMDB asks for — that Aurora
+/// CDN. The wording below is the acknowledgement TMDB asks for — that Dawn Player
 /// uses the API but is not endorsed or certified by them.
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -21,12 +21,12 @@ class AboutScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Text('Aurora', style: AppTypography.title),
+          Text('Dawn Player', style: AppTypography.title),
           const SizedBox(height: 4),
           const _BuildIdentity(),
           const SizedBox(height: 10),
           const Text(
-            'A player for your own IPTV subscription. Aurora does not provide, '
+            'A player for your own IPTV subscription. Dawn Player does not provide, '
             'host or resell any channels or media — it plays what your own '
             'playlist gives it.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.4),
@@ -36,7 +36,7 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 10),
           const _Credit(
             name: 'The Movie Database (TMDB)',
-            body: 'Aurora uses the TMDB API to work out what is genuinely '
+            body: 'Dawn Player uses the TMDB API to work out what is genuinely '
                 'popular and to find artwork for titles your provider supplies '
                 'no image for.\n\n'
                 'This product uses the TMDB API but is not endorsed or '
@@ -66,14 +66,14 @@ class AboutScreen extends StatelessWidget {
 ///
 /// The version and build number come from the platform bundle, so they cannot
 /// drift from what was actually shipped. The commit is injected at build time
-/// (`--dart-define=AURORA_COMMIT`) and is the part that matters — it maps a
+/// (`--dart-define=DAWN_COMMIT`) and is the part that matters — it maps a
 /// device back to an exact source revision. It reads `local` for a build made
 /// without the flag, which is itself useful information.
 class _BuildIdentity extends StatelessWidget {
   const _BuildIdentity();
 
   static const _commit =
-      String.fromEnvironment('AURORA_COMMIT', defaultValue: 'local');
+      String.fromEnvironment('DAWN_COMMIT', defaultValue: 'local');
 
   @override
   Widget build(BuildContext context) {

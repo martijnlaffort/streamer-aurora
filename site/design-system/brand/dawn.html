@@ -1,0 +1,208 @@
+<!-- @dsCard group="Brand" name="Dawn Player — brand" subtitle="Sunrise + play mark, wordmark, dawn gradient, applied" viewport="1180x1500" -->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Dawn Player — brand</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+  :root{
+    --bg:#171C25;--surface:#1F2530;--surface-2:#29313E;
+    --line:rgba(255,255,255,.09);--line-strong:rgba(255,255,255,.17);
+    --violet:#7C5CFF;--rose:#FF7A9C;--amber:#FFC46B;--teal:#4FD1C5;
+    --text:#F2F4F8;--muted:#9AA3B2;--dim:#69727F;
+    --display:'Outfit',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;
+    --ui:'Inter',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);padding:40px 34px}
+  h1{font-family:var(--display);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--amber);margin:0 0 6px;font-weight:500}
+  .sub{font-size:13.5px;color:var(--muted);margin:0 0 30px;max-width:80ch;line-height:1.6}
+  .sub b{color:var(--text);font-weight:500}
+  h2{font-family:var(--display);font-size:12px;letter-spacing:.3px;text-transform:uppercase;color:var(--dim);margin:34px 0 12px;font-weight:600}
+  .row{display:flex;flex-wrap:wrap;gap:18px;align-items:stretch}
+  .cell{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;
+        display:flex;flex-direction:column;gap:14px;align-items:flex-start;justify-content:center}
+  .grow{flex:1;min-width:0}
+  .cap{font-size:12px;color:var(--dim);margin:0;line-height:1.45}
+  .cap b{color:var(--muted);font-weight:600}
+  .wm{font-family:var(--display);font-weight:700;letter-spacing:-1.2px;line-height:1;color:var(--text)}
+  .grad-text{background:linear-gradient(100deg,#fff 4%,var(--violet) 46%,var(--rose) 74%,var(--amber) 98%);
+             -webkit-background-clip:text;background-clip:text;color:transparent}
+  .lock{display:flex;align-items:center;gap:12px}
+  .onlight{background:#F4F6FA;border-color:transparent}
+  .onlight .cap{color:#5B6472}
+  .onlight .wm{color:#151A24}
+  .scale{display:flex;align-items:flex-end;gap:20px}
+  .scale figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:8px}
+  .scale figcaption{font-size:10.5px;color:var(--dim)}
+  .sw{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface);width:150px}
+  .sw i{display:block;height:56px}
+  .sw div{padding:9px 11px}
+  .sw p{margin:0;font-size:12px;font-weight:600}
+  .sw span{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted)}
+  .sw small{display:block;font-size:10.5px;color:var(--dim);margin-top:5px;line-height:1.35}
+  .tab{display:flex;align-items:center;gap:9px;background:#2B313C;border:1px solid var(--line);
+       border-radius:9px 9px 0 0;padding:8px 14px 8px 11px;width:250px}
+  .tab span{font-size:11.5px;color:#C9D0DB;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .home{width:190px;padding:16px;border-radius:20px;background:linear-gradient(165deg,#3A4457,#20252F);
+        display:flex;flex-direction:column;align-items:center;gap:9px}
+  .home b{font-size:11px;font-weight:500;color:#E8ECF3}
+  .nav{display:flex;align-items:center;gap:24px;background:rgba(23,28,37,.72);border:1px solid var(--line);
+       border-radius:12px;padding:0 18px;height:60px;width:100%}
+  .nav .lk{margin-left:auto;display:flex;gap:20px}
+  .nav .lk a{font-size:13px;color:var(--muted);text-decoration:none}
+  .nav .cta{font-size:13px;font-weight:600;color:var(--text);border:1px solid var(--line-strong);
+            border-radius:999px;padding:8px 15px;text-decoration:none}
+  .note{font-size:13px;line-height:1.65;color:var(--muted);max-width:84ch;margin:22px 0 0}
+  .note b{color:var(--text);font-weight:600}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--amber)}
+</style>
+
+<!-- ============ the mark, defined once, reused at every size ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="dawnG" x1="32" y1="28" x2="32" y2="43" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B6BFF"/><stop offset=".48" stop-color="#FF7A9C"/><stop offset="1" stop-color="#FFC46B"/>
+    </linearGradient>
+    <!-- The sun is a disc whose centre sits BELOW the horizon, cropped at it:
+         a half-risen sun, not an arch. -->
+    <clipPath id="aboveHz"><rect x="0" y="0" width="64" height="42"/></clipPath>
+    <linearGradient id="hzG" x1="11" y1="0" x2="53" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFC46B" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#FFC46B" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#FFC46B" stop-opacity="0"/>
+    </linearGradient>
+    <!-- the icon, minus its tile, so variants can swap the backdrop -->
+    <!-- Three elements, no more: sun, play, horizon. The outer arc and the
+         reflection dashes were tried and cut — at 38px they turned the mark
+         into mush. Scaled 1.18 about the centre so the art fills its tile. -->
+    <g id="dawnArt" transform="translate(32 36) scale(1.18) translate(-32 -36)">
+      <g clip-path="url(#aboveHz)"><circle cx="32" cy="47" r="19" fill="url(#dawnG)"/></g>
+      <path d="M27.5 30.8 38.5 36.2 27.5 41.6z" fill="#151A24"/>
+      <path d="M11 42h42" stroke="url(#hzG)" stroke-width="1.9" stroke-linecap="round"/>
+    </g>
+    <g id="dawnArtMono" transform="translate(32 36) scale(1.18) translate(-32 -36)">
+      <g clip-path="url(#aboveHz)"><circle cx="32" cy="47" r="19" fill="currentColor"/></g>
+      <path d="M27.5 30.8 38.5 36.2 27.5 41.6z" fill="#151A24"/>
+      <path d="M11 42h42" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" opacity=".55"/>
+    </g>
+  </defs>
+</svg>
+
+<h1>Dawn Player — brand</h1>
+<p class="sub">One mark, two readings: <b>a sun cresting the horizon</b>, and <b>a play triangle</b> cut out of it.
+Dawn is what <i>Aurora</i> means in Latin, so nothing about the idea changes — the palette just turns the
+corner from an aurora's cold violet-teal to a sunrise's violet-rose-amber.</p>
+
+<h2>The mark</h2>
+<div class="row">
+  <div class="cell">
+    <svg width="128" height="128" viewBox="0 0 64 64" role="img" aria-label="Dawn">
+      <rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/>
+    </svg>
+    <p class="cap"><b>App mark</b> · 15/64 corner radius · the play triangle is knocked out in the tile colour, never painted on</p>
+  </div>
+  <div class="cell grow">
+    <div class="wm" style="font-size:56px">Dawn Player</div>
+    <p class="cap"><b>Wordmark</b> · Outfit 700 · tracking &minus;1.2px · four letters, so it can run large</p>
+  </div>
+</div>
+
+<h2>Lockups</h2>
+<div class="row">
+  <div class="cell grow">
+    <div class="lock">
+      <svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/></svg>
+      <span class="wm" style="font-size:30px;letter-spacing:-.8px">Dawn Player</span>
+    </div>
+    <p class="cap"><b>Primary lockup</b> · 38px mark, 12px gap</p>
+  </div>
+  <div class="cell grow">
+    <div class="lock">
+      <svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/></svg>
+      <span class="wm grad-text" style="font-size:30px;letter-spacing:-.8px">Dawn Player</span>
+    </div>
+    <p class="cap"><b>Gradient wordmark</b> · footer and hero only, never over artwork</p>
+  </div>
+  <div class="cell grow onlight">
+    <div class="lock">
+      <svg width="38" height="38" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/></svg>
+      <span class="wm" style="font-size:30px;letter-spacing:-.8px">Dawn Player</span>
+    </div>
+    <p class="cap"><b>On light ground</b> · the mark keeps its dark tile</p>
+  </div>
+  <div class="cell">
+    <svg width="60" height="60" viewBox="0 0 64 64" style="color:#F2F4F8" aria-hidden="true">
+      <rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArtMono"/>
+    </svg>
+    <p class="cap"><b>Monochrome</b> · one ink, for stamps and small print</p>
+  </div>
+</div>
+
+<h2>It has to survive 16px</h2>
+<div class="cell" style="align-items:stretch">
+  <div class="scale">
+    <figure><svg width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/></svg><figcaption>64</figcaption></figure>
+    <figure><svg width="48" height="48" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/></svg><figcaption>48</figcaption></figure>
+    <figure><svg width="32" height="32" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/></svg><figcaption>32</figcaption></figure>
+    <figure><svg width="24" height="24" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/></svg><figcaption>24</figcaption></figure>
+    <figure><svg width="16" height="16" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/></svg><figcaption>16</figcaption></figure>
+  </div>
+  <p class="cap" style="margin-top:14px">Three elements is the whole mark. An outer "first light" arc and reflection
+    dashes below the horizon were both drawn and then cut: at 38px they closed the gaps and the thing read as a
+    blob. The app icon keeps the dashes because at 1024px there is room for them.</p>
+</div>
+
+<h2>The dawn gradient</h2>
+<div class="row">
+  <div class="sw"><i style="background:#8B6BFF"></i><div><p>First light</p><span>#8B6BFF</span>
+    <small>Top of the sky. A shade warmer than the app's <code>#7C5CFF</code>, so existing violet UI still belongs.</small></div></div>
+  <div class="sw"><i style="background:#FF7A9C"></i><div><p>Rose</p><span>#FF7A9C</span>
+    <small>The middle of a sunrise. New — this is what replaces the aurora's teal in brand moments.</small></div></div>
+  <div class="sw"><i style="background:#FFC46B"></i><div><p>Amber</p><span>#FFC46B</span>
+    <small>The horizon itself. Eyebrows, small affirmatives, the underline on the current nav link.</small></div></div>
+  <div class="sw"><i style="background:#4FD1C5"></i><div><p>Teal <em style="font-style:normal;color:var(--dim)">(kept)</em></p><span>#4FD1C5</span>
+    <small>Worth keeping in-app for ratings and "now playing" — it reads as information, not brand.</small></div></div>
+  <div class="sw" style="width:auto;flex:1;min-width:230px"><i style="height:56px;background:linear-gradient(100deg,#8B6BFF,#FF7A9C 52%,#FFC46B)"></i>
+    <div><p>Brand gradient</p><span>100deg, three stops</span>
+    <small>Mark, wordmark, progress bar, section rules. One gradient, used sparingly.</small></div></div>
+</div>
+
+<h2>Applied</h2>
+<div class="row">
+  <div class="cell grow" style="min-width:420px">
+    <div class="nav">
+      <span class="lock">
+        <svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/></svg>
+        <span class="wm" style="font-size:20px;letter-spacing:-.5px">Dawn Player</span>
+      </span>
+      <span class="lk"><a>What it fixes</a><a>Films &amp; series</a><a>Television</a><a class="cta">Get set up</a></span>
+    </div>
+    <p class="cap"><b>Site nav</b> · drops into the existing bar unchanged; only the lockup swaps</p>
+  </div>
+  <div class="cell">
+    <div class="tab">
+      <svg width="15" height="15" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/></svg>
+      <span>Dawn Player — IPTV that behaves like…</span>
+    </div>
+    <p class="cap"><b>Favicon</b> · at 15px the sun still tells you which tab it is</p>
+  </div>
+  <div class="cell">
+    <div class="home">
+      <svg width="86" height="86" viewBox="0 0 64 64" style="border-radius:22px" aria-hidden="true">
+        <rect width="64" height="64" rx="15" fill="#151A24"/><use href="#dawnArt"/>
+      </svg>
+      <b>Dawn</b>
+    </div>
+    <p class="cap"><b>Home screen</b> · iOS rounds it further, so the art sits well inside the tile</p>
+  </div>
+</div>
+
+<p class="note"><b>Rules.</b> The play triangle is <b>negative space</b> — cut from the sun in the tile colour, never
+drawn as a separate shape, or it stops reading as one object. Never rotate the mark: the horizon is a horizon.
+Never recolour the gradient, and never run it top-to-bottom on the wordmark — it goes left to right, the way light
+arrives. The sun never sits below its horizon.
+<br><br><b>Why this worked as a rename.</b> Dawn means what Aurora means, so the ribbon motif's job — one light
+phenomenon, violet through to warm — carries over intact. The app's <code>#7C5CFF</code> accent survives as
+"first light", which is why adopting this did not require repainting the app's UI: the shipped site keeps violet as its
+primary accent and spends the dawn gradient only on the mark, the wordmark and the progress bar.</p>

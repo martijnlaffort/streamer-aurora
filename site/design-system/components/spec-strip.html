@@ -1,0 +1,67 @@
+<!-- @dsCard group="Components" name="Spec strip & honesty panel" subtitle="Under-the-hood table plus the limitations block" viewport="1100x680" -->
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Dawn Player — Spec strip</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+  :root{--bg:#0B0D12;--surface:#12151C;--surface-2:#1A1E27;--line:rgba(255,255,255,.07);--violet:#7C5CFF;--teal:#4FD1C5;--text:#F2F4F8;--muted:#9AA3B2;--dim:#69727F;--error:#FF5C6C;--display:'Outfit',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif;--ui:'Inter',ui-sans-serif,-apple-system,'Segoe UI',system-ui,sans-serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--ui);padding:40px 30px}
+  h1{font-family:var(--display);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--teal);margin:0 0 6px;font-weight:500}
+  .sub{font-size:13px;color:var(--muted);margin:0 0 28px;max-width:74ch;line-height:1.55}
+  .lbl{font-size:11px;color:var(--dim);letter-spacing:.3px;text-transform:uppercase;margin:28px 0 10px}
+
+  .strip{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--surface);max-width:1060px}
+  .spec{display:grid;grid-template-columns:190px 1fr;gap:24px;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,.045);align-items:baseline}
+  .spec:last-child{border-bottom:none}
+  .spec dt{font-size:12px;letter-spacing:.3px;text-transform:uppercase;color:var(--dim);margin:0}
+  .spec dd{margin:0;font-size:14.5px;color:var(--text);font-variant-numeric:tabular-nums}
+  .spec dd b{font-weight:600}
+  .spec dd em{font-style:normal;font-family:ui-monospace,Consolas,monospace;font-size:13.5px;color:var(--teal)}
+  dl{margin:0}
+
+  .panel{max-width:1060px;background:linear-gradient(180deg,rgba(255,92,108,.05),var(--surface) 55%);
+         border:1px solid rgba(255,92,108,.18);border-radius:16px;padding:24px 26px}
+  .panel h3{font-family:var(--display);font-size:18px;font-weight:600;margin:0 0 12px;display:flex;align-items:center;gap:10px}
+  .panel h3 svg{width:20px;height:20px;color:var(--error)}
+  .panel ul{margin:0;padding-left:0;list-style:none;display:grid;gap:10px}
+  .panel li{position:relative;padding-left:22px;font-size:14.5px;line-height:1.5;color:var(--muted)}
+  .panel li::before{content:'';position:absolute;left:6px;top:9px;width:5px;height:5px;border-radius:999px;background:var(--error);opacity:.7}
+  .panel li b{color:var(--text);font-weight:600}
+  .ico{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .note{font-size:13px;line-height:1.6;color:var(--muted);max-width:76ch;margin:26px 0 0}
+  .note b{color:var(--text);font-weight:600}
+  @media (max-width:640px){.spec{grid-template-columns:1fr;gap:4px}}
+</style>
+
+<h1>Spec strip &amp; honesty panel</h1>
+<p class="sub">The last two blocks before the footer. The strip is for people who want to know what it is
+built out of; the panel is for the things a personal project has to say out loud.</p>
+
+<p class="lbl">Under the hood</p>
+<div class="strip">
+  <dl>
+    <div class="spec"><dt>Framework</dt><dd>Flutter 3.44 — one codebase for iOS, Android, Windows and Android TV</dd></div>
+    <div class="spec"><dt>Playback</dt><dd>libmpv via <em>media_kit</em> — chosen because it exposes audio and subtitle tracks <b>with</b> their language tags</dd></div>
+    <div class="spec"><dt>Sources</dt><dd>Xtream Codes <em>player_api.php</em>, or M3U with an optional XMLTV guide</dd></div>
+    <div class="spec"><dt>Storage</dt><dd>SQLite via drift, indexed for large catalogues · credentials in the platform keychain</dd></div>
+    <div class="spec"><dt>State</dt><dd>Riverpod, over repositories the UI can't see past — no screen knows whether it is talking to Xtream or M3U</dd></div>
+    <div class="spec"><dt>Sync</dt><dd>Optional Laravel API with Sanctum tokens · last-write-wins on UTC timestamps</dd></div>
+    <div class="spec"><dt>Artwork</dt><dd>Provider posters first, gaps filled from TMDB</dd></div>
+  </dl>
+</div>
+
+<p class="lbl">What it isn't</p>
+<div class="panel">
+  <h3><svg viewBox="0 0 24 24"><g class="ico"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.6v5M12 15.9h.01"/></g></svg>Worth saying plainly</h3>
+  <ul>
+    <li><b>A player, not a service.</b> It ships no channels and no content. You point it at a line you already have.</li>
+    <li><b>You won't find it in a store.</b> Players that connect to IPTV panels get rejected, so it is built for sideloading — which is also why it isn't for sale.</li>
+    <li><b>It's a personal project.</b> Built for one household, in the open, with no roadmap promises and no support desk.</li>
+  </ul>
+</div>
+
+<p class="note"><b>Rules.</b> The honesty panel is the only place <b>--error</b> appears on the site, and it
+carries no button. Specs are written as sentences with a reason attached where there is one — a bare list
+of package names tells a visitor nothing.</p>

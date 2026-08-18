@@ -1,4 +1,4 @@
-# Build plan — "Aurora" IPTV player (Claude Code tasks)
+# Build plan — Dawn Player (Claude Code tasks)
 
 This is the execution plan for the real app. Run it **one task at a time**: paste the task,
 let Claude Code finish, verify the **Definition of done (DoD)**, commit, then move to the next.
@@ -288,12 +288,12 @@ Build these as their own one-task-at-a-time prompts once Phase 1 is stable on yo
   absence — the Android twin of the iOS ATS rule). Android *emulators* cannot create an
   EGL context for mpv's video output (documented media_kit limitation on recent system
   images; audio/metadata fine) — verify playback on Windows desktop or real devices;
-  `--dart-define=AURORA_SW_DECODE=true` also disables hardware decode for emulator runs.
+  `--dart-define=DAWN_SW_DECODE=true` also disables hardware decode for emulator runs.
   Full playback chain verified on Windows desktop against the mock panel.
 
 - `sqlite3_flutter_libs` is published as `0.6.0+eol` (end of life) — the current official
   drift setup is `drift` + `drift_flutter` + `path_provider`. Task 0.4 should use that.
-- App identity: project name `aurora`, placeholder id `com.example.aurora` (deliberate —
+- App identity: renamed to **Dawn Player** on 2026-08-18 (package `dawnplayer`). The id stays `com.example.aurora` (deliberate —
   rename later if wanted).
 - Local toolchain lives on D: (`D:\dev\flutter`, `D:\Android\sdk`); Flutter pinned 3.44.8
   locally and in CI.

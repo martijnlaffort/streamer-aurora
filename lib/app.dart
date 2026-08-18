@@ -6,14 +6,14 @@ import 'core/theme/app_theme.dart';
 import 'data/sync/sync_providers.dart';
 import 'features/home/home_providers.dart';
 
-class AuroraApp extends ConsumerStatefulWidget {
-  const AuroraApp({super.key});
+class DawnPlayerApp extends ConsumerStatefulWidget {
+  const DawnPlayerApp({super.key});
 
   @override
-  ConsumerState<AuroraApp> createState() => _AuroraAppState();
+  ConsumerState<DawnPlayerApp> createState() => _DawnPlayerAppState();
 }
 
-class _AuroraAppState extends ConsumerState<AuroraApp>
+class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
     with WidgetsBindingObserver {
   @override
   void initState() {
@@ -46,7 +46,7 @@ class _AuroraAppState extends ConsumerState<AuroraApp>
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Aurora',
+      title: 'Dawn Player',
       theme: AppTheme.dark,
       routerConfig: ref.watch(appRouterProvider),
       debugShowCheckedModeBanner: false,

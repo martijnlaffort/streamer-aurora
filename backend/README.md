@@ -1,7 +1,7 @@
-# Aurora sync backend
+# Dawn Player sync backend
 
 A thin Laravel API that syncs **watch progress, favorites, and preferences**
-across your devices (PRD §9). It is optional — Aurora is fully functional
+across your devices (PRD §9). It is optional — Dawn Player is fully functional
 without it; the app's repositories are local-first and treat this as a
 drop-in reconciler.
 
@@ -12,7 +12,7 @@ UTC `updated_at`**.
 ## What's here
 
 This folder is an **overlay** on a stock Laravel app — the files that are
-specific to Aurora sync. Drop them into a fresh Laravel install:
+specific to Dawn Player sync. Drop them into a fresh Laravel install:
 
 ```
 backend/
@@ -62,6 +62,6 @@ Times are ISO-8601 **UTC**. The server keeps the newer of two edits by
 
 ## In the app
 
-Aurora → **Settings → Sync**: paste the base URL (e.g.
+Dawn Player → **Settings → Sync**: paste the base URL (e.g.
 `https://sync.example.com`) and the token, toggle Sync on. It reconciles on
 app open and via **Sync now**.

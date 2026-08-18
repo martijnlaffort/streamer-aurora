@@ -1,5 +1,5 @@
-import 'package:aurora/data/db/app_database.dart';
-import 'package:aurora/data/db/credential_store.dart';
+import 'package:dawnplayer/data/db/app_database.dart';
+import 'package:dawnplayer/data/db/credential_store.dart';
 import 'package:drift/native.dart';
 
 /// In-memory drift database for tests. sqlite3 3.x provides its native

@@ -4,7 +4,7 @@
 // Or:   dart run tool/check_title_label.dart "| NL | Cobra 4K (1986)"
 //
 // ignore_for_file: avoid_print — command-line tool; stdout IS its UI.
-import 'package:aurora/core/matching/title_label.dart';
+import 'package:dawnplayer/core/matching/title_label.dart';
 
 /// (raw name, panel year, expected display title). The raw names are real ones
 /// read off the user's line.

@@ -9,6 +9,7 @@ import '../../../core/widgets/error_view.dart';
 import '../../../data/providers.dart';
 import '../../../data/sync/pairing_service.dart';
 import '../../../data/sync/sync_providers.dart';
+import '../../home/home_providers.dart';
 
 /// The receiving side of pairing — normally the TV.
 ///
@@ -108,17 +109,37 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
       await accounts.setActiveAccount(payload.accounts.first.id);
     }
     final sync = payload.sync;
+    var pulled = false;
     if (sync != null && (sync.token?.isNotEmpty ?? false)) {
       await ref.read(syncConfigStoreProvider).save(sync);
       ref.invalidate(syncConfigProvider);
+      ref.invalidate(syncServiceProvider);
+      // Pull watch history and favourites now. Pairing brings the account and
+      // the sync credentials, but Continue Watching and My List live on the
+      // sync backend, NOT in the pairing payload — without this they stay empty
+      // until the next launch, and the "watch history is on this device now"
+      // message below would simply be false. A backend that is unreachable, or
+      // a phone that has not pushed yet, just leaves them empty rather than
+      // failing the pairing.
+      try {
+        final result = await runSync(ref);
+        pulled = result?.ok ?? false;
+      } on Object {
+        // Non-fatal: the account and sync config are saved either way, and the
+        // next launch or a manual Sync now will pull the history.
+      }
     }
     ref.invalidate(accountsProvider);
     ref.invalidate(activeAccountProvider);
+    // The rails are resolved from what was just pulled.
+    ref.invalidate(homeDataProvider);
+    ref.invalidate(myListProvider);
     if (!mounted) return;
     setState(() {
       final n = payload.accounts.length;
       _done = 'Paired. ${n == 1 ? '1 playlist' : '$n playlists'} added'
-          '${sync?.token?.isNotEmpty ?? false ? ', sync switched on' : ''}.';
+          '${sync?.token?.isNotEmpty ?? false ? ', sync switched on' : ''}'
+          '${pulled ? '. Watch history and My List synced' : ''}.';
     });
   }
 
@@ -144,7 +165,8 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
           Text(_done!, textAlign: TextAlign.center, style: AppTypography.title),
           const SizedBox(height: 8),
           const Text(
-            'Your playlists and watch history are on this device now.',
+            'If Continue Watching or My List look empty, open Settings → Sync '
+            'on your phone and tap Sync now, then Sync now here.',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textSecondary),
           ),

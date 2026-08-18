@@ -10,6 +10,7 @@ import '../db/mappers.dart';
 import '../sources/canon_source.dart';
 import '../sources/playlist_source.dart' show SourceException;
 import '../sources/tmdb_source.dart';
+import '../sources/wikipedia_trending_source.dart';
 
 /// "Popular" rails that mean something.
 ///
@@ -31,12 +32,15 @@ class DiscoveryRepository {
     required this._db,
     required this._canon,
     required this._tmdbFactory,
+    WikipediaTrendingSource? wikipedia,
     DateTime Function()? clock,
     this.listTtl = const Duration(hours: 12),
-  }) : _clock = clock ?? (() => DateTime.now().toUtc());
+  })  : _wikipedia = wikipedia ?? WikipediaTrendingSource(),
+        _clock = clock ?? (() => DateTime.now().toUtc());
 
   final AppDatabase _db;
   final CanonSource _canon;
+  final WikipediaTrendingSource _wikipedia;
 
   /// Null when no TMDB key is configured — the bundled canon rails still work.
   final TmdbSource? Function() _tmdbFactory;
@@ -50,6 +54,19 @@ class DiscoveryRepository {
   /// Rails, in the order Home shows them. Bundled canon lists are last: they are
   /// evergreen, so they belong below what is current.
   static const lists = <DiscoveryList>[
+    // Wikipedia trending leads, and needs no key: it is the free replacement
+    // for TMDB's trending rail, and unlike it, everything here is something
+    // people are actually reading about today.
+    DiscoveryList(
+        id: 'wiki-trending-movie',
+        label: 'Trending Today',
+        kind: DiscoveryKind.movie,
+        needsApiKey: false),
+    DiscoveryList(
+        id: 'wiki-trending-series',
+        label: 'Series People Are Talking About',
+        kind: DiscoveryKind.series,
+        needsApiKey: false),
     DiscoveryList(
         id: 'tmdb-trending-movie',
         label: 'Trending This Week',
@@ -147,6 +164,10 @@ class DiscoveryRepository {
         return tmdb!.popularSeries();
       case 'tmdb-top-series':
         return tmdb!.topRatedSeries();
+      case 'wiki-trending-movie':
+        return _wikipedia.trending(series: false);
+      case 'wiki-trending-series':
+        return _wikipedia.trending(series: true);
       case 'canon-movie':
         return _canon.awardWinningMovies();
       case 'canon-series':

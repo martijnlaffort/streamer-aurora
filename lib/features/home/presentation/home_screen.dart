@@ -148,6 +148,10 @@ class _HomeContent extends ConsumerWidget {
           // Externally-ranked rails (Top 10, Trending, New Releases, Award
           // Winners). Separate provider — Home never waits on them.
           ..._discoverySlivers(context, ref),
+          // The seasonal rail, when there is one. Placed above the discovery
+          // rails on purpose: for the few weeks it appears it is the most
+          // topical thing on the screen, and it costs no network to produce.
+          ..._seasonalSlivers(context, ref),
           // The Top Rated rails are gone: they were the panel's own rating with
           // no vote count behind it, which is the exact signal the discovery
           // rails above replaced.
@@ -259,6 +263,36 @@ List<Widget> _myListSlivers(BuildContext context, WidgetRef ref) {
 /// Slivers for the discovery rails. Renders nothing at all while they load or
 /// if none resolved — an empty gap is better than a spinner for content that is
 /// a bonus on top of what Home already shows.
+/// The seasonal rail. Renders nothing outside its few weeks of the year, which
+/// is what keeps it feeling like an occasion rather than another category row.
+List<Widget> _seasonalSlivers(BuildContext context, WidgetRef ref) {
+  final season = ref.watch(seasonalRailProvider).value;
+  if (season == null || season.items.isEmpty) return const [];
+  return [
+    SliverToBoxAdapter(
+      child: MediaRail(
+        title: season.label,
+        itemCount: season.items.length,
+        itemBuilder: (context, i) {
+          final movie = season.items[i];
+          final tag = 'season-m-${movie.id}';
+          return PosterCard(
+            title: prettyTitle(movie.name, year: movie.year),
+            imageUrl: movie.posterUrl,
+            artwork: ArtworkQuery(
+                name: prettyTitle(movie.name, year: movie.year),
+                year: movie.year,
+                isSeries: false),
+            rating: movie.rating,
+            heroTag: tag,
+            onTap: () => context.push('/movie/${movie.id}', extra: tag),
+          );
+        },
+      ),
+    ),
+  ];
+}
+
 List<Widget> _discoverySlivers(BuildContext context, WidgetRef ref) {
   final rails = ref.watch(discoveryRailsProvider).value ?? const [];
   return [

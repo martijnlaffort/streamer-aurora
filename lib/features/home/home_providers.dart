@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/language/content_language.dart';
 import '../../core/matching/title_match.dart';
 import '../../core/rotation.dart';
+import '../../core/seasonal.dart';
 import '../../data/providers.dart';
 import '../../data/repositories/discovery_repository.dart';
 import '../../core/matching/title_label.dart';
@@ -105,6 +106,37 @@ final discoveryRailsProvider =
     ));
   }
   return rails;
+});
+
+/// The seasonal rail, or null for most of the year.
+///
+/// Costs one cache-only query and no network at all — the whole point of it is
+/// that it is discovery with no external dependency whatsoever. Rotated like
+/// the others so the same twenty horror films are not waiting every October
+/// evening.
+final seasonalRailProvider =
+    FutureProvider<({String label, List<Movie> items})?>((ref) async {
+  final season = seasonFor(DateTime.now());
+  if (season == null) return null;
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return null;
+
+  final allowed = await ref.watch(allowedCategoryIdsProvider(CategoryType.vod).future);
+  final pool = await ref.watch(catalogRepositoryProvider).moviesByKeywords(
+        account,
+        genreKeywords: season.genreKeywords,
+        titleKeywords: season.titleKeywords,
+        categoryIds: allowed,
+        limit: _railLength * 3,
+      );
+  if (pool.isEmpty) return null;
+
+  final seed = ref.watch(rotationSeedProvider);
+  final pages = (pool.length / _railLength).ceil().clamp(1, 3);
+  final page = rotatingPage(seed: seed, pages: pages, salt: season.id);
+  var items = pool.skip(page * _railLength).take(_railLength).toList();
+  if (items.isEmpty) items = pool.take(_railLength).toList();
+  return (label: season.label, items: items);
 });
 
 /// "My List" — favourites resolved to catalogue rows.

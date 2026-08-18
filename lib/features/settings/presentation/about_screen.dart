@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -21,7 +22,9 @@ class AboutScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           Text('Aurora', style: AppTypography.title),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
+          const _BuildIdentity(),
+          const SizedBox(height: 10),
           const Text(
             'A player for your own IPTV subscription. Aurora does not provide, '
             'host or resell any channels or media — it plays what your own '
@@ -50,6 +53,46 @@ class AboutScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Which build this actually is.
+///
+/// Exists because "is this the new version?" was, twice, impossible to answer
+/// from inside the app — once when cleaned-up titles appeared to be missing,
+/// and once when a Settings entry did. Both were stale installs, and both cost
+/// more time to diagnose than this line takes to read.
+///
+/// The version and build number come from the platform bundle, so they cannot
+/// drift from what was actually shipped. The commit is injected at build time
+/// (`--dart-define=AURORA_COMMIT`) and is the part that matters — it maps a
+/// device back to an exact source revision. It reads `local` for a build made
+/// without the flag, which is itself useful information.
+class _BuildIdentity extends StatelessWidget {
+  const _BuildIdentity();
+
+  static const _commit =
+      String.fromEnvironment('AURORA_COMMIT', defaultValue: 'local');
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        final info = snapshot.data;
+        final version = info == null
+            ? '…'
+            : '${info.version} (${info.buildNumber})';
+        return SelectableText(
+          '$version · $_commit',
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            fontFamily: 'monospace',
+          ),
+        );
+      },
     );
   }
 }

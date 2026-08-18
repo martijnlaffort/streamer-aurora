@@ -43,25 +43,51 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _NoAccount extends StatelessWidget {
+class _NoAccount extends ConsumerWidget {
   const _NoAccount();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tv = isTelevisionOf(ref);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('Aurora', style: AppTypography.display),
           const SizedBox(height: 8),
-          const Text('Add a playlist to light this screen up.',
-              style: TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: () => context.push('/accounts'),
-            icon: const Icon(Icons.add),
-            label: const Text('Add your first account'),
+          Text(
+            tv
+                ? 'Pair with your phone to bring your playlists across.'
+                : 'Add a playlist to light this screen up.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
+          const SizedBox(height: 16),
+          // On a television, pairing is THE way in — typing a server URL, a
+          // username and a password with a D-pad is the thing pairing exists to
+          // avoid. It was previously reachable only through Settings, i.e. only
+          // through the rail, which left a fresh TV with no way to reach it at
+          // all. It leads here, and takes the initial focus so the remote has
+          // somewhere to start.
+          if (tv) ...[
+            FilledButton.icon(
+              autofocus: true,
+              onPressed: () => context.push('/pair/receive'),
+              icon: const Icon(Icons.phonelink_ring),
+              label: const Text('Pair with your phone'),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => context.push('/accounts'),
+              icon: const Icon(Icons.add),
+              label: const Text('Or add a playlist manually'),
+            ),
+          ] else
+            FilledButton.icon(
+              onPressed: () => context.push('/accounts'),
+              icon: const Icon(Icons.add),
+              label: const Text('Add your first account'),
+            ),
         ],
       ),
     );
@@ -122,6 +148,10 @@ class _HomeContent extends ConsumerWidget {
           // Externally-ranked rails (Top 10, Trending, New Releases, Award
           // Winners). Separate provider — Home never waits on them.
           ..._discoverySlivers(context, ref),
+          // The seasonal rail, when there is one. Placed above the discovery
+          // rails on purpose: for the few weeks it appears it is the most
+          // topical thing on the screen, and it costs no network to produce.
+          ..._seasonalSlivers(context, ref),
           // The Top Rated rails are gone: they were the panel's own rating with
           // no vote count behind it, which is the exact signal the discovery
           // rails above replaced.
@@ -233,6 +263,36 @@ List<Widget> _myListSlivers(BuildContext context, WidgetRef ref) {
 /// Slivers for the discovery rails. Renders nothing at all while they load or
 /// if none resolved — an empty gap is better than a spinner for content that is
 /// a bonus on top of what Home already shows.
+/// The seasonal rail. Renders nothing outside its few weeks of the year, which
+/// is what keeps it feeling like an occasion rather than another category row.
+List<Widget> _seasonalSlivers(BuildContext context, WidgetRef ref) {
+  final season = ref.watch(seasonalRailProvider).value;
+  if (season == null || season.items.isEmpty) return const [];
+  return [
+    SliverToBoxAdapter(
+      child: MediaRail(
+        title: season.label,
+        itemCount: season.items.length,
+        itemBuilder: (context, i) {
+          final movie = season.items[i];
+          final tag = 'season-m-${movie.id}';
+          return PosterCard(
+            title: prettyTitle(movie.name, year: movie.year),
+            imageUrl: movie.posterUrl,
+            artwork: ArtworkQuery(
+                name: prettyTitle(movie.name, year: movie.year),
+                year: movie.year,
+                isSeries: false),
+            rating: movie.rating,
+            heroTag: tag,
+            onTap: () => context.push('/movie/${movie.id}', extra: tag),
+          );
+        },
+      ),
+    ),
+  ];
+}
+
 List<Widget> _discoverySlivers(BuildContext context, WidgetRef ref) {
   final rails = ref.watch(discoveryRailsProvider).value ?? const [];
   return [
@@ -430,22 +490,66 @@ class _ContinueCard extends ConsumerWidget {
   final ContinueEntry entry;
 
   /// Play straight from the card, at the point you stopped.
+  ///
+  /// For an episode this queues the WHOLE series from that point, not just the
+  /// one episode. Resuming used to open the detail page, which built the full
+  /// queue on the way through; playing directly skipped that and handed the
+  /// player a queue of one, which silently disabled both the Next Episode
+  /// button and autoplay-next — they only exist when there is a next item.
   Future<void> _resume(BuildContext context, WidgetRef ref) async {
-    await context.push(
-      '/player',
-      extra: PlayerRequest(
-        queue: [
-          PlayerItem(
-            streamRef: entry.streamRef,
-            title: entry.title,
-            subtitle: entry.subtitle,
-            contentKey: entry.progress.contentKey,
-          ),
-        ],
-        resumeFromSeconds: entry.resumeFromSeconds,
-      ),
-    );
+    final request = await _buildRequest(ref);
+    if (!context.mounted) return;
+    await context.push('/player', extra: request);
     ref.invalidate(homeDataProvider);
+  }
+
+  Future<PlayerRequest> _buildRequest(WidgetRef ref) async {
+    final single = PlayerRequest(
+      queue: [
+        PlayerItem(
+          streamRef: entry.streamRef,
+          title: entry.title,
+          subtitle: entry.subtitle,
+          contentKey: entry.progress.contentKey,
+        ),
+      ],
+      resumeFromSeconds: entry.resumeFromSeconds,
+    );
+    if (entry.streamRef.type != StreamType.episode) return single;
+
+    final account = await ref.read(activeAccountProvider.future);
+    if (account == null) return single;
+    final catalog = ref.read(catalogRepositoryProvider);
+    final episode =
+        await catalog.episodeById(account, entry.streamRef.streamId);
+    if (episode == null) return single;
+    final episodes = await catalog.episodesOfSeries(account, episode.seriesId);
+    final startIndex = episodes.indexWhere((e) => e.id == episode.id);
+    // Cache-only: if the series' episodes aren't cached we cannot build a
+    // queue, and playing the one episode beats refusing to play at all.
+    if (startIndex == -1) return single;
+
+    return PlayerRequest(
+      queue: [
+        for (final e in episodes)
+          PlayerItem(
+            streamRef: StreamRef(
+              accountId: account.id,
+              type: StreamType.episode,
+              streamId: e.id,
+              containerExt: e.containerExt,
+            ),
+            title: entry.title,
+            subtitle: 'S${e.seasonNumber} · E${e.episodeNumber} — ${e.title}',
+            contentKey: contentKeyFor(
+                accountId: account.id,
+                type: StreamType.episode,
+                id: e.id),
+          ),
+      ],
+      startIndex: startIndex,
+      resumeFromSeconds: entry.resumeFromSeconds,
+    );
   }
 
   /// Long-press: the escape hatch. Without a way to remove, something you

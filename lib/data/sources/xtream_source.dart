@@ -183,6 +183,11 @@ class XtreamSource implements PlaylistSource {
           posterUrl: optString(map['stream_icon']),
           rating: optDouble(map['rating']),
           year: optYear(map['year'] ?? map['releasedate']),
+          // Not every panel puts genre in the list response — most only give
+          // it via get_vod_info — but reading it here costs nothing and is the
+          // difference between the seasonal rails having something to work
+          // with on a fresh catalogue and having nothing at all.
+          genre: optString(map['genre']),
           containerExt: optString(map['container_extension']),
           addedAt: optUtcFromEpochSeconds(map['added']),
           cachedAt: now,

@@ -1182,7 +1182,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
-  /// Netflix/HBO-style: a "Next Episode" button appears in the last ~45s of an
+  /// How close to the end the "Next Episode" button appears.
+  static const _nextEpisodeWindow = Duration(seconds: 20);
+
+  /// Netflix/HBO-style: a "Next Episode" button appears near the end of an
   /// episode (once past halfway, so short clips don't trigger it early) so you
   /// can skip the outro. Distinct from the on-completion autoplay countdown.
   bool _shouldShowNextEpisode() {
@@ -1192,7 +1195,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (_duration <= Duration.zero) return false;
     final remaining = _duration - _position;
     return remaining > Duration.zero &&
-        remaining.inSeconds <= 45 &&
+        remaining <= _nextEpisodeWindow &&
         _position > _duration * 0.5;
   }
 

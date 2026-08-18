@@ -810,6 +810,62 @@ class CatalogRepository {
     return rows.map((r) => r.toModel()).toList();
   }
 
+  /// Movies whose genre or title matches any of the given keywords.
+  ///
+  /// Backs the seasonal rails. Cache-only and deliberately unfussy: panel genre
+  /// strings are inconsistent ("Horror", "horror/thriller", sometimes empty),
+  /// so this matches loosely across both fields and lets the caller rank what
+  /// comes back. Ordered by rating so a keyword that catches a lot of rubbish
+  /// still surfaces the better end of it.
+  Future<List<Movie>> moviesByKeywords(
+    Account account, {
+    List<String> genreKeywords = const [],
+    List<String> titleKeywords = const [],
+    Set<String>? categoryIds,
+    int limit = 60,
+  }) async {
+    if (genreKeywords.isEmpty && titleKeywords.isEmpty) return const [];
+    if (categoryIds != null && categoryIds.isEmpty) return const [];
+
+    // Category names are the third place the signal hides, and on many lines
+    // the only one: `genre` is frequently absent from the panel's list response
+    // entirely, so a catalogue that has never had its detail pages opened has
+    // no genre at all. A "Horror" or "Kerst" category is just as good a match.
+    final seasonCategories = <String>{};
+    for (final keyword in [...genreKeywords, ...titleKeywords]) {
+      final rows = await (_db.categoriesTable.select()
+            ..where((t) =>
+                t.accountId.equals(account.id) &
+                t.type.equalsValue(CategoryType.vod) &
+                t.name.like(_likeTerm(keyword))))
+          .get();
+      seasonCategories.addAll(rows.map((r) => r.id));
+    }
+
+    final query = _db.moviesTable.select()
+      ..where((t) => t.accountId.equals(account.id))
+      ..orderBy([(t) => OrderingTerm.desc(t.rating)])
+      ..limit(limit);
+    if (categoryIds != null) {
+      query.where((t) => t.categoryId.isIn(categoryIds));
+    }
+    query.where((t) {
+      Expression<bool>? any;
+      void or(Expression<bool> e) => any = any == null ? e : any! | e;
+      for (final k in genreKeywords) {
+        or(t.genre.like(_likeTerm(k)));
+      }
+      for (final k in titleKeywords) {
+        or(t.name.like(_likeTerm(k)));
+      }
+      if (seasonCategories.isNotEmpty) {
+        or(t.categoryId.isIn(seasonCategories));
+      }
+      return any!;
+    });
+    return (await query.get()).map((r) => r.toModel()).toList();
+  }
+
   /// Applies the same channel scoping as [channels] to an arbitrary query.
   void _scopeChannels(
     SimpleSelectStatement<$ChannelsTableTable, ChannelRow> query,

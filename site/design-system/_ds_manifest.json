@@ -3,8 +3,7 @@
   "components": [],
   "startingPoints": [],
   "cards": [
-    { "path": "brand/brand.html", "group": "Brand", "viewport": "920x640", "subtitle": "Crossing aurora ribbons, violet→teal", "name": "Mark, wordmark & lockup" },
-    { "path": "brand/dawn.html", "group": "Brand", "viewport": "1180x1520", "subtitle": "Sunrise-plus-play mark, wordmark, dawn gradient, applied", "name": "Dawn — identity proposal" },
+    { "path": "brand/dawn.html", "group": "Brand", "viewport": "1180x1520", "subtitle": "Sunrise-plus-play mark, wordmark, dawn gradient, applied", "name": "Dawn Player — brand" },
     { "path": "foundations/color.html", "group": "Foundations", "viewport": "960x720", "subtitle": "Canvas, surfaces, accents, text — lifted from the app", "name": "Colour" },
     { "path": "foundations/type.html", "group": "Foundations", "viewport": "960x760", "subtitle": "Outfit display + Inter UI, six roles", "name": "Typography" },
     { "path": "foundations/space.html", "group": "Foundations", "viewport": "960x680", "subtitle": "4pt scale, 10px card radius, glow instead of shadow", "name": "Space, radius & elevation" },

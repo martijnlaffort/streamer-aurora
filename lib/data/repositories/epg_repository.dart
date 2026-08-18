@@ -88,7 +88,7 @@ class EpgRepository {
   Future<void> _ingest(Account account, String url) async {
     Directory? tmpDir;
     try {
-      tmpDir = await Directory.systemTemp.createTemp('aurora_epg');
+      tmpDir = await Directory.systemTemp.createTemp('dawnplayer_epg');
       final file = File('${tmpDir.path}/guide.xml');
       await _dio.download(url, file.path);
 

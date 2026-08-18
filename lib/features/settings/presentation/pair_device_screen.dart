@@ -25,7 +25,7 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
   /// Baked in at build time so a television never has to type a URL. Empty in
   /// a plain build, in which case we ask for it once.
   static const _bakedBaseUrl =
-      String.fromEnvironment('AURORA_SYNC_URL', defaultValue: '');
+      String.fromEnvironment('DAWN_SYNC_URL', defaultValue: '');
 
   final _baseUrl = TextEditingController();
   PairingSession? _session;
@@ -184,7 +184,7 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('On your phone, open Aurora and go to',
+        const Text('On your phone, open Dawn Player and go to',
             style: TextStyle(color: AppColors.textSecondary)),
         const SizedBox(height: 4),
         Text('Settings → Set up a TV', style: AppTypography.title),

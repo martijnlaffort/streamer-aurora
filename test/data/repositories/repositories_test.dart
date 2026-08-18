@@ -1,12 +1,12 @@
-import 'package:aurora/data/db/app_database.dart';
-import 'package:aurora/data/db/mappers.dart';
-import 'package:aurora/data/repositories/account_repository.dart';
-import 'package:aurora/data/repositories/catalog_repository.dart';
-import 'package:aurora/data/repositories/favorites_repository.dart';
-import 'package:aurora/data/repositories/preferences_repository.dart';
-import 'package:aurora/data/repositories/watch_progress_repository.dart';
-import 'package:aurora/data/sources/playlist_source.dart';
-import 'package:aurora/domain/models/models.dart';
+import 'package:dawnplayer/data/db/app_database.dart';
+import 'package:dawnplayer/data/db/mappers.dart';
+import 'package:dawnplayer/data/repositories/account_repository.dart';
+import 'package:dawnplayer/data/repositories/catalog_repository.dart';
+import 'package:dawnplayer/data/repositories/favorites_repository.dart';
+import 'package:dawnplayer/data/repositories/preferences_repository.dart';
+import 'package:dawnplayer/data/repositories/watch_progress_repository.dart';
+import 'package:dawnplayer/data/sources/playlist_source.dart';
+import 'package:dawnplayer/domain/models/models.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
 

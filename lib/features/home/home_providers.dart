@@ -141,7 +141,7 @@ final seasonalRailProvider =
 
 /// "My List" — favourites resolved to catalogue rows.
 ///
-/// Netflix and HBO both give this a top-level row; Aurora already had the data
+/// Netflix and HBO both give this a top-level row; Dawn Player already had the data
 /// but only exposed it behind Settings, so it was effectively invisible.
 ///
 /// Live channels are deliberately left out: a 2:3 poster rail of channel logos

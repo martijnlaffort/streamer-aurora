@@ -13,7 +13,7 @@ abstract final class AppColors {
   /// Hovered/raised surfaces (dialogs, focused cards).
   static const Color surfaceElevated = Color(0xFF1A1E27);
 
-  /// Primary accent — "aurora" violet (placeholder).
+  /// Primary accent — the violet of first light (see the Dawn brand card).
   static const Color accent = Color(0xFF7C5CFF);
 
   /// Secondary accent — teal glow (placeholder).

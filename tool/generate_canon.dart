@@ -77,7 +77,7 @@ const _endpoint = 'https://query.wikidata.org/sparql';
 /// Wikidata blocks generic agents outright, and asks that tools identify
 /// themselves with a contact.
 const _userAgent =
-    'AuroraCanonGenerator/1.0 (https://github.com/martijnlaffort/streamer-aurora)';
+    'DawnPlayerCanonGenerator/1.0 (https://github.com/martijnlaffort/streamer-aurora)';
 
 /// Finds the award by exact English label, falling back to a substring match.
 ///

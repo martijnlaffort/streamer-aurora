@@ -88,7 +88,7 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
         children: [
           const Text(
             'Sync watch progress, favorites, and preferences across your '
-            'devices via your own server. Optional — Aurora works fully '
+            'devices via your own server. Optional — Dawn Player works fully '
             'without it.',
             style: TextStyle(color: AppColors.textSecondary),
           ),
@@ -110,6 +110,9 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
             obscureText: true,
             decoration: const InputDecoration(
               labelText: 'Token',
+              // Still `aurora:token`: that is the command name registered by the
+              // deployed backend. Renaming it here would print an instruction
+              // that fails on the server until the backend is redeployed.
               helperText: 'From `php artisan aurora:token` on the server',
               border: OutlineInputBorder(),
             ),

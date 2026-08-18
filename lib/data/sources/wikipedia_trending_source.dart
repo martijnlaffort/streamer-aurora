@@ -30,7 +30,7 @@ class WikipediaTrendingSource {
               // Wikimedia asks that clients identify themselves, and blocks
               // generic agents.
               headers: {
-                'User-Agent': 'Aurora/1.0 '
+                'User-Agent': 'DawnPlayer/1.0 '
                     '(https://github.com/martijnlaffort/streamer-aurora)',
                 'Accept': 'application/json',
               },

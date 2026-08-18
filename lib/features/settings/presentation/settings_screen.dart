@@ -455,7 +455,7 @@ class SettingsScreen extends ConsumerWidget {
           ],
           const AboutListTile(
             icon: Icon(Icons.info_outline),
-            applicationName: 'Aurora',
+            applicationName: 'Dawn Player',
             applicationVersion: '0.1.0',
             child: Text('About'),
           ),

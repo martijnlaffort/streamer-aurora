@@ -1,6 +1,6 @@
-# Aurora — website design system
+# Dawn Player — website design system
 
-The design for aurora's public page, built before the site itself. Every file here is a
+The design for Dawn Player's public page, built before the site itself. Every file here is a
 standalone HTML preview: open one in a browser and it renders on its own, no build step and no
 shared stylesheet to resolve. They are also the cards published to the Claude Design project
 "Aurora — Website", which is where this is meant to be reviewed.
@@ -14,7 +14,7 @@ inventing a second identity:
 |---|---|---|
 | canvas | `#0B0D12` | `AppColors.background` |
 | surface / elevated | `#12151C` / `#1A1E27` | `AppColors.surface`, `surfaceElevated` |
-| accent | `#7C5CFF` | `AppColors.accent` — the aurora violet |
+| accent | `#7C5CFF` | `AppColors.accent` — the violet of first light |
 | accent alt | `#4FD1C5` | `AppColors.accentAlt` — the teal glow |
 | text / secondary | `#F2F4F8` / `#9AA3B2` | `AppColors.textPrimary`, `textSecondary` |
 | focus ring | `#FFFFFF` 2px | `AppColors.focusRing` |
@@ -35,7 +35,8 @@ Three decisions worth knowing before editing anything:
 
 ```
 tokens.css                  the values above, as CSS custom properties (the site will import this)
-brand/brand.html            mark, wordmark, lockups, and the ribbon motif's two jobs
+brand/dawn.html             THE MARK — sunrise + play, wordmark, dawn gradient, applied
+brand/dawn-icon.html        1024×1024 app icon generator (render + screenshot)
 foundations/color.html      swatches with usage + measured contrast
 foundations/type.html       six type roles, Outfit + Inter
 foundations/space.html      4pt space scale, radius scale, the three elevations
@@ -93,7 +94,7 @@ Plain, specific, faintly dry. Say what it does and why it was necessary. Claims 
 "saved every few seconds and on every exit", not "never lose your place". The honesty panel is
 part of the design, not a disclaimer bolted on: no store listing, no content, no support desk.
 
-Never: "revolutionary", "seamless", "powerful", exclamation marks, or any suggestion that Aurora
+Never: "revolutionary", "seamless", "powerful", exclamation marks, or any suggestion that Dawn Player
 supplies channels.
 
 ## Fonts

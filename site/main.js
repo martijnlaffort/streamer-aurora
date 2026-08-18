@@ -1,5 +1,5 @@
 /* ===========================================================================
-   Aurora — site behaviour
+   Dawn Player — site behaviour
    ---------------------------------------------------------------------------
    A plain-JS port of the logic in the Claude Design file "Aurora Website.dc.html".
    The design ran it as a React component (DCLogic) with three editable props;
@@ -15,7 +15,7 @@
 
   var CONFIG = {
     accentColor: null,   // e.g. '#4FD1C5' to retint the site; null keeps the token
-    ambientMotion: true, // drifting aurora ribbons, ticking player
+    ambientMotion: true, // drifting sky ribbons, ticking player
     revealOnScroll: true
   };
 

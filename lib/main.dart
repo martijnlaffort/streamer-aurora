@@ -14,5 +14,5 @@ void main() {
   // Proves the native libmpv libs link on every platform at startup — the only
   // media_kit assertion the scaffold makes. The player itself lands in Task 1.4.
   MediaKit.ensureInitialized();
-  runApp(const ProviderScope(child: AuroraApp()));
+  runApp(const ProviderScope(child: DawnPlayerApp()));
 }

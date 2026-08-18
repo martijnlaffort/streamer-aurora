@@ -9,7 +9,7 @@
 // With no arguments it runs the built-in cases below: each line is a panel-style
 // name paired with the clean title it must match. Anything marked MISS means the
 // rail would silently skip that title, which is the failure mode to watch for.
-import 'package:aurora/core/matching/title_match.dart';
+import 'package:dawnplayer/core/matching/title_match.dart';
 
 /// (messy panel name, panel year or null, clean external title, external year)
 const _cases = <(String, int?, String, int?)>[

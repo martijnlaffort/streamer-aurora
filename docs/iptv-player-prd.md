@@ -1,4 +1,4 @@
-# PRD — "Aurora" IPTV Player (working title, rename freely)
+# PRD — Dawn Player, an IPTV player
 
 A modern, HBO Max–style IPTV player for Xtream Codes and M3U sources. Simpler than
 Smarters Player Lite, but with a premium UI and the three things Smarters gets wrong:
@@ -295,7 +295,7 @@ Leanback/D-pad UI layer, TV-optimized player controls, Chromecast (optional).
 
 ## 13. Open questions
 
-1. Working title / app name (placeholder "Aurora").
+1. ~~Working title / app name~~ — settled 2026-08-18: **Dawn Player**. The bundle id stays `com.example.aurora` so installed copies update in place instead of starting with an empty database.
 2. Preferred DB: drift vs isar (both fine; drift = SQL-native, isar = object store).
 3. Riverpod vs Bloc (Riverpod assumed).
 4. Is Chromecast wanted, or is Android TV enough for the big-screen case?

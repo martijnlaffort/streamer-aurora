@@ -1,5 +1,5 @@
-import 'package:aurora/data/sources/playlist_source.dart';
-import 'package:aurora/domain/models/models.dart';
+import 'package:dawnplayer/data/sources/playlist_source.dart';
+import 'package:dawnplayer/domain/models/models.dart';
 
 /// Canned-data source for repository tests. Set [offline] to simulate an
 /// unreachable panel; every call is counted in [calls].

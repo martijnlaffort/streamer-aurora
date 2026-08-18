@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
-   Aurora — website design tokens
+   Dawn Player — website design tokens
    ---------------------------------------------------------------------------
    These mirror the app's own tokens so the site looks like the product it
    describes. Source of truth for the app side:
@@ -21,7 +21,7 @@
   --line-strong: rgba(255, 255, 255, .14);
 
   /* Accents -------------------------------------------------------------- */
-  --violet: #7C5CFF;          /* AppColors.accent — the aurora violet         */
+  --violet: #7C5CFF;          /* AppColors.accent — the violet of first light         */
   --teal: #4FD1C5;            /* AppColors.accentAlt — the teal glow          */
   --violet-soft: rgba(124, 92, 255, .16);
   --teal-soft: rgba(79, 209, 197, .14);

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Dawn Player">
+  <!-- Favicon variant of the Dawn mark. Slightly larger disc and a fatter play
+       triangle than the full mark: at 16px the details of the primary lockup
+       close up, so this one trades finesse for legibility. -->
+  <defs>
+    <linearGradient id="g" x1="32" y1="26" x2="32" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B6BFF"/>
+      <stop offset=".48" stop-color="#FF7A9C"/>
+      <stop offset="1" stop-color="#FFC46B"/>
+    </linearGradient>
+    <clipPath id="c"><rect x="0" y="0" width="64" height="43"/></clipPath>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="#151A24"/>
+  <g clip-path="url(#c)"><circle cx="32" cy="48" r="22" fill="url(#g)"/></g>
+  <path d="M26.4 29.4 40 36.2 26.4 43z" fill="#151A24"/>
+  <path d="M9 43h46" stroke="#FFC46B" stroke-width="2.2" stroke-linecap="round" opacity=".8"/>
+</svg>

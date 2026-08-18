@@ -115,7 +115,7 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
             const SizedBox(height: 20),
           ],
           const Text(
-            'On your TV, open Aurora and go to Settings → Pair with your '
+            'On your TV, open Dawn Player and go to Settings → Pair with your '
             'phone. Enter the code it shows here.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.4),
           ),

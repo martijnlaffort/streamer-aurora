@@ -1,4 +1,4 @@
-import 'package:aurora/data/sources/xmltv.dart';
+import 'package:dawnplayer/data/sources/xmltv.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

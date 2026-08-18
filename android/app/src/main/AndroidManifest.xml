@@ -14,7 +14,7 @@
         android:required="false"/>
 
     <application
-        android:label="Aurora"
+        android:label="Dawn Player"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/tv_banner"
@@ -39,7 +39,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
-                <!-- Makes Aurora appear on the Android TV / Google TV home. -->
+                <!-- Makes Dawn Player appear on the Android TV / Google TV home. -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
         </activity>

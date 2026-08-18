@@ -6,8 +6,8 @@
 //   dart run tool/check_account_identity.dart
 //
 // ignore_for_file: avoid_print — command-line tool; stdout IS its UI.
-import 'package:aurora/domain/models/account_identity.dart';
-import 'package:aurora/domain/models/enums.dart';
+import 'package:dawnplayer/domain/models/account_identity.dart';
+import 'package:dawnplayer/domain/models/enums.dart';
 
 String id(String server, String user, [AccountType type = AccountType.xtream]) =>
     stableAccountId(type: type, serverUrl: server, username: user);

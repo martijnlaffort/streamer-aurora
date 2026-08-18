@@ -1,4 +1,4 @@
-# Aurora
+# Dawn Player
 
 A modern, HBO-Max-style IPTV player for Xtream Codes and M3U sources, built with Flutter
 and `media_kit` (libmpv). Simpler than Smarters Player Lite, with the three things it gets
@@ -37,7 +37,7 @@ Toolchain lives on D:. Flutter is pinned to **3.44.8** (match CI when bumping):
 ```sh
 flutter pub get
 flutter run -d windows            # fast dev loop
-flutter emulators --launch aurora_api36
+flutter emulators --launch aurora_api36   # AVD name predates the rename
 flutter run -d emulator-5554      # Android
 flutter analyze                   # must stay clean (global rule)
 ```

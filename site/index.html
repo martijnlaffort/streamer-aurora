@@ -6,13 +6,13 @@
 <!-- Unlisted on purpose: reachable by anyone with the link, absent from search.
      This meta tag is what actually enforces it (see site/robots.txt). -->
 <meta name="robots" content="noindex, nofollow">
-<title>Aurora — IPTV that behaves like a streaming service</title>
-<meta name="description" content="Aurora points at the Xtream Codes or M3U line you already pay for and makes it worth opening: playback that holds, resume that works, and languages it learns. A personal project — it ships no content.">
+<title>Dawn Player — IPTV that behaves like a streaming service</title>
+<meta name="description" content="Dawn Player points at the Xtream Codes or M3U line you already pay for and makes it worth opening: playback that holds, resume that works, and languages it learns. A personal project — it ships no content.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Aurora — IPTV that behaves like a streaming service">
+<meta property="og:title" content="Dawn Player — IPTV that behaves like a streaming service">
 <meta property="og:description" content="Playback that holds, resume that works, languages it learns. Phone, desktop and television, one codebase. Ships no content.">
 <meta name="theme-color" content="#171C25">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23151A24'/%3E%3Cg fill='none' stroke='%237C5CFF' stroke-linecap='round'%3E%3Cpath d='M20 6C34 20 18 32 30 46c5 6 4 9 2 12' stroke-width='12'/%3E%3Cpath d='M44 6C30 20 46 32 34 46c-5 6-4 9-2 12' stroke-width='7' stroke='%234FD1C5' opacity='.8'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="tokens.css">
@@ -26,17 +26,26 @@
 <header class="nav" data-nav>
   <div class="wrap nav__in">
     <a class="lockup" href="#top">
-      <svg width="28" height="28" viewBox="0 0 64 64" aria-label="Aurora">
-        <defs><linearGradient id="rib" x1="32" y1="2" x2="32" y2="60" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#8C6BFF"/><stop offset=".55" stop-color="#6E7BFF"/><stop offset="1" stop-color="#4FD1C5"/>
-        </linearGradient></defs>
+      <!-- Dawn mark: a disc risen through the horizon, play triangle knocked out
+           of it in the tile colour. Three elements only — it has to read at 16px. -->
+      <svg width="28" height="28" viewBox="0 0 64 64" aria-label="Dawn Player">
+        <defs>
+          <linearGradient id="dn" x1="32" y1="28" x2="32" y2="43" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#8B6BFF"/><stop offset=".48" stop-color="#FF7A9C"/><stop offset="1" stop-color="#FFC46B"/>
+          </linearGradient>
+          <linearGradient id="dnh" x1="11" y1="0" x2="53" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#FFC46B" stop-opacity="0"/><stop offset=".5" stop-color="#FFC46B" stop-opacity=".9"/><stop offset="1" stop-color="#FFC46B" stop-opacity="0"/>
+          </linearGradient>
+          <clipPath id="dnc"><rect x="0" y="0" width="64" height="42"/></clipPath>
+        </defs>
         <rect width="64" height="64" rx="15" fill="#151A24"/>
-        <g fill="none" stroke="url(#rib)" stroke-linecap="round">
-          <path d="M20 6C34 20 18 32 30 46c5 6 4 9 2 12" stroke-width="12" opacity=".92"/>
-          <path d="M44 6C30 20 46 32 34 46c-5 6-4 9-2 12" stroke-width="7" opacity=".72"/>
+        <g transform="translate(32 36) scale(1.18) translate(-32 -36)">
+          <g clip-path="url(#dnc)"><circle cx="32" cy="47" r="19" fill="url(#dn)"/></g>
+          <path d="M27.5 30.8 38.5 36.2 27.5 41.6z" fill="#151A24"/>
+          <path d="M11 42h42" stroke="url(#dnh)" stroke-width="1.9" stroke-linecap="round"/>
         </g>
       </svg>
-      <span>Aurora</span>
+      <span>Dawn Player</span>
     </a>
     <nav class="navlinks" data-navlinks>
       <a href="#fixes">What it fixes</a>
@@ -61,7 +70,7 @@
     <div>
       <p class="badge"><i data-ambient></i>A personal project</p>
       <h1 class="h1">IPTV that behaves like a <em>streaming service</em>.</h1>
-      <p class="lead lead--hero">Aurora points at the Xtream Codes or M3U line you already pay for and makes it
+      <p class="lead lead--hero">Dawn Player points at the Xtream Codes or M3U line you already pay for and makes it
         worth opening. <b class="strong">It remembers where you stopped, which languages you watch in, and what
         you meant to watch next</b> — the three things every other player on that list gets wrong.</p>
       <div class="btn-row">
@@ -158,7 +167,7 @@
     <div class="head head--wide" data-reveal>
       <p class="eyebrow">Why it exists</p>
       <h2 class="h2">Three things every other player got wrong</h2>
-      <p class="lead">Aurora is not trying to have more features than the app it replaced. It is trying to have
+      <p class="lead">Dawn Player is not trying to have more features than the app it replaced. It is trying to have
         <b class="strong">fewer, working</b>. These three were the whole brief.</p>
     </div>
     <div class="grid3">
@@ -169,11 +178,11 @@
             dies instead of saying why. When the panel drops the connection, that's the end of the evening.</p>
         </div>
         <div class="fixcard__now">
-          <p class="tag tag--now"><span class="tag__mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>In Aurora</p>
+          <p class="tag tag--now"><span class="tag__mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>In Dawn Player</p>
           <h3 class="h3">Playback that holds</h3>
           <p class="copy">libmpv does the decoding, so <b class="strong">MPEG-TS, HLS, HEVC and MKV all just
             open</b>. When a stream does fail you get a plain error and a retry, and the player reconnects on its own.</p>
-          <p class="foot-note">Chosen for this, not for convenience — it is why Aurora isn't built on the platform players.</p>
+          <p class="foot-note">Chosen for this, not for convenience — it is why Dawn Player isn't built on the platform players.</p>
         </div>
       </div>
       <div class="fixcard" data-reveal>
@@ -183,7 +192,7 @@
             episode and the whole series disappears from the row instead of moving on.</p>
         </div>
         <div class="fixcard__now">
-          <p class="tag tag--now"><span class="tag__mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>In Aurora</p>
+          <p class="tag tag--now"><span class="tag__mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>In Dawn Player</p>
           <h3 class="h3">It remembers where you stopped</h3>
           <p class="copy">Your position is saved every few seconds and on every exit, so reopening puts you back
             <b class="strong">within seconds of where you were</b> — across restarts. Finish an episode and
@@ -198,10 +207,10 @@
             Dutch subtitles, pick both again. Twenty-two minutes of television, four taps of admin.</p>
         </div>
         <div class="fixcard__now">
-          <p class="tag tag--now"><span class="tag__mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>In Aurora</p>
+          <p class="tag tag--now"><span class="tag__mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>In Dawn Player</p>
           <h3 class="h3">Languages that learn</h3>
           <p class="copy">Set audio and subtitles once and <b class="strong">every stream that has them picks them
-            before the first frame</b>. Change one by hand and Aurora takes that as the new preference.</p>
+            before the first frame</b>. Change one by hand and Dawn Player takes that as the new preference.</p>
           <p class="foot-note">Possible because libmpv reports each track's language tag — most players never see them.</p>
         </div>
       </div>
@@ -505,12 +514,12 @@
 
       <!-- windows -->
       <div class="win" id="screen-desktop" data-screen="desktop" role="tabpanel" hidden>
-        <div class="win__bar"><i></i><i></i><i></i><span>Aurora — Home</span></div>
+        <div class="win__bar"><i></i><i></i><i></i><span>Dawn Player — Home</span></div>
         <div class="win__screen">
           <div class="art-hero-2" style="position:relative;flex:none;height:58%">
             <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(23,28,37,.25) 0%,rgba(23,28,37,0) 30%,rgba(23,28,37,.88) 78%,var(--bg) 100%)"></div>
             <div style="position:absolute;top:4%;left:3%;right:3%;display:flex;align-items:center;gap:2.4%">
-              <span style="font-family:var(--display);font-size:2.4cqw;font-weight:700;letter-spacing:-.03em">Aurora</span>
+              <span style="font-family:var(--display);font-size:2.4cqw;font-weight:700;letter-spacing:-.03em">Dawn Player</span>
               <span style="font-size:1.6cqw;color:var(--text);border-bottom:2px solid var(--violet);padding-bottom:.4%">Home</span>
               <span style="font-size:1.6cqw;color:var(--muted)">Films</span>
               <span style="font-size:1.6cqw;color:var(--muted)">Series</span>
@@ -587,7 +596,7 @@
     <div class="head" data-reveal style="margin-bottom:clamp(34px,4vw,52px)">
       <p class="eyebrow">How it works</p>
       <h2 class="h2">Three steps, and none of them is a signup</h2>
-      <p class="lead">Aurora has no account, no store page and nothing to buy. It needs one thing from you: the
+      <p class="lead">Dawn Player has no account, no store page and nothing to buy. It needs one thing from you: the
         line you already have.</p>
     </div>
     <div class="steps">
@@ -596,7 +605,7 @@
         <p class="step__num"><span>01</span></p>
         <h3>Point it at your line</h3>
         <p>An Xtream Codes server URL with your username and password, or an M3U playlist plus an optional XMLTV
-          guide URL. Aurora checks the credentials before it saves them, and the password goes to the device
+          guide URL. Dawn Player checks the credentials before it saves them, and the password goes to the device
           keychain — never into its database.</p>
       </div>
       <div class="step" data-reveal>
@@ -639,7 +648,7 @@
       <div class="plainly" data-reveal>
         <h3><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.6v5M12 15.9h.01"/></svg>Worth saying plainly</h3>
         <ul>
-          <li><i></i><b>Aurora is a player, not a service.</b> It ships no channels and no content. You point it at a line you already have.</li>
+          <li><i></i><b>A player, not a service.</b> It ships no channels and no content. You point it at a line you already have.</li>
           <li><i></i><b>You won't find it in a store.</b> Players that connect to IPTV panels get rejected, so it is built for sideloading — which is also why it isn't for sale.</li>
           <li><i></i><b>It's a personal project.</b> Built for one household, with no roadmap promises and no support desk.</li>
         </ul>
@@ -656,17 +665,24 @@
       <div>
         <div class="footmark">
           <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
-            <!-- Its own gradient: a mark must not depend on the nav being in the document. -->
-            <defs><linearGradient id="ribf" x1="32" y1="2" x2="32" y2="60" gradientUnits="userSpaceOnUse">
-              <stop offset="0" stop-color="#8C6BFF"/><stop offset=".55" stop-color="#6E7BFF"/><stop offset="1" stop-color="#4FD1C5"/>
-            </linearGradient></defs>
+            <!-- Its own gradient ids: a mark must not depend on the nav being in the document. -->
+            <defs>
+              <linearGradient id="dnf" x1="32" y1="28" x2="32" y2="43" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#8B6BFF"/><stop offset=".48" stop-color="#FF7A9C"/><stop offset="1" stop-color="#FFC46B"/>
+              </linearGradient>
+              <linearGradient id="dnfh" x1="11" y1="0" x2="53" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#FFC46B" stop-opacity="0"/><stop offset=".5" stop-color="#FFC46B" stop-opacity=".9"/><stop offset="1" stop-color="#FFC46B" stop-opacity="0"/>
+              </linearGradient>
+              <clipPath id="dnfc"><rect x="0" y="0" width="64" height="42"/></clipPath>
+            </defs>
             <rect width="64" height="64" rx="15" fill="#151A24"/>
-            <g fill="none" stroke="url(#ribf)" stroke-linecap="round">
-              <path d="M20 6C34 20 18 32 30 46c5 6 4 9 2 12" stroke-width="12" opacity=".92"/>
-              <path d="M44 6C30 20 46 32 34 46c-5 6-4 9-2 12" stroke-width="7" opacity=".72"/>
+            <g transform="translate(32 36) scale(1.18) translate(-32 -36)">
+              <g clip-path="url(#dnfc)"><circle cx="32" cy="47" r="19" fill="url(#dnf)"/></g>
+              <path d="M27.5 30.8 38.5 36.2 27.5 41.6z" fill="#151A24"/>
+              <path d="M11 42h42" stroke="url(#dnfh)" stroke-width="1.9" stroke-linecap="round"/>
             </g>
           </svg>
-          <span>Aurora</span>
+          <span>Dawn Player</span>
         </div>
         <p class="byline">A personal project. Built because the alternatives were annoying.</p>
       </div>
@@ -679,7 +695,7 @@
     </div>
     <div class="rule"></div>
     <div class="fine">
-      <p class="fine__note"><b>Aurora ships no content.</b> No channels, no films, no provider — it plays the
+      <p class="fine__note"><b>Dawn Player ships no content.</b> No channels, no films, no provider — it plays the
         Xtream Codes or M3U line you already subscribe to, and it is not affiliated with any provider.</p>
       <p class="tmdb"><i></i>Some artwork and metadata from TMDB. Not endorsed or certified by TMDB.</p>
       <p>© 2026</p>

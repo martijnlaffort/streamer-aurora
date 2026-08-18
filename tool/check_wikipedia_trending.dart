@@ -8,7 +8,7 @@
 // gets matched against the catalogue.
 //
 // ignore_for_file: avoid_print — command-line tool; stdout IS its UI.
-import 'package:aurora/data/sources/wikipedia_trending_source.dart';
+import 'package:dawnplayer/data/sources/wikipedia_trending_source.dart';
 
 Future<void> main(List<String> args) async {
   final projects = args.isEmpty ? const ['en.wikipedia'] : args;

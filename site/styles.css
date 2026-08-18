@@ -1,8 +1,8 @@
 /* ===========================================================================
-   Aurora — site styles
+   Dawn Player — site styles
    ---------------------------------------------------------------------------
    Implements the Claude Design file "Aurora Website.dc.html" (project
-   "Aurora One-page Site"). tokens.css comes from the Aurora Website design
+   "Aurora One-page Site" — named before the rename to Dawn Player). tokens.css
    system and is unmodified; this file is the site layer on top of it.
 
    The design authors everything as inline styles because that is how the
@@ -20,6 +20,10 @@
   --surface-2: #29313E;
   --line: rgba(255, 255, 255, .09);
   --line-strong: rgba(255, 255, 255, .17);
+  /* Dawn brand accents. Violet stays the primary UI accent; these two carry the
+     brand gradient in the mark, the wordmark and the reading-progress bar. */
+  --rose: #FF7A9C;
+  --amber: #FFC46B;
 }
 
 /* ---- base ---------------------------------------------------------------- */
@@ -42,7 +46,7 @@ img, svg { display: block; }
 }
 .h1 em {
   font-style: normal; color: transparent;
-  background: linear-gradient(100deg, var(--violet) 0%, #8B79FF 42%, var(--teal) 100%);
+  background: linear-gradient(100deg, var(--violet) 0%, var(--rose) 52%, var(--amber) 100%);
   -webkit-background-clip: text; background-clip: text;
 }
 .h2 {
@@ -72,7 +76,7 @@ img, svg { display: block; }
 
 /* ---- scroll progress + nav ---------------------------------------------- */
 .progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 60; background: transparent; }
-.progress i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--violet), var(--teal)); }
+.progress i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--violet), var(--rose) 55%, var(--amber)); }
 
 .nav {
   position: fixed; top: 2px; left: 0; right: 0; z-index: 50;
@@ -108,17 +112,17 @@ img, svg { display: block; }
 .rib--1 {
   width: 520px; height: 840px; left: 5%; top: -26%; opacity: .5; filter: blur(74px);
   background: linear-gradient(180deg, var(--violet), rgba(79, 209, 197, .12));
-  animation: auroraDrift 22s ease-in-out infinite;
+  animation: dawnDrift 22s ease-in-out infinite;
 }
 .rib--2 {
   width: 400px; height: 780px; left: 29%; top: -32%; opacity: .32; filter: blur(78px);
   background: linear-gradient(180deg, rgba(124, 92, 255, .9), var(--teal));
-  animation: auroraDrift2 27s ease-in-out infinite;
+  animation: dawnDrift2 27s ease-in-out infinite;
 }
 .rib--3 {
   width: 340px; height: 620px; right: 3%; top: -20%; opacity: .26; filter: blur(70px);
   background: linear-gradient(200deg, var(--teal), rgba(124, 92, 255, .18));
-  animation: auroraDrift3 31s ease-in-out infinite;
+  animation: dawnDrift3 31s ease-in-out infinite;
 }
 .veil {
   position: absolute; inset: 0; pointer-events: none;
@@ -439,7 +443,7 @@ img, svg { display: block; }
 .site-footer__in { position: relative; }
 .site-footer__top { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; justify-content: space-between; }
 .footmark { display: flex; align-items: center; gap: 12px; }
-.footmark span { font-family: var(--display); font-size: 26px; font-weight: 700; letter-spacing: -.7px; background: linear-gradient(100deg, #fff 10%, var(--violet) 60%, var(--teal) 98%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.footmark span { font-family: var(--display); font-size: 26px; font-weight: 700; letter-spacing: -.7px; background: linear-gradient(100deg, #fff 8%, var(--violet) 48%, var(--rose) 76%, var(--amber) 98%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .byline { font-size: 14.5px; color: var(--muted); margin: 8px 0 0; }
 .footlinks { display: flex; flex-wrap: wrap; gap: 22px; }
 .footlinks a { font-size: 14px; color: var(--muted); }
@@ -450,20 +454,20 @@ img, svg { display: block; }
 .fine__note { max-width: 60ch; }
 .fine b { color: var(--muted); font-weight: 500; }
 .tmdb { display: inline-flex; align-items: center; gap: 8px; }
-.tmdb i { display: block; width: 26px; height: 4px; border-radius: 2px; background: linear-gradient(90deg, #4FD1C5, #7C5CFF); }
+.tmdb i { display: block; width: 26px; height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--amber), var(--violet)); }
 
 /* ---- motion ------------------------------------------------------------ */
-@keyframes auroraDrift {
+@keyframes dawnDrift {
   0%   { transform: translate3d(0,0,0) rotate(14deg) scale(1); }
   50%  { transform: translate3d(4%, 3%, 0) rotate(20deg) scale(1.08); }
   100% { transform: translate3d(0,0,0) rotate(14deg) scale(1); }
 }
-@keyframes auroraDrift2 {
+@keyframes dawnDrift2 {
   0%   { transform: translate3d(0,0,0) rotate(-11deg) scale(1.04); }
   50%  { transform: translate3d(-5%, 4%, 0) rotate(-4deg) scale(.94); }
   100% { transform: translate3d(0,0,0) rotate(-11deg) scale(1.04); }
 }
-@keyframes auroraDrift3 {
+@keyframes dawnDrift3 {
   0%   { transform: translate3d(0,0,0) rotate(18deg); }
   50%  { transform: translate3d(3%, -3%, 0) rotate(9deg); }
   100% { transform: translate3d(0,0,0) rotate(18deg); }

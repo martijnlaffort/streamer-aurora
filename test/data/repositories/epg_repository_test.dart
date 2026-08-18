@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:aurora/data/db/app_database.dart';
-import 'package:aurora/data/repositories/catalog_repository.dart';
-import 'package:aurora/data/repositories/epg_repository.dart';
-import 'package:aurora/domain/models/models.dart';
+import 'package:dawnplayer/data/db/app_database.dart';
+import 'package:dawnplayer/data/repositories/catalog_repository.dart';
+import 'package:dawnplayer/data/repositories/epg_repository.dart';
+import 'package:dawnplayer/domain/models/models.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 

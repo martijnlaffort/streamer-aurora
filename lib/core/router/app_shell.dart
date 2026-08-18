@@ -48,6 +48,26 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   bool get _railHasFocus => _railItemFocus.any((n) => n.hasFocus);
 
+  /// Collapsed the rail shows icons only and the page keeps the screen; focused
+  /// it widens over the page to reveal labels. This is the shape Netflix and
+  /// HBO both use, and it is a deliberate trade: a permanently open rail either
+  /// eats a fifth of a 16:9 screen or stays too narrow to read from a sofa —
+  /// which is exactly what the first version did.
+  static const _collapsedWidth = 96.0;
+  static const _expandedWidth = 300.0;
+
+  @override
+  void initState() {
+    super.initState();
+    // The rail expands on focus, and focus changes do not rebuild by
+    // themselves.
+    for (final node in _railItemFocus) {
+      node.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
   @override
   void dispose() {
     _contentFocus.dispose();
@@ -121,22 +141,32 @@ class _AppShellState extends ConsumerState<AppShell> {
         // currently holds focus, so it can hand focus across the scope
         // boundary.
         canRequestFocus: false,
-        child: Row(
+        child: Stack(
           children: [
-            // Left padding only: the content area keeps its own padding, and
-            // the rail must clear the TV's overscan crop or it is physically
-            // cut off.
+            // The page is inset by the COLLAPSED width only, so expanding the
+            // rail never reflows it. Pushing the page sideways every time focus
+            // touched the rail would make the whole screen twitch.
             Padding(
-              padding: const EdgeInsets.only(left: 16, top: 24, bottom: 24),
+              padding: const EdgeInsets.only(left: _collapsedWidth),
+              child: FocusScope(node: _contentFocus, child: shell),
+            ),
+            // Pinned to the full height explicitly. Left to size itself in a
+            // Stack it takes its content's height, which on a short landscape
+            // screen overflows — and Flutter reports that every single frame,
+            // which was enough to hang the app outright.
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
               child: _TvRail(
                 destinations: _destinations,
                 selectedIndex: shell.currentIndex,
                 onSelected: _go,
                 itemFocus: _railItemFocus,
+                expanded: _railHasFocus,
+                collapsedWidth: _collapsedWidth,
+                expandedWidth: _expandedWidth,
               ),
-            ),
-            Expanded(
-              child: FocusScope(node: _contentFocus, child: shell),
             ),
           ],
         ),
@@ -162,33 +192,66 @@ class _TvRail extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelected,
     required this.itemFocus,
+    required this.expanded,
+    required this.collapsedWidth,
+    required this.expandedWidth,
   });
 
   final List<({IconData icon, IconData selected, String label})> destinations;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final List<FocusNode> itemFocus;
+  final bool expanded;
+  final double collapsedWidth;
+  final double expandedWidth;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 132,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      width: expanded ? expandedWidth : collapsedWidth,
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        // A gradient rather than a panel: expanded, the rail floats over the
+        // page and fades out instead of ending on a hard edge, which is what
+        // stops it reading as a phone drawer bolted onto a television.
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: expanded
+              ? [
+                  AppColors.background,
+                  AppColors.background.withValues(alpha: 0.97),
+                  AppColors.background.withValues(alpha: 0.0),
+                ]
+              : [
+                  AppColors.background.withValues(alpha: 0.85),
+                  AppColors.background.withValues(alpha: 0.0),
+                ],
+          stops: expanded ? const [0.0, 0.62, 1.0] : const [0.0, 1.0],
+        ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Column(
-        children: [
-          for (final (i, d) in destinations.indexed)
-            _TvRailItem(
-              icon: i == selectedIndex ? d.selected : d.icon,
-              label: d.label,
-              selected: i == selectedIndex,
-              focusNode: itemFocus[i],
-              onTap: () => onSelected(i),
-            ),
-        ],
+      // Clear of the overscan crop, which eats the outer few percent of the
+      // picture on a real set. Scrollable so the rail cannot overflow on a
+      // short screen — six items at a readable size do not fit every panel,
+      // and an overflow here is a hang rather than a cosmetic glitch.
+      padding: const EdgeInsets.only(top: 28, bottom: 20, left: 20),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (i, d) in destinations.indexed)
+              _TvRailItem(
+                icon: i == selectedIndex ? d.selected : d.icon,
+                label: d.label,
+                selected: i == selectedIndex,
+                expanded: expanded,
+                focusNode: itemFocus[i],
+                onTap: () => onSelected(i),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -199,6 +262,7 @@ class _TvRailItem extends StatefulWidget {
     required this.icon,
     required this.label,
     required this.selected,
+    required this.expanded,
     required this.focusNode,
     required this.onTap,
   });
@@ -206,6 +270,7 @@ class _TvRailItem extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool selected;
+  final bool expanded;
   final FocusNode focusNode;
   final VoidCallback onTap;
 
@@ -216,45 +281,74 @@ class _TvRailItem extends StatefulWidget {
 class _TvRailItemState extends State<_TvRailItem> {
   bool _focused = false;
 
+  /// Height of one row. Generous on purpose — a 10-foot UI wants targets you
+  /// can land on without aiming.
+  static const _rowHeight = 56.0;
+
+  /// Width of the icon column, matched to the rail's collapsed width so icons
+  /// do not shift sideways when the labels appear.
+  static const _iconColumn = 56.0;
+
   @override
   Widget build(BuildContext context) {
-    // Focus has to be obvious from across a room, so it gets a filled
-    // background and a ring rather than the subtle tint a phone can rely on.
-    final background = _focused
-        ? AppColors.accent
+    // Three states, and they have to be told apart instantly from a sofa:
+    //   focused  — where the remote is now: solid accent, dark text
+    //   selected — the tab you are on: accent text, no fill
+    //   neither  — muted
+    // The old version filled BOTH focused and selected, which on a real screen
+    // read as two cursors at once.
+    final Color foreground = _focused
+        ? Colors.black
         : widget.selected
-            ? AppColors.accent.withValues(alpha: 0.24)
-            : Colors.transparent;
+            ? AppColors.accentAlt
+            : AppColors.textSecondary;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.only(bottom: 6, right: 20),
       child: InkWell(
         onTap: widget.onTap,
         focusNode: widget.focusNode,
         onFocusChange: (v) => setState(() => _focused = v),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(_rowHeight / 2),
         focusColor: Colors.transparent,
+        hoverColor: Colors.transparent,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          height: _rowHeight,
           decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(12),
-            border: _focused
-                ? Border.all(color: AppColors.focusRing, width: 2)
-                : null,
+            color: _focused ? AppColors.accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(_rowHeight / 2),
           ),
-          child: Column(
+          child: Row(
             children: [
-              Icon(widget.icon,
-                  size: 24,
-                  color: _focused ? Colors.black : AppColors.textPrimary),
-              const SizedBox(height: 4),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _focused ? Colors.black : AppColors.textPrimary,
+              SizedBox(
+                width: _iconColumn,
+                child: Icon(widget.icon, size: 26, color: foreground),
+              ),
+              // Laid out at full width and clipped, so the label slides out
+              // from behind the icon column instead of being re-wrapped
+              // character by character while the rail is mid-animation.
+              Expanded(
+                child: ClipRect(
+                  child: OverflowBox(
+                    alignment: Alignment.centerLeft,
+                    maxWidth: 200,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 160),
+                      opacity: widget.expanded ? 1 : 0,
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: foreground,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],

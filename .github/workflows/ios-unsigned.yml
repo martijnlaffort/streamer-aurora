@@ -30,7 +30,14 @@ jobs:
       # Compile without code signing. `pod install` runs automatically.
       # NOTE: `flutter build ipa --no-codesign` does NOT emit an .ipa (it needs
       # a team id), so we build the .app and package the IPA manually below.
-      - run: flutter build ios --release --no-codesign
+      # AURORA_COMMIT surfaces in Settings → About & credits, so a device can
+      # always be traced back to an exact revision. Injected here rather than
+      # passed by hand, because the one time it is forgotten is the build whose
+      # identity someone needs.
+      - name: Build (unsigned, stamped with the commit)
+        run: |
+          flutter build ios --release --no-codesign \
+            --dart-define=AURORA_COMMIT=${GITHUB_SHA::7}
 
       - name: Package unsigned IPA
         run: |

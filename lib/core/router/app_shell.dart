@@ -121,9 +121,18 @@ class _AppShellState extends ConsumerState<AppShell> {
       // In content: move left through the row first, and only fall through to
       // the rail when there is nothing further left — so LEFT scrubs a poster
       // rail exactly as expected and reaches the nav only at the edge.
-      if (!_contentFocus.focusInDirection(TraversalDirection.left)) {
-        _enterRail();
-      }
+      //
+      // The move MUST be asked of the focused card itself, not of
+      // _contentFocus. go_router nests each branch in its own Navigator scope,
+      // so _contentFocus's focused child is that whole nested scope — its rect
+      // is the entire page, "is anything to my left?" always answered no, and
+      // the rail opened on every single LEFT press. The primary focus is the
+      // real card, sitting in the branch scope beside its neighbours, so a left
+      // move finds the previous card and only fails at the true edge of the row.
+      final moved = FocusManager.instance.primaryFocus
+              ?.focusInDirection(TraversalDirection.left) ??
+          false;
+      if (!moved) _enterRail();
       return KeyEventResult.handled;
     }
 

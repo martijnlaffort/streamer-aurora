@@ -28,6 +28,8 @@ final syncServiceProvider = FutureProvider<SyncService?>((ref) async {
     progress: HttpProgressSyncBackend(baseUrl: baseUrl, token: token),
     preferences: HttpPreferencesSyncBackend(baseUrl: baseUrl, token: token),
     favorites: HttpFavoritesSyncBackend(baseUrl: baseUrl, token: token),
+    accountsRepo: ref.watch(accountRepositoryProvider),
+    accounts: HttpAccountSyncBackend(baseUrl: baseUrl, token: token),
     configStore: ref.watch(syncConfigStoreProvider),
     // Tag outgoing episode progress with its series id, resolved from the
     // local catalogue (the episode is cached here — it was watched here).
@@ -51,6 +53,11 @@ Future<SyncResult?> runSync(WidgetRef ref) async {
   final result = await service.reconcile();
   if (result.ok) {
     ref.invalidate(preferencesProvider);
+    // A playlist synced in from another device is a new account row; refresh
+    // the account providers so it shows up (and so the read below sees any
+    // active account the reconcile just adopted on a fresh device).
+    ref.invalidate(accountsProvider);
+    ref.invalidate(activeAccountProvider);
     // A synced content key only shows in Continue Watching / My List once the
     // title it points at is in the local catalogue. History synced from
     // ANOTHER device references titles this one has never browsed, so pull

@@ -4894,8 +4894,39 @@ class $FavoritesTableTable extends FavoritesTable
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _removedMeta = const VerificationMeta(
+    'removed',
+  );
   @override
-  List<GeneratedColumn> get $columns => [contentKey, addedAtMillisUtc];
+  late final GeneratedColumn<bool> removed = GeneratedColumn<bool>(
+    'removed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("removed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMillisUtcMeta =
+      const VerificationMeta('updatedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> updatedAtMillisUtc = GeneratedColumn<int>(
+    'updated_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    contentKey,
+    addedAtMillisUtc,
+    removed,
+    updatedAtMillisUtc,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -4927,6 +4958,21 @@ class $FavoritesTableTable extends FavoritesTable
     } else if (isInserting) {
       context.missing(_addedAtMillisUtcMeta);
     }
+    if (data.containsKey('removed')) {
+      context.handle(
+        _removedMeta,
+        removed.isAcceptableOrUnknown(data['removed']!, _removedMeta),
+      );
+    }
+    if (data.containsKey('updated_at_millis_utc')) {
+      context.handle(
+        _updatedAtMillisUtcMeta,
+        updatedAtMillisUtc.isAcceptableOrUnknown(
+          data['updated_at_millis_utc']!,
+          _updatedAtMillisUtcMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4944,6 +4990,14 @@ class $FavoritesTableTable extends FavoritesTable
         DriftSqlType.int,
         data['${effectivePrefix}added_at_millis_utc'],
       )!,
+      removed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}removed'],
+      )!,
+      updatedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_millis_utc'],
+      )!,
     );
   }
 
@@ -4956,12 +5010,28 @@ class $FavoritesTableTable extends FavoritesTable
 class FavoriteRow extends DataClass implements Insertable<FavoriteRow> {
   final String contentKey;
   final int addedAtMillisUtc;
-  const FavoriteRow({required this.contentKey, required this.addedAtMillisUtc});
+
+  /// Tombstone: a removed favourite is kept as a row with `removed = true` so
+  /// the removal can propagate through sync (last-write-wins by [updatedAt]),
+  /// which a bare delete could not. Hidden from My List; see FavoritesRepository
+  /// (added in schema v9).
+  final bool removed;
+
+  /// LWW key across devices — the time of the last add/remove (added in v9).
+  final int updatedAtMillisUtc;
+  const FavoriteRow({
+    required this.contentKey,
+    required this.addedAtMillisUtc,
+    required this.removed,
+    required this.updatedAtMillisUtc,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['content_key'] = Variable<String>(contentKey);
     map['added_at_millis_utc'] = Variable<int>(addedAtMillisUtc);
+    map['removed'] = Variable<bool>(removed);
+    map['updated_at_millis_utc'] = Variable<int>(updatedAtMillisUtc);
     return map;
   }
 
@@ -4969,6 +5039,8 @@ class FavoriteRow extends DataClass implements Insertable<FavoriteRow> {
     return FavoritesTableCompanion(
       contentKey: Value(contentKey),
       addedAtMillisUtc: Value(addedAtMillisUtc),
+      removed: Value(removed),
+      updatedAtMillisUtc: Value(updatedAtMillisUtc),
     );
   }
 
@@ -4980,6 +5052,8 @@ class FavoriteRow extends DataClass implements Insertable<FavoriteRow> {
     return FavoriteRow(
       contentKey: serializer.fromJson<String>(json['contentKey']),
       addedAtMillisUtc: serializer.fromJson<int>(json['addedAtMillisUtc']),
+      removed: serializer.fromJson<bool>(json['removed']),
+      updatedAtMillisUtc: serializer.fromJson<int>(json['updatedAtMillisUtc']),
     );
   }
   @override
@@ -4988,14 +5062,22 @@ class FavoriteRow extends DataClass implements Insertable<FavoriteRow> {
     return <String, dynamic>{
       'contentKey': serializer.toJson<String>(contentKey),
       'addedAtMillisUtc': serializer.toJson<int>(addedAtMillisUtc),
+      'removed': serializer.toJson<bool>(removed),
+      'updatedAtMillisUtc': serializer.toJson<int>(updatedAtMillisUtc),
     };
   }
 
-  FavoriteRow copyWith({String? contentKey, int? addedAtMillisUtc}) =>
-      FavoriteRow(
-        contentKey: contentKey ?? this.contentKey,
-        addedAtMillisUtc: addedAtMillisUtc ?? this.addedAtMillisUtc,
-      );
+  FavoriteRow copyWith({
+    String? contentKey,
+    int? addedAtMillisUtc,
+    bool? removed,
+    int? updatedAtMillisUtc,
+  }) => FavoriteRow(
+    contentKey: contentKey ?? this.contentKey,
+    addedAtMillisUtc: addedAtMillisUtc ?? this.addedAtMillisUtc,
+    removed: removed ?? this.removed,
+    updatedAtMillisUtc: updatedAtMillisUtc ?? this.updatedAtMillisUtc,
+  );
   FavoriteRow copyWithCompanion(FavoritesTableCompanion data) {
     return FavoriteRow(
       contentKey: data.contentKey.present
@@ -5004,6 +5086,10 @@ class FavoriteRow extends DataClass implements Insertable<FavoriteRow> {
       addedAtMillisUtc: data.addedAtMillisUtc.present
           ? data.addedAtMillisUtc.value
           : this.addedAtMillisUtc,
+      removed: data.removed.present ? data.removed.value : this.removed,
+      updatedAtMillisUtc: data.updatedAtMillisUtc.present
+          ? data.updatedAtMillisUtc.value
+          : this.updatedAtMillisUtc,
     );
   }
 
@@ -5011,44 +5097,60 @@ class FavoriteRow extends DataClass implements Insertable<FavoriteRow> {
   String toString() {
     return (StringBuffer('FavoriteRow(')
           ..write('contentKey: $contentKey, ')
-          ..write('addedAtMillisUtc: $addedAtMillisUtc')
+          ..write('addedAtMillisUtc: $addedAtMillisUtc, ')
+          ..write('removed: $removed, ')
+          ..write('updatedAtMillisUtc: $updatedAtMillisUtc')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(contentKey, addedAtMillisUtc);
+  int get hashCode =>
+      Object.hash(contentKey, addedAtMillisUtc, removed, updatedAtMillisUtc);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is FavoriteRow &&
           other.contentKey == this.contentKey &&
-          other.addedAtMillisUtc == this.addedAtMillisUtc);
+          other.addedAtMillisUtc == this.addedAtMillisUtc &&
+          other.removed == this.removed &&
+          other.updatedAtMillisUtc == this.updatedAtMillisUtc);
 }
 
 class FavoritesTableCompanion extends UpdateCompanion<FavoriteRow> {
   final Value<String> contentKey;
   final Value<int> addedAtMillisUtc;
+  final Value<bool> removed;
+  final Value<int> updatedAtMillisUtc;
   final Value<int> rowid;
   const FavoritesTableCompanion({
     this.contentKey = const Value.absent(),
     this.addedAtMillisUtc = const Value.absent(),
+    this.removed = const Value.absent(),
+    this.updatedAtMillisUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FavoritesTableCompanion.insert({
     required String contentKey,
     required int addedAtMillisUtc,
+    this.removed = const Value.absent(),
+    this.updatedAtMillisUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        addedAtMillisUtc = Value(addedAtMillisUtc);
   static Insertable<FavoriteRow> custom({
     Expression<String>? contentKey,
     Expression<int>? addedAtMillisUtc,
+    Expression<bool>? removed,
+    Expression<int>? updatedAtMillisUtc,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (contentKey != null) 'content_key': contentKey,
       if (addedAtMillisUtc != null) 'added_at_millis_utc': addedAtMillisUtc,
+      if (removed != null) 'removed': removed,
+      if (updatedAtMillisUtc != null)
+        'updated_at_millis_utc': updatedAtMillisUtc,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5056,11 +5158,15 @@ class FavoritesTableCompanion extends UpdateCompanion<FavoriteRow> {
   FavoritesTableCompanion copyWith({
     Value<String>? contentKey,
     Value<int>? addedAtMillisUtc,
+    Value<bool>? removed,
+    Value<int>? updatedAtMillisUtc,
     Value<int>? rowid,
   }) {
     return FavoritesTableCompanion(
       contentKey: contentKey ?? this.contentKey,
       addedAtMillisUtc: addedAtMillisUtc ?? this.addedAtMillisUtc,
+      removed: removed ?? this.removed,
+      updatedAtMillisUtc: updatedAtMillisUtc ?? this.updatedAtMillisUtc,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5074,6 +5180,12 @@ class FavoritesTableCompanion extends UpdateCompanion<FavoriteRow> {
     if (addedAtMillisUtc.present) {
       map['added_at_millis_utc'] = Variable<int>(addedAtMillisUtc.value);
     }
+    if (removed.present) {
+      map['removed'] = Variable<bool>(removed.value);
+    }
+    if (updatedAtMillisUtc.present) {
+      map['updated_at_millis_utc'] = Variable<int>(updatedAtMillisUtc.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5085,6 +5197,8 @@ class FavoritesTableCompanion extends UpdateCompanion<FavoriteRow> {
     return (StringBuffer('FavoritesTableCompanion(')
           ..write('contentKey: $contentKey, ')
           ..write('addedAtMillisUtc: $addedAtMillisUtc, ')
+          ..write('removed: $removed, ')
+          ..write('updatedAtMillisUtc: $updatedAtMillisUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -10246,12 +10360,16 @@ typedef $$FavoritesTableTableCreateCompanionBuilder =
     FavoritesTableCompanion Function({
       required String contentKey,
       required int addedAtMillisUtc,
+      Value<bool> removed,
+      Value<int> updatedAtMillisUtc,
       Value<int> rowid,
     });
 typedef $$FavoritesTableTableUpdateCompanionBuilder =
     FavoritesTableCompanion Function({
       Value<String> contentKey,
       Value<int> addedAtMillisUtc,
+      Value<bool> removed,
+      Value<int> updatedAtMillisUtc,
       Value<int> rowid,
     });
 
@@ -10271,6 +10389,16 @@ class $$FavoritesTableTableFilterComposer
 
   ColumnFilters<int> get addedAtMillisUtc => $composableBuilder(
     column: $table.addedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get removed => $composableBuilder(
+    column: $table.removed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtMillisUtc => $composableBuilder(
+    column: $table.updatedAtMillisUtc,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -10293,6 +10421,16 @@ class $$FavoritesTableTableOrderingComposer
     column: $table.addedAtMillisUtc,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get removed => $composableBuilder(
+    column: $table.removed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtMillisUtc => $composableBuilder(
+    column: $table.updatedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FavoritesTableTableAnnotationComposer
@@ -10311,6 +10449,14 @@ class $$FavoritesTableTableAnnotationComposer
 
   GeneratedColumn<int> get addedAtMillisUtc => $composableBuilder(
     column: $table.addedAtMillisUtc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get removed =>
+      $composableBuilder(column: $table.removed, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMillisUtc => $composableBuilder(
+    column: $table.updatedAtMillisUtc,
     builder: (column) => column,
   );
 }
@@ -10350,20 +10496,28 @@ class $$FavoritesTableTableTableManager
               ({
                 Value<String> contentKey = const Value.absent(),
                 Value<int> addedAtMillisUtc = const Value.absent(),
+                Value<bool> removed = const Value.absent(),
+                Value<int> updatedAtMillisUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FavoritesTableCompanion(
                 contentKey: contentKey,
                 addedAtMillisUtc: addedAtMillisUtc,
+                removed: removed,
+                updatedAtMillisUtc: updatedAtMillisUtc,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 required String contentKey,
                 required int addedAtMillisUtc,
+                Value<bool> removed = const Value.absent(),
+                Value<int> updatedAtMillisUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FavoritesTableCompanion.insert(
                 contentKey: contentKey,
                 addedAtMillisUtc: addedAtMillisUtc,
+                removed: removed,
+                updatedAtMillisUtc: updatedAtMillisUtc,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

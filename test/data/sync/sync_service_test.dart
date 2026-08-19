@@ -29,12 +29,13 @@ class _FakePrefs implements PreferencesSyncBackend {
 }
 
 class _FakeFavs implements FavoritesSyncBackend {
-  List<String> remote = [];
-  final pushed = <String>[];
+  List<FavoriteRecord> remote = [];
+  final pushed = <FavoriteRecord>[];
   @override
-  Future<void> push(List<String> keys) async => pushed.addAll(keys);
+  Future<void> push(List<FavoriteRecord> records) async =>
+      pushed.addAll(records);
   @override
-  Future<List<String>> pull() async => remote;
+  Future<List<FavoriteRecord>> pull() async => remote;
 }
 
 class _MemState implements SyncStateStore {
@@ -138,16 +139,30 @@ void main() {
     expect(state.prefs, DateTime.utc(2026, 2, 1, 14));
   });
 
-  test('favorites union: remote-only added locally, local-only pushed',
+  test('favorites LWW: remote add applied, remote tombstone removes local',
       () async {
-    await favRepo.toggle('acc:movie:X'); // local only
-    favs.remote = ['acc:movie:Y']; // remote only
+    await favRepo.toggle('acc:movie:X'); // local add at `now`
+    await favRepo.toggle('acc:movie:Z'); // local add at `now`
+    favs.remote = [
+      // A remote add of Y.
+      (contentKey: 'acc:movie:Y', removed: false, addedAt: now, updatedAt: now),
+      // A remote removal of Z, newer than the local add — must win.
+      (
+        contentKey: 'acc:movie:Z',
+        removed: true,
+        addedAt: now,
+        updatedAt: now.add(const Duration(minutes: 1)),
+      ),
+    ];
 
     await service().reconcile();
 
     final local = (await favRepo.all()).map((e) => e.$1).toSet();
-    expect(local, containsAll(['acc:movie:X', 'acc:movie:Y']));
-    expect(favs.pushed, ['acc:movie:X']);
+    expect(local, contains('acc:movie:X'));
+    expect(local, contains('acc:movie:Y'));
+    expect(local, isNot(contains('acc:movie:Z'))); // tombstoned away
+    // The full local set is pushed for the server to arbitrate LWW.
+    expect(favs.pushed.map((r) => r.contentKey), contains('acc:movie:X'));
   });
 
   test('reconcile surfaces a backend error instead of throwing', () async {

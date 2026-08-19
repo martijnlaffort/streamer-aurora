@@ -22,8 +22,38 @@ abstract interface class PreferencesSyncBackend {
   Future<({Preferences prefs, DateTime updatedAt})?> pull();
 }
 
+/// One favourite as it travels through sync: last-write-wins per [contentKey],
+/// with [removed] carrying a deletion so it propagates like an add.
+typedef FavoriteRecord = ({
+  String contentKey,
+  bool removed,
+  DateTime addedAt,
+  DateTime updatedAt,
+});
+
 abstract interface class FavoritesSyncBackend {
-  /// Adds [contentKeys] on the server (idempotent).
-  Future<void> push(List<String> contentKeys);
-  Future<List<String>> pull();
+  /// Upserts [records] on the server (last-write-wins by updatedAt).
+  Future<void> push(List<FavoriteRecord> records);
+
+  /// Every record, active and tombstoned.
+  Future<List<FavoriteRecord>> pull();
+}
+
+/// One playlist/account as it travels through sync. The password rides along —
+/// a playlist is useless without it — so this is only ever sent to the user's
+/// own backend over TLS.
+typedef AccountRecord = ({
+  String accountId,
+  String type,
+  String name,
+  String serverUrl,
+  String username,
+  String password,
+  String? epgUrl,
+  DateTime updatedAt,
+});
+
+abstract interface class AccountSyncBackend {
+  Future<void> push(List<AccountRecord> records);
+  Future<List<AccountRecord>> pull();
 }

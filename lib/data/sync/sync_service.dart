@@ -1,4 +1,5 @@
 import '../../domain/models/models.dart';
+import '../repositories/account_repository.dart';
 import '../repositories/favorites_repository.dart';
 import '../repositories/preferences_repository.dart';
 import '../repositories/sync_backend.dart';
@@ -33,9 +34,12 @@ class SyncResult {
 ///   apply the ones newer than local, then push everything still dirty.
 /// - **Preferences**: pushed with the local "changed at" timestamp; the server
 ///   arbitrates LWW and the winner is applied back.
-/// - **Favorites**: union merge (adds propagate both ways). Removals do *not*
-///   propagate — there are no tombstones; a favorite removed on one device
-///   stays on the others until removed there too.
+/// - **Favorites**: per-record last-write-wins with tombstones — a removal is a
+///   dated tombstone that propagates like an add, so removing something from My
+///   List on one device removes it everywhere.
+/// - **Accounts**: union by the account's stable id, so a playlist added on any
+///   device appears on the others (with its credentials). Deletions are not
+///   synced. Skipped entirely when no account repo/backend is wired.
 class SyncService {
   SyncService({
     required this._progressRepo,
@@ -46,6 +50,8 @@ class SyncService {
     required this._favorites,
     required this._configStore,
     this._resolveSeriesId,
+    this._accountsRepo,
+    this._accounts,
     DateTime Function()? clock,
   }) : _clock = clock ?? (() => DateTime.now().toUtc());
 
@@ -56,6 +62,8 @@ class SyncService {
   final PreferencesSyncBackend _preferences;
   final FavoritesSyncBackend _favorites;
   final SyncStateStore _configStore;
+  final AccountRepository? _accountsRepo;
+  final AccountSyncBackend? _accounts;
 
   /// Looks up which series an episode belongs to, from the local catalogue.
   /// Used to tag outgoing episode progress so the other device can resolve it.
@@ -65,6 +73,9 @@ class SyncService {
 
   Future<SyncResult> reconcile() async {
     try {
+      // Accounts first: pulling a new playlist makes its content keys
+      // resolvable, so progress/favorites for it can land somewhere real.
+      await _reconcileAccounts();
       final (:pulled, :seriesIds) = await _reconcileProgress();
       final pushed = await _pushDirtyProgress();
       await _reconcilePreferences();
@@ -137,12 +148,59 @@ class SyncService {
   }
 
   Future<void> _reconcileFavorites() async {
-    final remote = (await _favorites.pull()).toSet();
-    final local = (await _favoritesRepo.all()).map((e) => e.$1).toSet();
-    for (final key in remote.difference(local)) {
-      await _favoritesRepo.addIfAbsent(key, _clock());
+    // Pull remote records and apply the ones newer than local (LWW, tombstones
+    // included), then push the full local set — the backend arbitrates LWW, so
+    // re-pushing already-current rows is a harmless no-op.
+    for (final r in await _favorites.pull()) {
+      await _favoritesRepo.applyRemote(r);
     }
-    final localOnly = local.difference(remote).toList();
-    if (localOnly.isNotEmpty) await _favorites.push(localOnly);
+    await _favorites.push(await _favoritesRepo.allRecords());
+  }
+
+  Future<void> _reconcileAccounts() async {
+    final repo = _accountsRepo;
+    final backend = _accounts;
+    if (repo == null || backend == null) return;
+
+    // Union: adopt any remote playlist we don't already have, credentials and
+    // all. LWW on renames is deliberately not attempted — the account id is
+    // derived from the server + login, so the identity never drifts.
+    final remote = await backend.pull();
+    final localIds = (await repo.getAccounts()).map((a) => a.id).toSet();
+    for (final r in remote) {
+      if (localIds.contains(r.accountId)) continue;
+      await repo.saveAccount(Account(
+        id: r.accountId,
+        type: AccountType.values.firstWhere((t) => t.name == r.type,
+            orElse: () => AccountType.xtream),
+        name: r.name,
+        serverUrl: r.serverUrl,
+        username: r.username,
+        password: r.password,
+        createdAt: r.updatedAt,
+        epgUrl: r.epgUrl,
+      ));
+    }
+
+    final local = await repo.getAccounts();
+    // A freshly-synced device has no active account yet — adopt one so Home has
+    // something to show without making the user pick.
+    if (local.isNotEmpty && await repo.getActiveAccount() == null) {
+      await repo.setActiveAccount(local.first.id);
+    }
+
+    await backend.push([
+      for (final a in local)
+        (
+          accountId: a.id,
+          type: a.type.name,
+          name: a.name,
+          serverUrl: a.serverUrl,
+          username: a.username,
+          password: a.password,
+          epgUrl: a.epgUrl,
+          updatedAt: a.createdAt,
+        ),
+    ]);
   }
 }

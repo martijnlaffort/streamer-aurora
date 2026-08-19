@@ -206,6 +206,15 @@ class FavoritesTable extends Table {
   TextColumn get contentKey => text()();
   IntColumn get addedAtMillisUtc => integer()();
 
+  /// Tombstone: a removed favourite is kept as a row with `removed = true` so
+  /// the removal can propagate through sync (last-write-wins by [updatedAt]),
+  /// which a bare delete could not. Hidden from My List; see FavoritesRepository
+  /// (added in schema v9).
+  BoolColumn get removed => boolean().withDefault(const Constant(false))();
+
+  /// LWW key across devices — the time of the last add/remove (added in v9).
+  IntColumn get updatedAtMillisUtc => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {contentKey};
 }
@@ -391,7 +400,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -432,6 +441,14 @@ class AppDatabase extends _$AppDatabase {
           // v8: artwork for titles the panel has no image for.
           if (from < 8) {
             await m.createTable(artworkCacheTable);
+          }
+          // v9: favourite tombstones so removals propagate. Existing rows are
+          // active, stamped at their add time so a later remote edit wins.
+          if (from < 9) {
+            await m.addColumn(favoritesTable, favoritesTable.removed);
+            await m.addColumn(favoritesTable, favoritesTable.updatedAtMillisUtc);
+            await customStatement(
+                'UPDATE favorites SET updated_at_millis_utc = added_at_millis_utc');
           }
         },
         beforeOpen: (details) async {

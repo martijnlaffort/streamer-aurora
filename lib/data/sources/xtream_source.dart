@@ -207,6 +207,13 @@ class XtreamSource implements PlaylistSource {
     ));
     final info = optMap(data?['info']) ?? const <String, dynamic>{};
     final movieData = optMap(data?['movie_data']) ?? const <String, dynamic>{};
+    // A panel returns empty info AND movie_data for an id it no longer carries.
+    // Treat that as "not found" rather than manufacturing a blank "Unnamed"
+    // movie — which is what a title synced from another device but since
+    // dropped by the panel would otherwise become in Continue Watching.
+    if (info.isEmpty && movieData.isEmpty) {
+      throw SourceException('Title $vodId is not available on this panel');
+    }
     final id = optString(movieData['stream_id']) ?? vodId;
     return Movie(
       id: id,

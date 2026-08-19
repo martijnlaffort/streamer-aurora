@@ -39,6 +39,26 @@ Future<SyncResult?> runSync(WidgetRef ref) async {
   final service = await ref.read(syncServiceProvider.future);
   if (service == null) return null;
   final result = await service.reconcile();
-  if (result.ok) ref.invalidate(preferencesProvider);
+  if (result.ok) {
+    ref.invalidate(preferencesProvider);
+    // A synced content key only shows in Continue Watching / My List once the
+    // title it points at is in the local catalogue. History synced from
+    // ANOTHER device references titles this one has never browsed, so pull
+    // those in now — off Home's critical path, since sync runs after the first
+    // frame. Home renders from cache immediately and is invalidated by the
+    // caller once this returns. Best-effort; a title the panel dropped just
+    // stays unresolved.
+    final account = await ref.read(activeAccountProvider.future);
+    if (account != null) {
+      final catalog = ref.read(catalogRepositoryProvider);
+      final progress =
+          await ref.read(watchProgressRepositoryProvider).recentlyWatched();
+      final favorites = await ref.read(favoritesRepositoryProvider).all();
+      await catalog.ensureTitlesCached(account, [
+        ...progress.map((p) => p.contentKey),
+        ...favorites.map((f) => f.$1),
+      ]);
+    }
+  }
   return result;
 }

@@ -767,6 +767,77 @@ class CatalogRepository {
     return row?.toModel();
   }
 
+  /// Fetches and caches any movies or series referenced by [contentKeys] that
+  /// are not already in the local cache.
+  ///
+  /// Continue Watching and My List resolve a saved key against the cached
+  /// catalogue and silently drop whatever they cannot find. On a device that
+  /// pulled those keys from ANOTHER device — a freshly paired TV — the titles
+  /// have usually never been browsed here, so they are absent from the lazily
+  /// built cache and every row vanishes even though the sync itself worked.
+  /// This pulls the missing titles in once; afterwards they resolve from cache
+  /// like anything else.
+  ///
+  /// Best-effort and bounded: per-title failures are swallowed (a title the
+  /// panel has since dropped simply stays unresolved), and fetches run a few at
+  /// a time rather than stampeding the panel with a long list.
+  ///
+  /// Episode keys are intentionally not handled: an episode cannot be fetched
+  /// without its series id, which the content key does not carry. Series
+  /// Continue Watching therefore needs the separate series-id-in-sync change.
+  Future<void> ensureTitlesCached(
+      Account account, Iterable<String> contentKeys) async {
+    // Whole-body guard: this is a best-effort enhancement on Home's critical
+    // path, so it must never throw back into the caller and turn a working
+    // (cached) Home into an error screen. Whatever goes wrong, the rails just
+    // fall back to what is already cached.
+    try {
+      final movieIds = <String>[];
+      final seriesIds = <String>[];
+      for (final key in contentKeys) {
+        final parsed = parseContentKey(key);
+        if (parsed == null || parsed.accountId != account.id) continue;
+        if (parsed.type == StreamType.movie.name) {
+          if (await movieById(account, parsed.id) == null) {
+            movieIds.add(parsed.id);
+          }
+        } else if (parsed.type == seriesContentType) {
+          if (await seriesById(account, parsed.id) == null) {
+            seriesIds.add(parsed.id);
+          }
+        }
+      }
+      if (movieIds.isEmpty && seriesIds.isEmpty) return;
+
+      // Cap the work: only enough to fill what the rails actually show, so a
+      // huge synced history can't turn the first Home load into a minutes-long
+      // fetch. The rest fill in as they are browsed.
+      const maxToFetch = 24;
+
+      Future<void> fetchAll(
+          List<String> ids, Future<void> Function(String) fetch) async {
+        const maxConcurrent = 4;
+        final take = ids.take(maxToFetch).toList();
+        for (var i = 0; i < take.length; i += maxConcurrent) {
+          await Future.wait(take.skip(i).take(maxConcurrent).map((id) async {
+            try {
+              await fetch(id).timeout(const Duration(seconds: 12));
+            } on Object {
+              // A title the panel no longer serves, or a slow one, just stays
+              // unresolved rather than holding up the rest.
+            }
+          }));
+        }
+      }
+
+      await fetchAll(movieIds, (id) => movieDetail(account, id));
+      await fetchAll(seriesIds, (id) => seriesDetail(account, id));
+    } on Object catch (e, s) {
+      developer.log('ensureTitlesCached failed: $e',
+          name: 'CatalogRepository', error: e, stackTrace: s);
+    }
+  }
+
   /// Cache-only episode list for one series, in broadcast order. Used to work
   /// out which episode comes after the one you just finished.
   Future<List<Episode>> episodesOfSeries(

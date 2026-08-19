@@ -23,7 +23,10 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final result = await runSync(ref);
       if (result != null && result.ok && mounted) {
+        // Sync may have pulled new progress/favourites and backfilled the
+        // titles they reference; rebuild both rails so they appear.
         ref.invalidate(homeDataProvider);
+        ref.invalidate(myListProvider);
       }
     });
   }

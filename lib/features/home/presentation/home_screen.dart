@@ -484,10 +484,20 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
   }
 }
 
-class _ContinueCard extends ConsumerWidget {
+class _ContinueCard extends ConsumerStatefulWidget {
   const _ContinueCard({required this.entry});
 
   final ContinueEntry entry;
+
+  @override
+  ConsumerState<_ContinueCard> createState() => _ContinueCardState();
+}
+
+class _ContinueCardState extends ConsumerState<_ContinueCard> {
+  /// Focused (D-pad) or hovered (mouse) — drives the same pop/ring/glow the
+  /// poster cards use, so it is just as obvious which card the remote is on.
+  bool _engaged = false;
+  ContinueEntry get entry => widget.entry;
 
   /// Play straight from the card, at the point you stopped.
   ///
@@ -596,73 +606,122 @@ class _ContinueCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final progress = entry.progress;
     final fraction = progress.durationSeconds > 0
         ? (progress.positionSeconds / progress.durationSeconds).clamp(0.0, 1.0)
         : 0.0;
     return SizedBox(
       width: 220,
-      // InkWell, not GestureDetector: a D-pad OK press is an ActivateIntent
-      // and GestureDetector ignores it, so on a TV this row took focus and
-      // then did nothing.
-      child: InkWell(
-        onTap: () => _resume(context, ref),
-        onLongPress: () => _showMenu(context, ref),
-        borderRadius: BorderRadius.circular(10),
-        focusColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (entry.imageUrl != null)
-                      CachedNetworkImage(
-                        imageUrl: entry.imageUrl!,
-                        fit: BoxFit.cover,
-                        memCacheWidth: 720,
-                        placeholder: (context, url) =>
-                            const ColoredBox(color: AppColors.surfaceElevated),
-                        errorWidget: (context, url, error) =>
-                            const ColoredBox(color: AppColors.surfaceElevated),
-                      )
-                    else
-                      const ColoredBox(color: AppColors.surfaceElevated),
-                    const Center(
-                      child: Icon(Icons.play_circle_outline,
-                          size: 40, color: AppColors.textPrimary),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _engaged = true),
+        onExit: (_) => setState(() => _engaged = false),
+        // InkWell, not GestureDetector: a D-pad OK press is an ActivateIntent
+        // and GestureDetector ignores it, so on a TV this row took focus and
+        // then did nothing.
+        child: InkWell(
+          onTap: () => _resume(context, ref),
+          onLongPress: () => _showMenu(context, ref),
+          borderRadius: BorderRadius.circular(10),
+          focusColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          onFocusChange: (focused) {
+            setState(() => _engaged = focused);
+            if (focused) {
+              Scrollable.ensureVisible(
+                context,
+                alignment: 0.5,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+              );
+            }
+          },
+          child: AnimatedScale(
+            scale: _engaged ? 1.08 : 1.0,
+            alignment: Alignment.topCenter,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Same affordance as PosterCard: a bright ring in the
+                // foreground (no layout shift) and an accent glow behind.
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: _engaged
+                        ? [
+                            BoxShadow(
+                              color: AppColors.accent.withValues(alpha: 0.6),
+                              blurRadius: 20,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : const [],
+                  ),
+                  foregroundDecoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color:
+                          _engaged ? AppColors.focusRing : Colors.transparent,
+                      width: 3,
                     ),
-                    Align(
-                      alignment: Alignment.bottomCenter,
-                      child: LinearProgressIndicator(
-                        value: fraction,
-                        minHeight: 4,
-                        backgroundColor: Colors.transparent,
-                        color: AppColors.accent,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (entry.imageUrl != null)
+                            CachedNetworkImage(
+                              imageUrl: entry.imageUrl!,
+                              fit: BoxFit.cover,
+                              memCacheWidth: 720,
+                              placeholder: (context, url) => const ColoredBox(
+                                  color: AppColors.surfaceElevated),
+                              errorWidget: (context, url, error) =>
+                                  const ColoredBox(
+                                      color: AppColors.surfaceElevated),
+                            )
+                          else
+                            const ColoredBox(color: AppColors.surfaceElevated),
+                          const Center(
+                            child: Icon(Icons.play_circle_outline,
+                                size: 40, color: AppColors.textPrimary),
+                          ),
+                          Align(
+                            alignment: Alignment.bottomCenter,
+                            child: LinearProgressIndicator(
+                              value: fraction,
+                              minHeight: 4,
+                              backgroundColor: Colors.transparent,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 6),
+                Text(entry.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.label),
+                if (entry.subtitle != null)
+                  Text(entry.subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 12)),
+              ],
             ),
-            const SizedBox(height: 6),
-            Text(entry.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.label),
-            if (entry.subtitle != null)
-              Text(entry.subtitle!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 12)),
-          ],
+          ),
         ),
       ),
     );

@@ -336,13 +336,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// The media just reported its length — this is the moment a pending
   /// resume seek becomes possible.
+  ///
+  /// The pending seek is consumed ONLY when we actually perform it — i.e. once
+  /// a duration arrives that the resume point falls within. Series episodes are
+  /// frequently MPEG-TS, and mpv reports a TS file's duration as 0 or a small,
+  /// growing value before it settles on the real length. The old code nulled
+  /// the pending resume on that first bogus value without seeking, so the real
+  /// duration arrived too late and the episode silently played from the start.
+  /// Movies are clean MP4/MKV that report a correct duration at once, which is
+  /// why only episodes were affected. Waiting for a usable duration fixes it.
   void _onDuration(Duration duration) {
     final resume = _pendingResumeSeconds;
-    if (resume != null && duration > Duration.zero) {
+    if (resume != null && resume < duration.inSeconds) {
       _pendingResumeSeconds = null;
-      if (resume < duration.inSeconds) {
-        _player.seek(Duration(seconds: resume));
-      }
+      _player.seek(Duration(seconds: resume));
     }
   }
 

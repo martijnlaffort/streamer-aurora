@@ -128,6 +128,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// than relying on focus traversal between buttons.
   final _keyboardFocus = FocusNode(debugLabel: 'player-keys');
 
+  /// The play/pause button — the entry point when the remote moves off the
+  /// video surface into the on-screen controls. Focusing a concrete control is
+  /// the only way in: directional traversal from [_keyboardFocus] has no target
+  /// because that node's rect is the whole screen.
+  final _playPauseFocus = FocusNode(debugLabel: 'player-playpause');
+
   /// Live zapping state. Starts from the list position the caller handed over
   /// and moves as the user changes channel.
   late ZapContext? _zap = widget.request.zap;
@@ -273,6 +279,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _reconnectTimer?.cancel();
     _zapToastTimer?.cancel();
     _keyboardFocus.dispose();
+    _playPauseFocus.dispose();
     for (final sub in _subs) {
       sub.cancel();
     }
@@ -587,6 +594,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _hideTimer = Timer(const Duration(milliseconds: 3200), () {
       if (mounted && _playing && _error == null) {
         setState(() => _controlsVisible = false);
+        // If the remote was parked on a control, hand it back to the video
+        // surface as the controls fade — otherwise left/right would keep
+        // driving a button that is no longer visible instead of scrubbing.
+        if (!_keyboardFocus.hasPrimaryFocus) _keyboardFocus.requestFocus();
       }
     });
   }
@@ -700,11 +711,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final key = event.logicalKey;
 
     // Key events bubble up from whatever descendant holds focus. Once the user
-    // has moved up into the overlay's buttons, the arrows belong to focus
-    // traversal — hijacking them here would make the audio, subtitle and lock
-    // buttons unreachable, since moving between them IS left/right.
+    // has moved into the overlay's buttons, the arrows belong to focus
+    // traversal — hijacking them here would make the buttons unreachable, since
+    // moving between them IS left/right.
     if (!_keyboardFocus.hasPrimaryFocus) {
       _wake();
+      // OK/centre activates the focused control. D-pad centre arrives as
+      // `select` on many televisions, which is NOT in Flutter's default
+      // activation shortcuts, so trigger the focused control ourselves.
+      // Everything else (arrows) falls through to traversal and to the focused
+      // widget — the seek slider scrubs with left/right, buttons move focus.
+      if (key == LogicalKeyboardKey.select ||
+          key == LogicalKeyboardKey.enter ||
+          key == LogicalKeyboardKey.space ||
+          key == LogicalKeyboardKey.gameButtonA) {
+        final ctx = FocusManager.instance.primaryFocus?.context;
+        if (ctx != null) Actions.maybeInvoke(ctx, const ActivateIntent());
+        return KeyEventResult.handled;
+      }
       return KeyEventResult.ignored;
     }
 
@@ -790,8 +814,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _wake();
         return KeyEventResult.handled;
       }
+      // Move the remote off the video surface and into the on-screen controls,
+      // landing on play/pause. From there directional traversal reaches the
+      // top bar, the transport buttons and the seek bar; Back (PopScope) steps
+      // back out to plain viewing, where left/right scrub again. This explicit
+      // hand-off is necessary because traversal from the full-screen key node
+      // has no target of its own.
       _wake();
-      return KeyEventResult.ignored;
+      _playPauseFocus.requestFocus();
+      return KeyEventResult.handled;
     }
 
     return KeyEventResult.ignored;
@@ -1432,6 +1463,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       const SizedBox(width: 28),
                     ],
                     IconButton(
+                      focusNode: _playPauseFocus,
                       iconSize: 64,
                       onPressed: () {
                         _player.playOrPause();

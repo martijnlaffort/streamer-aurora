@@ -20,6 +20,7 @@ final syncServiceProvider = FutureProvider<SyncService?>((ref) async {
 
   final baseUrl = config.baseUrl!;
   final token = config.token!;
+  final catalog = ref.watch(catalogRepositoryProvider);
   return SyncService(
     progressRepo: ref.watch(watchProgressRepositoryProvider),
     preferencesRepo: ref.watch(preferencesRepositoryProvider),
@@ -28,13 +29,22 @@ final syncServiceProvider = FutureProvider<SyncService?>((ref) async {
     preferences: HttpPreferencesSyncBackend(baseUrl: baseUrl, token: token),
     favorites: HttpFavoritesSyncBackend(baseUrl: baseUrl, token: token),
     configStore: ref.watch(syncConfigStoreProvider),
+    // Tag outgoing episode progress with its series id, resolved from the
+    // local catalogue (the episode is cached here — it was watched here).
+    resolveSeriesId: (episodeId) async {
+      final account = await ref.read(activeAccountProvider.future);
+      if (account == null) return null;
+      final episode = await catalog.episodeById(account, episodeId);
+      return episode?.seriesId;
+    },
   );
 });
 
 /// Runs a reconcile if sync is configured. Returns null when sync is off.
-/// Used on app open and by "Sync now". Refreshes data-layer providers whose
-/// contents may have changed; UI callers invalidate their own view providers
-/// (e.g. Home) afterwards.
+/// The single entry point for every automatic trigger (launch, resume,
+/// background, debounced-on-change, periodic — see the app-level coordinator).
+/// Refreshes data-layer providers whose contents may have changed; UI callers
+/// invalidate their own view providers (e.g. Home) afterwards.
 Future<SyncResult?> runSync(WidgetRef ref) async {
   final service = await ref.read(syncServiceProvider.future);
   if (service == null) return null;
@@ -54,10 +64,16 @@ Future<SyncResult?> runSync(WidgetRef ref) async {
       final progress =
           await ref.read(watchProgressRepositoryProvider).recentlyWatched();
       final favorites = await ref.read(favoritesRepositoryProvider).all();
-      await catalog.ensureTitlesCached(account, [
-        ...progress.map((p) => p.contentKey),
-        ...favorites.map((f) => f.$1),
-      ]);
+      await catalog.ensureTitlesCached(
+        account,
+        [
+          ...progress.map((p) => p.contentKey),
+          ...favorites.map((f) => f.$1),
+        ],
+        // Series behind freshly-pulled episode progress — the piece that lets
+        // a part-watched series reappear in Continue Watching on this device.
+        extraSeriesIds: result.pulledSeriesIds,
+      );
     }
   }
   return result;

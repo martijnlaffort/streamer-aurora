@@ -1,3 +1,4 @@
+import '../../domain/models/models.dart';
 import '../repositories/favorites_repository.dart';
 import '../repositories/preferences_repository.dart';
 import '../repositories/sync_backend.dart';
@@ -8,11 +9,18 @@ class SyncResult {
   const SyncResult({
     this.pulledProgress = 0,
     this.pushedProgress = 0,
+    this.pulledSeriesIds = const {},
     this.error,
   });
 
   final int pulledProgress;
   final int pushedProgress;
+
+  /// Series ids referenced by episode progress just pulled from the backend.
+  /// The caller backfills these — the series has to be fetched and cached
+  /// before an episode key from another device can resolve into Continue
+  /// Watching.
+  final Set<String> pulledSeriesIds;
   final String? error;
 
   bool get ok => error == null;
@@ -37,6 +45,7 @@ class SyncService {
     required this._preferences,
     required this._favorites,
     required this._configStore,
+    this._resolveSeriesId,
     DateTime Function()? clock,
   }) : _clock = clock ?? (() => DateTime.now().toUtc());
 
@@ -47,39 +56,64 @@ class SyncService {
   final PreferencesSyncBackend _preferences;
   final FavoritesSyncBackend _favorites;
   final SyncStateStore _configStore;
+
+  /// Looks up which series an episode belongs to, from the local catalogue.
+  /// Used to tag outgoing episode progress so the other device can resolve it.
+  /// Null in tests / when no catalogue is wired.
+  final Future<String?> Function(String episodeId)? _resolveSeriesId;
   final DateTime Function() _clock;
 
   Future<SyncResult> reconcile() async {
     try {
-      final pulled = await _reconcileProgress();
+      final (:pulled, :seriesIds) = await _reconcileProgress();
       final pushed = await _pushDirtyProgress();
       await _reconcilePreferences();
       await _reconcileFavorites();
       await _configStore.setLastSyncAt(_clock());
-      return SyncResult(pulledProgress: pulled, pushedProgress: pushed);
+      return SyncResult(
+          pulledProgress: pulled,
+          pushedProgress: pushed,
+          pulledSeriesIds: seriesIds);
     } on Object catch (e) {
       return SyncResult(error: '$e');
     }
   }
 
-  Future<int> _reconcileProgress() async {
+  Future<({int pulled, Set<String> seriesIds})> _reconcileProgress() async {
     final since = await _configStore.lastSyncAt();
     final remote = await _progress.pullSince(since);
     var applied = 0;
+    final seriesIds = <String>{};
     for (final r in remote) {
+      if (r.seriesId != null) seriesIds.add(r.seriesId!);
       final local = await _progressRepo.get(r.contentKey);
       if (local == null || r.updatedAt.isAfter(local.updatedAt)) {
         await _progressRepo.applyRemote(r);
         applied++;
       }
     }
-    return applied;
+    return (pulled: applied, seriesIds: seriesIds);
   }
 
   Future<int> _pushDirtyProgress() async {
     final unsynced = await _progressRepo.unsyncedEntries();
     if (unsynced.isEmpty) return 0;
-    await _progress.push(unsynced);
+    // Tag episode entries with their series id so the receiving device can
+    // fetch the series and resolve the episode. The episode is cached here (it
+    // was watched here), so the lookup is local and cheap.
+    final enriched = <WatchProgress>[];
+    for (final e in unsynced) {
+      final key = parseContentKey(e.contentKey);
+      if (_resolveSeriesId != null &&
+          key != null &&
+          key.type == StreamType.episode.name) {
+        final seriesId = await _resolveSeriesId(key.id);
+        enriched.add(seriesId == null ? e : e.copyWith(seriesId: seriesId));
+      } else {
+        enriched.add(e);
+      }
+    }
+    await _progress.push(enriched);
     await _progressRepo.markSynced(unsynced.map((e) => e.contentKey));
     return unsynced.length;
   }

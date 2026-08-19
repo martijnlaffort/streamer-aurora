@@ -22,6 +22,7 @@ import 'sources/playlist_source.dart';
 import 'sources/tmdb_source.dart';
 import 'sources/xtream_source.dart';
 import 'db/account_id_migration.dart';
+import 'sync/sync_trigger.dart';
 
 /// Riverpod wiring for the data layer. The UI depends on these providers and
 /// the domain models — never on sources or drift directly (PRD §5).
@@ -150,13 +151,19 @@ class ArtworkQuery {
 }
 
 final watchProgressRepositoryProvider = Provider<WatchProgressRepository>(
-    (ref) => WatchProgressRepository(db: ref.watch(appDatabaseProvider)));
+    (ref) => WatchProgressRepository(
+          db: ref.watch(appDatabaseProvider),
+          onChanged: () => ref.read(syncTriggerProvider).ping(),
+        ));
 
 final preferencesRepositoryProvider = Provider<PreferencesRepository>(
     (ref) => PreferencesRepository(db: ref.watch(appDatabaseProvider)));
 
 final favoritesRepositoryProvider = Provider<FavoritesRepository>(
-    (ref) => FavoritesRepository(db: ref.watch(appDatabaseProvider)));
+    (ref) => FavoritesRepository(
+          db: ref.watch(appDatabaseProvider),
+          onChanged: () => ref.read(syncTriggerProvider).ping(),
+        ));
 
 final searchHistoryRepositoryProvider = Provider<SearchHistoryRepository>(
     (ref) => SearchHistoryRepository(db: ref.watch(appDatabaseProvider)));

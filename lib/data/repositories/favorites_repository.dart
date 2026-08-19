@@ -9,6 +9,7 @@ class FavoritesRepository {
   FavoritesRepository({
     required this._db,
     DateTime Function()? clock,
+    this.onChanged,
     // Accepted but unused until the Phase 2 backend exists.
     // ignore: avoid_unused_constructor_parameters
     FavoritesSyncBackend? backend,
@@ -16,6 +17,11 @@ class FavoritesRepository {
 
   final AppDatabase _db;
   final DateTime Function() _clock;
+
+  /// Called after a local add/remove, so automatic sync can push it soon. Null
+  /// in tests / when auto-sync is not wired. Deliberately not fired by
+  /// [addIfAbsent], which is itself the result of a sync pull.
+  final void Function()? onChanged;
 
   /// Returns the new state: true = now a favorite.
   Future<bool> toggle(String contentKey) async {
@@ -26,12 +32,14 @@ class FavoritesRepository {
       await (_db.favoritesTable.delete()
             ..where((t) => t.contentKey.equals(contentKey)))
           .go();
+      onChanged?.call();
       return false;
     }
     await _db.favoritesTable.insertOne(FavoritesTableCompanion.insert(
       contentKey: contentKey,
       addedAtMillisUtc: utcMillis(_clock()),
     ));
+    onChanged?.call();
     return true;
   }
 

@@ -13,6 +13,7 @@ class WatchProgressRepository {
   WatchProgressRepository({
     required this._db,
     DateTime Function()? clock,
+    this.onChanged,
     // Accepted but unused until the Phase 2 backend exists.
     // ignore: avoid_unused_constructor_parameters
     ProgressSyncBackend? backend,
@@ -20,6 +21,10 @@ class WatchProgressRepository {
 
   final AppDatabase _db;
   final DateTime Function() _clock;
+
+  /// Called after a local write, so automatic sync can push it soon. Null in
+  /// tests / when auto-sync is not wired.
+  final void Function()? onChanged;
 
   /// Resume window per PRD §8.9: outside 5%..95% counts as fresh/finished.
   static const double resumeMinFraction = 0.05;
@@ -43,6 +48,7 @@ class WatchProgressRepository {
       completed: completed,
     );
     await _db.watchProgressTable.insertOnConflictUpdate(progress.toCompanion());
+    onChanged?.call();
     return progress;
   }
 
@@ -96,6 +102,7 @@ class WatchProgressRepository {
       updatedAtMillisUtc: Value(utcMillis(_clock())),
       syncedAtMillisUtc: const Value(null),
     ));
+    onChanged?.call();
   }
 
   Future<void> remove(String contentKey) async {

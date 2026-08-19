@@ -126,7 +126,7 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
         pulled = result?.ok ?? false;
       } on Object {
         // Non-fatal: the account and sync config are saved either way, and the
-        // next launch or a manual Sync now will pull the history.
+        // next automatic sync (launch/resume/periodic) will pull the history.
       }
     }
     ref.invalidate(accountsProvider);
@@ -165,8 +165,8 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
           Text(_done!, textAlign: TextAlign.center, style: AppTypography.title),
           const SizedBox(height: 8),
           const Text(
-            'If Continue Watching or My List look empty, open Settings → Sync '
-            'on your phone and tap Sync now, then Sync now here.',
+            'Your watch history and My List will fill in automatically over the '
+            'next moment, and stay in sync from now on.',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textSecondary),
           ),

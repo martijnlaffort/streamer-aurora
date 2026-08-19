@@ -786,14 +786,17 @@ class CatalogRepository {
   /// without its series id, which the content key does not carry. Series
   /// Continue Watching therefore needs the separate series-id-in-sync change.
   Future<void> ensureTitlesCached(
-      Account account, Iterable<String> contentKeys) async {
+    Account account,
+    Iterable<String> contentKeys, {
+    Iterable<String> extraSeriesIds = const [],
+  }) async {
     // Whole-body guard: this is a best-effort enhancement on Home's critical
     // path, so it must never throw back into the caller and turn a working
     // (cached) Home into an error screen. Whatever goes wrong, the rails just
     // fall back to what is already cached.
     try {
       final movieIds = <String>[];
-      final seriesIds = <String>[];
+      final seriesIds = <String>{};
       for (final key in contentKeys) {
         final parsed = parseContentKey(key);
         if (parsed == null || parsed.accountId != account.id) continue;
@@ -807,6 +810,14 @@ class CatalogRepository {
           }
         }
       }
+      // Series behind episode progress: the content key is the episode, which
+      // cannot be fetched on its own, so the series id is supplied separately
+      // (from what sync pulled). Fetching the series caches all its episodes,
+      // which is what lets a series you were part-way through resolve into
+      // Continue Watching on a freshly paired device.
+      for (final id in extraSeriesIds) {
+        if (await seriesById(account, id) == null) seriesIds.add(id);
+      }
       if (movieIds.isEmpty && seriesIds.isEmpty) return;
 
       // Cap the work: only enough to fill what the rails actually show, so a
@@ -815,7 +826,7 @@ class CatalogRepository {
       const maxToFetch = 24;
 
       Future<void> fetchAll(
-          List<String> ids, Future<void> Function(String) fetch) async {
+          Iterable<String> ids, Future<void> Function(String) fetch) async {
         const maxConcurrent = 4;
         final take = ids.take(maxToFetch).toList();
         for (var i = 0; i < take.length; i += maxConcurrent) {

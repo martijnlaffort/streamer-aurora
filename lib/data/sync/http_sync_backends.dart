@@ -33,6 +33,7 @@ class HttpProgressSyncBackend implements ProgressSyncBackend {
         for (final e in entries)
           {
             'content_key': e.contentKey,
+            if (e.seriesId != null) 'series_id': e.seriesId,
             'position_seconds': e.positionSeconds,
             'duration_seconds': e.durationSeconds,
             'completed': e.completed,
@@ -55,6 +56,7 @@ class HttpProgressSyncBackend implements ProgressSyncBackend {
       for (final e in entries.cast<Map<String, dynamic>>())
         WatchProgress(
           contentKey: e['content_key'] as String,
+          seriesId: e['series_id'] as String?,
           positionSeconds: (e['position_seconds'] as num).toInt(),
           durationSeconds: (e['duration_seconds'] as num).toInt(),
           updatedAt: DateTime.parse(e['updated_at'] as String).toUtc(),

@@ -117,6 +117,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/player',
         name: 'player',
+        // The player needs a queue handed over in `extra`. Reached without one
+        // (a deep link, a stray `context.go('/player')`), send the user home
+        // rather than crashing on `extra!`.
+        redirect: (context, state) =>
+            state.extra is PlayerRequest ? null : '/',
         builder: (context, state) =>
             PlayerScreen(request: state.extra! as PlayerRequest),
       ),

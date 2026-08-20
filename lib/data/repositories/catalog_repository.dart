@@ -883,12 +883,27 @@ class CatalogRepository {
   Future<List<Channel>> channelsByEpgKeys(
       Account account, Set<String> keys) async {
     if (keys.isEmpty) return const [];
-    final rows = await (_db.channelsTable.select()
-          ..where((t) =>
-              t.accountId.equals(account.id) &
-              (t.epgChannelId.isIn(keys) | t.id.isIn(keys)))
-          ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
-        .get();
+    // `epgChannelId IN keys OR id IN keys` binds TWO host variables per key,
+    // and SQLite caps host variables per statement. A guide on a large line can
+    // start from tens of thousands of EPG keys, which would blow that cap and
+    // throw. Query in chunks and merge — 450 keys → 900 variables, safe under
+    // any SQLite build's limit.
+    const chunkSize = 450;
+    final list = keys.toList();
+    final byId = <String, ChannelRow>{};
+    for (var i = 0; i < list.length; i += chunkSize) {
+      final chunk = list.skip(i).take(chunkSize).toList();
+      final rows = await (_db.channelsTable.select()
+            ..where((t) =>
+                t.accountId.equals(account.id) &
+                (t.epgChannelId.isIn(chunk) | t.id.isIn(chunk))))
+          .get();
+      for (final r in rows) {
+        byId[r.id] = r;
+      }
+    }
+    final rows = byId.values.toList()
+      ..sort((a, b) => (a.sortOrder ?? 0).compareTo(b.sortOrder ?? 0));
     return rows.map((r) => r.toModel()).toList();
   }
 

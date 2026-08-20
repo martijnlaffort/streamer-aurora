@@ -121,12 +121,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           final selectedSeason =
               _selectedSeason ?? seasons.firstOrNull?.seasonNumber ?? 1;
           final episodes = detail.episodesOfSeason(selectedSeason);
-          final (nextIndex, nextProgress) =
-              _nextUp(detail, account.id, progress);
-          final next = detail.episodes[nextIndex];
-          final resume = ref
-              .read(watchProgressRepositoryProvider)
-              .shouldOfferResume(nextProgress);
+          // A series can arrive with no episodes at all — a stub entry on the
+          // panel, or a season list the panel holds no files for. Guard every
+          // path that indexes into episodes so the screen degrades to an empty
+          // state instead of crashing with a RangeError.
+          final hasEpisodes = detail.episodes.isNotEmpty;
+          final (nextIndex, nextProgress) = hasEpisodes
+              ? _nextUp(detail, account.id, progress)
+              : (0, null);
+          final next = hasEpisodes ? detail.episodes[nextIndex] : null;
+          final resume = hasEpisodes &&
+              ref
+                  .read(watchProgressRepositoryProvider)
+                  .shouldOfferResume(nextProgress);
 
           final series = detail.series;
           final image = series.backdropUrl ?? series.posterUrl;
@@ -166,25 +173,27 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () => _play(
-                                detail, account.id, nextIndex,
-                                resumeFrom: resume
-                                    ? nextProgress!.positionSeconds
-                                    : null),
-                            icon: const Icon(Icons.play_arrow),
-                            label: Text(
-                              resume
-                                  ? 'Resume S${next.seasonNumber} E${next.episodeNumber} '
-                                      'from ${formatSeconds(nextProgress!.positionSeconds)}'
-                                  : 'Play S${next.seasonNumber} E${next.episodeNumber}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                        if (hasEpisodes) ...[
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () => _play(
+                                  detail, account.id, nextIndex,
+                                  resumeFrom: resume
+                                      ? nextProgress!.positionSeconds
+                                      : null),
+                              icon: const Icon(Icons.play_arrow),
+                              label: Text(
+                                resume
+                                    ? 'Resume S${next!.seasonNumber} E${next.episodeNumber} '
+                                        'from ${formatSeconds(nextProgress!.positionSeconds)}'
+                                    : 'Play S${next!.seasonNumber} E${next.episodeNumber}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
+                          const SizedBox(width: 8),
+                        ],
                         MyListButton(
                           contentKey: contentKeyForSeries(
                               accountId: account.id, id: series.id),
@@ -216,6 +225,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                   ),
                 ),
               const SizedBox(height: 8),
+              if (!hasEpisodes)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Text('No episodes available for this series yet.',
+                      style: TextStyle(color: AppColors.textSecondary)),
+                ),
               for (final episode in episodes)
                 _EpisodeTile(
                   episode: episode,

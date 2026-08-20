@@ -152,31 +152,10 @@ class _HomeContent extends ConsumerWidget {
           // rails on purpose: for the few weeks it appears it is the most
           // topical thing on the screen, and it costs no network to produce.
           ..._seasonalSlivers(context, ref),
-          // The Top Rated rails are gone: they were the panel's own rating with
-          // no vote count behind it, which is the exact signal the discovery
-          // rails above replaced.
-          if (data.recentlyAdded.isNotEmpty)
-            SliverToBoxAdapter(
-              child: MediaRail(
-                title: 'Recently Added',
-                itemCount: data.recentlyAdded.length,
-                itemBuilder: (context, i) {
-                  final movie = data.recentlyAdded[i];
-                  final tag = 'recent-m-${movie.id}';
-                  return PosterCard(
-                    title: prettyTitle(movie.name, year: movie.year),
-                    imageUrl: movie.posterUrl,
-                    artwork: ArtworkQuery(
-                        name: prettyTitle(movie.name, year: movie.year),
-                        year: movie.year,
-                        isSeries: false),
-                    heroTag: tag,
-                    onTap: () => context.push('/movie/${movie.id}', extra: tag),
-                  );
-                },
-              ),
-            ),
-          // Per-category rails moved to the Movies and Series tabs.
+          // The Top Rated and Recently Added rails are gone: Top Rated was the
+          // panel's own rating with no vote count (the discovery rails above
+          // replaced it), and Recently Added just surfaced arbitrary, unknown
+          // uploads. Per-category rails moved to the Movies and Series tabs.
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),

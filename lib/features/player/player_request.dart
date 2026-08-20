@@ -73,5 +73,8 @@ class PlayerRequest {
   /// Non-null → seek here once the media reports a duration (PRD §8.9).
   final int? resumeFromSeconds;
 
-  PlayerItem get startItem => queue[startIndex];
+  /// Clamped so a stale or `-1` index (e.g. an episode that fell out of a
+  /// refreshed list) can never throw — it just starts from the nearest valid
+  /// item instead.
+  PlayerItem get startItem => queue[startIndex.clamp(0, queue.length - 1)];
 }

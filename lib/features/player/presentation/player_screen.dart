@@ -59,7 +59,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   late final WatchProgressRepository _progressRepo =
       ref.read(watchProgressRepositoryProvider);
 
-  late int _index = widget.request.startIndex;
+  // Clamped: a caller can hand over a stale or -1 start index (an episode that
+  // fell out of a refreshed list), and `queue[_index]` must never RangeError.
+  late int _index =
+      widget.request.startIndex.clamp(0, widget.request.queue.length - 1);
 
   // Resume state (PRD §8.9).
   int? _pendingResumeSeconds;

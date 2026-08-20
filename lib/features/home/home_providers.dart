@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/language/content_language.dart';
 import '../../core/matching/title_match.dart';
 import '../../core/rotation.dart';
 import '../../core/seasonal.dart';
@@ -47,12 +46,8 @@ class ContinueEntry {
 /// catalog (reads are DB-backed; the repository handles TTL refreshes).
 class HomeData {
   const HomeData({
-    required this.heroes,
     required this.continueWatching,
   });
-
-  /// Rotating featured hero candidates (newest first).
-  final List<Movie> heroes;
 
   /// Continue Watching (PRD §8.9): movies and series, most-recent first.
   final List<ContinueEntry> continueWatching;
@@ -202,31 +197,6 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   if (account == null) return null;
   final catalog = ref.watch(catalogRepositoryProvider);
 
-  // Content-language filter (PRD §8.3): everything on Home is restricted to
-  // categories whose detected language is enabled. Category IDs are resolved
-  // once here; `null` sets mean the filter is off (show all).
-  final enabled = await ref.watch(contentLanguageFilterProvider.future);
-  final Set<String>? allowedVod = enabled == null
-      ? null
-      : (await catalog.categories(account, CategoryType.vod))
-          .where((c) => enabled.contains(detectContentLanguage(c.name).code))
-          .map((c) => c.id)
-          .toSet();
-  // Home's rails are sorted and limited in SQL (see CatalogRepository) — the
-  // whole catalog is never pulled into memory, which is what let large
-  // playlists push a sideloaded build past iOS's memory limit. A `null`
-  // allowed-set means the content-language filter is off (show all).
-
-  // The newest few from cache feed the featured hero. Backdrops are NOT
-  // resolved here — see [heroBackdropProvider]. This used to await
-  // `movieDetail` per hero, i.e. up to five sequential `get_vod_info`
-  // round-trips before Home rendered anything; on a real panel that is seconds
-  // of spinner for a cosmetic upgrade the hero already falls back from (it
-  // shows the poster when there is no backdrop).
-  final recentPool = await catalog.recentMovies(account,
-      limit: _railLength, categoryIds: allowedVod);
-  final heroes = recentPool.take(5).toList();
-
   // Continue Watching (PRD §8.9): movies play directly; episodes resolve back
   // to their series (one card per series — the most-recent episode, since the
   // list is already updatedAt-desc).
@@ -328,7 +298,6 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   // categories was both redundant and the thing that made every cold start
   // refresh six categories before it could paint.
   return HomeData(
-    heroes: heroes,
     continueWatching: continueWatching,
   );
 });

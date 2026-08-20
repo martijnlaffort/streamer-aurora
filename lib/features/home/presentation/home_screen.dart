@@ -14,13 +14,12 @@ import '../../../core/widgets/poster_card.dart';
 import '../../../data/providers.dart';
 import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
-import '../../movies/movies_providers.dart' show isFavoriteProvider;
 import '../../player/player_request.dart';
 import '../home_providers.dart';
 import 'widgets/media_rail.dart';
 
-/// Home (PRD §8.2): rotating featured hero, Continue Watching, Recently
-/// Added, and per-category rails — all served from the cached catalog.
+/// Home (PRD Â§8.2): rotating featured hero, Continue Watching, Recently
+/// Added, and per-category rails â€” all served from the cached catalog.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -63,7 +62,7 @@ class _NoAccount extends ConsumerWidget {
             style: const TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
-          // On a television, pairing is THE way in — typing a server URL, a
+          // On a television, pairing is THE way in â€” typing a server URL, a
           // username and a password with a D-pad is the thing pairing exists to
           // avoid. It was previously reachable only through Settings, i.e. only
           // through the rail, which left a fresh TV with no way to reach it at
@@ -105,7 +104,7 @@ class _HomeContent extends ConsumerWidget {
       color: AppColors.accent,
       onRefresh: () async {
         // This used to call refreshCatalog(), which sweeps the ENTIRE vod
-        // slice — 150k titles on a real line, i.e. minutes of spinner for a
+        // slice â€” 150k titles on a real line, i.e. minutes of spinner for a
         // pull-to-refresh, while the Movies and Series tabs returned instantly
         // because they only re-read. It was the last whole-slice sweep left in
         // a routine path.
@@ -125,15 +124,14 @@ class _HomeContent extends ConsumerWidget {
         physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics()),
         slivers: [
-          if (data.heroes.isNotEmpty)
-            SliverToBoxAdapter(
-              child: _FeaturedHero(
-                movies: data.heroes,
-                // A TV must have something focused or the remote has nowhere to
-                // start; the spotlight is the natural place.
-                autofocus: isTelevisionOf(ref),
-              ),
-            ),
+          // The featured hero used to fill the top, but it only ever spotlit an
+          // unfamiliar recently-added title, so Home now opens straight into
+          // Continue Watching and the rails. This just clears the status bar /
+          // overscan the hero used to sit behind. (On TV the shell routes the
+          // first D-pad press into the content, so nothing needs autofocus.)
+          SliverToBoxAdapter(
+            child: SizedBox(height: MediaQuery.paddingOf(context).top + 8),
+          ),
           if (data.continueWatching.isNotEmpty)
             SliverToBoxAdapter(
               child: MediaRail(
@@ -146,7 +144,7 @@ class _HomeContent extends ConsumerWidget {
             ),
           ..._myListSlivers(context, ref),
           // Externally-ranked rails (Top 10, Trending, New Releases, Award
-          // Winners). Separate provider — Home never waits on them.
+          // Winners). Separate provider â€” Home never waits on them.
           ..._discoverySlivers(context, ref),
           // The seasonal rail, when there is one. Placed above the discovery
           // rails on purpose: for the few weeks it appears it is the most
@@ -159,30 +157,6 @@ class _HomeContent extends ConsumerWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
-    );
-  }
-}
-
-/// Add/remove the featured hero from My List without leaving Home — the
-/// shortcut Netflix and HBO both put on the spotlight.
-class _HeroMyListButton extends ConsumerWidget {
-  const _HeroMyListButton({required this.movie});
-
-  final Movie movie;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final key = contentKeyFor(
-        accountId: movie.accountId, type: StreamType.movie, id: movie.id);
-    final saved = ref.watch(isFavoriteProvider(key)).value ?? false;
-    return FilledButton.tonalIcon(
-      onPressed: () async {
-        await ref.read(favoritesRepositoryProvider).toggle(key);
-        ref.invalidate(isFavoriteProvider(key));
-        ref.invalidate(myListProvider);
-      },
-      icon: Icon(saved ? Icons.check : Icons.add, size: 18),
-      label: Text(saved ? 'In My List' : 'My List'),
     );
   }
 }
@@ -222,7 +196,7 @@ Widget _posterFor(BuildContext context, Object item, String tagPrefix,
   );
 }
 
-/// "My List" rail — hidden entirely when empty rather than showing a bald
+/// "My List" rail â€” hidden entirely when empty rather than showing a bald
 /// heading over nothing.
 List<Widget> _myListSlivers(BuildContext context, WidgetRef ref) {
   final items = ref.watch(myListProvider).value ?? const [];
@@ -240,7 +214,7 @@ List<Widget> _myListSlivers(BuildContext context, WidgetRef ref) {
 }
 
 /// Slivers for the discovery rails. Renders nothing at all while they load or
-/// if none resolved — an empty gap is better than a spinner for content that is
+/// if none resolved â€” an empty gap is better than a spinner for content that is
 /// a bonus on top of what Home already shows.
 /// The seasonal rail. Renders nothing outside its few weeks of the year, which
 /// is what keeps it feeling like an occasion rather than another category row.
@@ -294,185 +268,6 @@ List<Widget> _discoverySlivers(BuildContext context, WidgetRef ref) {
   ];
 }
 
-/// Rotating featured hero (PRD §8.2/§10): gentle cross-fades through the
-/// newest additions every few seconds.
-class _FeaturedHero extends StatefulWidget {
-  const _FeaturedHero({required this.movies, this.autofocus = false});
-
-  final List<Movie> movies;
-  final bool autofocus;
-
-  @override
-  State<_FeaturedHero> createState() => _FeaturedHeroState();
-}
-
-class _FeaturedHeroState extends State<_FeaturedHero> {
-  int _index = 0;
-  Timer? _timer;
-
-  /// Auto-rotation stops once you engage with the hero. Without this the title
-  /// changes under your thumb while you are reading it or reaching for a
-  /// button, which turns the spotlight into a hazard.
-  bool _paused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.movies.length > 1) {
-      _timer = Timer.periodic(const Duration(seconds: 6), (_) {
-        if (mounted && !_paused) {
-          setState(() => _index = (_index + 1) % widget.movies.length);
-        }
-      });
-    }
-  }
-
-  void _pause() {
-    if (!_paused && mounted) setState(() => _paused = true);
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(_FeaturedHero old) {
-    super.didUpdateWidget(old);
-    // A pull-to-refresh can hand over a shorter hero list; keep the index in
-    // range so build() can't RangeError on the next frame.
-    if (_index >= widget.movies.length) _index = 0;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Clamp defensively too — length can change between didUpdateWidget and a
-    // rotation tick.
-    final movie = widget.movies[_index.clamp(0, widget.movies.length - 1)];
-    return MouseRegion(
-      onEnter: (_) => _pause(),
-      child: InkWell(
-        // InkWell so the remote's OK button activates it; GestureDetector
-        // takes focus on a TV and then ignores the press.
-        onTap: () {
-          _pause();
-          context.push('/movie/${movie.id}');
-        },
-        onFocusChange: (focused) {
-          if (focused) _pause();
-        },
-        focusColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        child: SizedBox(
-          height: 430,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // The poster renders immediately from the cached row; the wider
-            // backdrop is fetched off Home's critical path and cross-fades in
-            // when it arrives (see heroBackdropProvider).
-            Consumer(
-              builder: (context, ref, _) {
-                // Both "still loading" and "no backdrop" collapse to null here,
-                // which is what we want: keep showing the poster.
-                final backdrop = movie.backdropUrl ??
-                    ref.watch(heroBackdropProvider(movie.id)).value;
-                final image = backdrop ?? movie.posterUrl;
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 700),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: image != null
-                      ? CachedNetworkImage(
-                          key: ValueKey('${movie.id}-$image'),
-                          imageUrl: image,
-                          fit: BoxFit.cover,
-                          // Full-width hero backdrop — decode at ~1080px, not
-                          // the source's full resolution (often 1920+).
-                          memCacheWidth: 1080,
-                          placeholder: (context, url) =>
-                              const ColoredBox(color: AppColors.surfaceElevated),
-                          errorWidget: (context, url, error) =>
-                              const ColoredBox(color: AppColors.surfaceElevated),
-                        )
-                      : ColoredBox(
-                          key: ValueKey('empty-${movie.id}'),
-                          color: AppColors.surfaceElevated),
-                );
-              },
-            ),
-            const DecoratedBox(
-                decoration: BoxDecoration(gradient: AppColors.scrim)),
-            Positioned(
-              left: 20,
-              right: 20,
-              bottom: 24,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('RECENTLY ADDED',
-                      style: AppTypography.label
-                          .copyWith(color: AppColors.accentAlt)),
-                  const SizedBox(height: 6),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 400),
-                    child: Text(
-                      prettyTitle(movie.name, year: movie.year),
-                      key: ValueKey(movie.id),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.display.copyWith(fontSize: 32),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Wrap, not Row: the TV shell's navigation rail takes a slice
-                  // of the width, and two buttons plus the page dots overflowed
-                  // a Row outright. Wrap moves the dots to their own line when
-                  // the space is not there instead of clipping.
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FilledButton.icon(
-                        autofocus: widget.autofocus,
-                        onPressed: () => context.push('/movie/${movie.id}'),
-                        icon: const Icon(Icons.info_outline, size: 18),
-                        label: const Text('Details'),
-                      ),
-                      _HeroMyListButton(movie: movie),
-                      if (widget.movies.length > 1)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (final (i, _) in widget.movies.indexed)
-                              Container(
-                                width: i == _index ? 16 : 6,
-                                height: 6,
-                                margin: const EdgeInsets.only(left: 4),
-                                decoration: BoxDecoration(
-                                  color: i == _index
-                                      ? AppColors.accent
-                                      : Colors.white30,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ContinueCard extends ConsumerStatefulWidget {
   const _ContinueCard({required this.entry});
 
@@ -483,7 +278,7 @@ class _ContinueCard extends ConsumerStatefulWidget {
 }
 
 class _ContinueCardState extends ConsumerState<_ContinueCard> {
-  /// Focused (D-pad) or hovered (mouse) — drives the same pop/ring/glow the
+  /// Focused (D-pad) or hovered (mouse) â€” drives the same pop/ring/glow the
   /// poster cards use, so it is just as obvious which card the remote is on.
   bool _engaged = false;
   ContinueEntry get entry => widget.entry;
@@ -494,7 +289,7 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
   /// one episode. Resuming used to open the detail page, which built the full
   /// queue on the way through; playing directly skipped that and handed the
   /// player a queue of one, which silently disabled both the Next Episode
-  /// button and autoplay-next — they only exist when there is a next item.
+  /// button and autoplay-next â€” they only exist when there is a next item.
   Future<void> _resume(BuildContext context, WidgetRef ref) async {
     final request = await _buildRequest(ref);
     if (!context.mounted) return;
@@ -539,7 +334,7 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
               containerExt: e.containerExt,
             ),
             title: entry.title,
-            subtitle: 'S${e.seasonNumber} · E${e.episodeNumber} — ${e.title}',
+            subtitle: 'S${e.seasonNumber} Â· E${e.episodeNumber} â€” ${e.title}',
             contentKey: contentKeyFor(
                 accountId: account.id,
                 type: StreamType.episode,
@@ -613,7 +408,7 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
         // then did nothing.
         child: InkWell(
           // A remote has no long-press, so on a TV the OK button opens the
-          // action menu (Resume / Details / Remove — all reachable), with
+          // action menu (Resume / Details / Remove â€” all reachable), with
           // Resume auto-focused. Touch keeps tap-to-resume, long-press-for-menu.
           onTap: () => isTelevisionOf(ref)
               ? _showMenu(context, ref)

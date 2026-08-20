@@ -76,11 +76,17 @@ class SyncService {
       // Accounts first: pulling a new playlist makes its content keys
       // resolvable, so progress/favorites for it can land somewhere real.
       await _reconcileAccounts();
+      // Stamp the watermark from BEFORE the pull, not after the whole reconcile.
+      // A record another device writes to the server during this reconcile
+      // window has a timestamp later than the pull but earlier than "now"; using
+      // "now" as the next `since` would skip it forever. Using the pull-start
+      // time re-pulls that window next time — idempotent under last-write-wins.
+      final syncStartedAt = _clock();
       final (:pulled, :seriesIds) = await _reconcileProgress();
       final pushed = await _pushDirtyProgress();
       await _reconcilePreferences();
       await _reconcileFavorites();
-      await _configStore.setLastSyncAt(_clock());
+      await _configStore.setLastSyncAt(syncStartedAt);
       return SyncResult(
           pulledProgress: pulled,
           pushedProgress: pushed,
@@ -125,7 +131,11 @@ class SyncService {
       }
     }
     await _progress.push(enriched);
-    await _progressRepo.markSynced(unsynced.map((e) => e.contentKey));
+    // Pass the pushed entries, not just their keys: markSynced clears the dirty
+    // flag only on rows still at the pushed `updatedAt`. A save that landed
+    // during the push above bumped `updatedAt` and stays dirty, so its newer
+    // position is pushed next time instead of being silently swallowed.
+    await _progressRepo.markSynced(unsynced);
     return unsynced.length;
   }
 
@@ -136,12 +146,15 @@ class SyncService {
     await _preferences.push(local, changedAt);
     final winner = await _preferences.pull();
     if (winner != null) {
-      // The TMDB key and discovery region are device-local and are not part of
-      // the sync payload, so carry the local values across — saving the remote
-      // winner verbatim would clear them on every sync.
+      // The TMDB key, discovery region and content-language filter are all
+      // device-local and NOT part of the sync payload, so carry the local
+      // values across — saving the remote winner verbatim would clear them on
+      // every sync. (contentLanguages was previously missed here, so the
+      // language filter silently reset to "show all" after each sync.)
       await _preferencesRepo.save(winner.prefs.copyWith(
         tmdbApiKey: local.tmdbApiKey,
         discoveryRegion: local.discoveryRegion,
+        contentLanguages: local.contentLanguages,
       ));
       await _configStore.setPreferencesChangedAt(winner.updatedAt);
     }

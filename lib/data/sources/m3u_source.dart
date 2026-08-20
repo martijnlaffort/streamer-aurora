@@ -158,14 +158,7 @@ class M3uSource implements PlaylistSource {
     return result;
   }
 
-  @override
-  Future<List<Movie>> getVodStreams({String? categoryId}) async {
-    final now = _clock();
-    final result = <Movie>[];
-    for (final entry in await _entriesOf(vod: true)) {
-      final group = entry.groupTitle ?? _uncategorized;
-      if (categoryId != null && group != categoryId) continue;
-      result.add(Movie(
+  Movie _movieFrom(M3uEntry entry, String group, DateTime now) => Movie(
         id: stableId(entry.url),
         accountId: account.id,
         categoryId: group,
@@ -178,20 +171,31 @@ class M3uSource implements PlaylistSource {
             ?.replaceAll(RegExp(r'[()]'), '')),
         containerExt: _extensionOf(entry.url),
         cachedAt: now,
-      ));
+      );
+
+  @override
+  Future<List<Movie>> getVodStreams({String? categoryId}) async {
+    final now = _clock();
+    final result = <Movie>[];
+    for (final entry in await _entriesOf(vod: true)) {
+      final group = entry.groupTitle ?? _uncategorized;
+      if (categoryId != null && group != categoryId) continue;
+      result.add(_movieFrom(entry, group, now));
     }
     return result;
   }
 
   @override
   Future<Movie> getVodInfo(String vodId) async {
-    final movies = await getVodStreams();
-    final movie = movies.where((m) => m.id == vodId).firstOrNull;
-    if (movie == null) {
-      throw SourceException('Unknown VOD item: $vodId');
+    // Scan for the single matching entry rather than building the whole VOD
+    // list (150k Movie objects on a large playlist) just to pick one out.
+    final now = _clock();
+    for (final entry in (await _load()).entries) {
+      if (!_isVod(entry) || stableId(entry.url) != vodId) continue;
+      // No richer detail exists in an M3U — the list row IS the detail.
+      return _movieFrom(entry, entry.groupTitle ?? _uncategorized, now);
     }
-    // No richer detail exists in an M3U — the list row IS the detail.
-    return movie;
+    throw SourceException('Unknown VOD item: $vodId');
   }
 
   @override

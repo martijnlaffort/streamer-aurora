@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
@@ -108,7 +109,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           onChanged: _onChanged,
           onSubmitted: (_) => _record(),
           textInputAction: TextInputAction.search,
-          autofocus: false,
+          // On a TV the search field is the only landing spot, so seed focus
+          // there; on a phone, don't force the keyboard open on arrival.
+          autofocus: isTelevisionOf(ref),
           autocorrect: false,
           decoration: const InputDecoration(
             hintText: 'Search movies, series, channels…',

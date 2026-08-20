@@ -104,7 +104,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(seriesDetailProvider(widget.seriesId));
     final progressAsync = ref.watch(seriesProgressProvider(widget.seriesId));
-    final account = ref.watch(activeAccountProvider).value;
+    final accountAsync = ref.watch(activeAccountProvider);
 
     return Scaffold(
       appBar: AppBar(),
@@ -113,6 +113,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(seriesDetailProvider(widget.seriesId))),
         data: (detail) {
+          // Wait for the account too: reading `.value` while it is still
+          // loading briefly returned null and flashed "Not found" before the
+          // real content appeared.
+          if (accountAsync.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final account = accountAsync.value;
           if (detail == null || account == null) {
             return const Center(child: Text('Not found in the catalog.'));
           }
@@ -214,12 +221,30 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     itemBuilder: (context, i) {
                       final season = seasons[i];
                       final selected = season.seasonNumber == selectedSeason;
-                      return ChoiceChip(
-                        label: Text(season.name ?? 'Season ${season.seasonNumber}'),
-                        selected: selected,
-                        onSelected: (_) => setState(
-                            () => _selectedSeason = season.seasonNumber),
-                        selectedColor: AppColors.accent.withValues(alpha: 0.28),
+                      // Observer Focus (takes no focus itself): when the D-pad
+                      // moves onto this chip, scroll it into view — otherwise a
+                      // focused chip past the viewport edge is invisible on a TV.
+                      return Focus(
+                        canRequestFocus: false,
+                        onFocusChange: (focused) {
+                          if (focused) {
+                            Scrollable.ensureVisible(
+                              context,
+                              alignment: 0.5,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOut,
+                            );
+                          }
+                        },
+                        child: ChoiceChip(
+                          label: Text(
+                              season.name ?? 'Season ${season.seasonNumber}'),
+                          selected: selected,
+                          onSelected: (_) => setState(
+                              () => _selectedSeason = season.seasonNumber),
+                          selectedColor:
+                              AppColors.accent.withValues(alpha: 0.28),
+                        ),
                       );
                     },
                   ),

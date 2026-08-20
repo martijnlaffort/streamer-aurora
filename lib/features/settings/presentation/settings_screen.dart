@@ -76,6 +76,7 @@ Future<void> _editDiscovery(
           const SizedBox(height: 16),
           TextField(
             controller: keyController,
+            autofocus: true,
             autocorrect: false,
             enableSuggestions: false,
             decoration: const InputDecoration(
@@ -180,6 +181,9 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           for (final (code, label) in options)
             RadioListTile<String?>(
+              // Seed focus on the current choice so the dialog is operable by
+              // remote the moment it opens.
+              autofocus: code == current,
               value: code,
               // ignore: deprecated_member_use
               groupValue: current,
@@ -417,6 +421,9 @@ class SettingsScreen extends ConsumerWidget {
                       'next load. Watch progress and favorites are kept.'),
                   actions: [
                     TextButton(
+                        // Focus the safe choice, so an immediate OK on a remote
+                        // cancels rather than clears.
+                        autofocus: true,
                         onPressed: () => Navigator.pop(context, false),
                         child: const Text('Cancel')),
                     FilledButton(

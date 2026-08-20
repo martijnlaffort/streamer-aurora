@@ -135,12 +135,18 @@ class WatchProgressRepository {
     );
   }
 
-  /// Marks [contentKeys] synced after a successful push.
-  Future<void> markSynced(Iterable<String> contentKeys) async {
-    if (contentKeys.isEmpty) return;
-    await (_db.watchProgressTable.update()
-          ..where((t) => t.contentKey.isIn(contentKeys.toList())))
-        .write(WatchProgressTableCompanion(
-            syncedAtMillisUtc: Value(utcMillis(_clock()))));
+  /// Marks the pushed [entries] synced — but only rows still at the pushed
+  /// `updatedAt`. If a local save bumped a row's `updatedAt` between the push
+  /// snapshot and here, that row stays dirty and is pushed on the next sync, so
+  /// a concurrent write is never silently lost (PRD §9).
+  Future<void> markSynced(Iterable<WatchProgress> entries) async {
+    final now = utcMillis(_clock());
+    for (final e in entries) {
+      await (_db.watchProgressTable.update()
+            ..where((t) =>
+                t.contentKey.equals(e.contentKey) &
+                t.updatedAtMillisUtc.equals(utcMillis(e.updatedAt))))
+          .write(WatchProgressTableCompanion(syncedAtMillisUtc: Value(now)));
+    }
   }
 }

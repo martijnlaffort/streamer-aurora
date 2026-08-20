@@ -795,29 +795,71 @@ class CatalogRepository {
     // (cached) Home into an error screen. Whatever goes wrong, the rails just
     // fall back to what is already cached.
     try {
-      final movieIds = <String>[];
-      final seriesIds = <String>{};
+      // Collect candidates first (cheap, no DB), then find which are already
+      // cached in ONE bulk query per kind — a large synced history used to fire
+      // one SELECT per content key (hundreds of serial round-trips).
+      final candidateMovieIds = <String>[];
+      // Series behind episode progress: the content key is the episode, which
+      // cannot be fetched on its own, so the series id is supplied separately
+      // (from what sync pulled). Fetching the series caches all its episodes,
+      // which is what lets a part-watched series resolve into Continue Watching
+      // on a freshly paired device.
+      final candidateSeriesIds = <String>{...extraSeriesIds};
       for (final key in contentKeys) {
         final parsed = parseContentKey(key);
         if (parsed == null || parsed.accountId != account.id) continue;
         if (parsed.type == StreamType.movie.name) {
-          if (await movieById(account, parsed.id) == null) {
-            movieIds.add(parsed.id);
-          }
+          candidateMovieIds.add(parsed.id);
         } else if (parsed.type == seriesContentType) {
-          if (await seriesById(account, parsed.id) == null) {
-            seriesIds.add(parsed.id);
-          }
+          candidateSeriesIds.add(parsed.id);
         }
       }
-      // Series behind episode progress: the content key is the episode, which
-      // cannot be fetched on its own, so the series id is supplied separately
-      // (from what sync pulled). Fetching the series caches all its episodes,
-      // which is what lets a series you were part-way through resolve into
-      // Continue Watching on a freshly paired device.
-      for (final id in extraSeriesIds) {
-        if (await seriesById(account, id) == null) seriesIds.add(id);
+
+      Future<Set<String>> existingMovieIds(List<String> ids) async {
+        final found = <String>{};
+        const chunk = 900;
+        for (var i = 0; i < ids.length; i += chunk) {
+          final part = ids.skip(i).take(chunk).toList();
+          final rows = await (_db.moviesTable.selectOnly()
+                ..addColumns([_db.moviesTable.id])
+                ..where(_db.moviesTable.accountId.equals(account.id) &
+                    _db.moviesTable.id.isIn(part)))
+              .get();
+          for (final r in rows) {
+            final v = r.read(_db.moviesTable.id);
+            if (v != null) found.add(v);
+          }
+        }
+        return found;
       }
+
+      Future<Set<String>> existingSeriesIds(List<String> ids) async {
+        final found = <String>{};
+        const chunk = 900;
+        for (var i = 0; i < ids.length; i += chunk) {
+          final part = ids.skip(i).take(chunk).toList();
+          final rows = await (_db.seriesTable.selectOnly()
+                ..addColumns([_db.seriesTable.id])
+                ..where(_db.seriesTable.accountId.equals(account.id) &
+                    _db.seriesTable.id.isIn(part)))
+              .get();
+          for (final r in rows) {
+            final v = r.read(_db.seriesTable.id);
+            if (v != null) found.add(v);
+          }
+        }
+        return found;
+      }
+
+      final existingMovies = await existingMovieIds(candidateMovieIds);
+      final existingSeries =
+          await existingSeriesIds(candidateSeriesIds.toList());
+      final movieIds = candidateMovieIds
+          .where((id) => !existingMovies.contains(id))
+          .toList();
+      final seriesIds = candidateSeriesIds
+          .where((id) => !existingSeries.contains(id))
+          .toSet();
       if (movieIds.isEmpty && seriesIds.isEmpty) return;
 
       // Cap the work: only enough to fill what the rails actually show, so a

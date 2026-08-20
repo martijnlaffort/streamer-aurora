@@ -134,10 +134,14 @@ DateTime? _parseXmltvTime(String? raw) {
   }
 
   // Base is the wall-clock time; the trailing "+HHMM"/"-HHMM" offset (if any)
-  // tells us how to shift to UTC.
+  // tells us how to shift to UTC. The XMLTV spec puts a space before the
+  // offset, but plenty of real providers omit it ("20260727180000+0200"), so
+  // take everything after the 14-digit datetime and trim — don't assume a
+  // fixed position, or a spaceless offset gets dropped and the time is wrong by
+  // the panel's UTC offset.
   var utc = DateTime.utc(year, month, day, hour, minute, second);
-  final tz = s.length >= 20 ? s.substring(15, 20) : null;
-  if (tz != null && (tz.startsWith('+') || tz.startsWith('-'))) {
+  final tz = s.substring(14).trim();
+  if (tz.length >= 5 && (tz.startsWith('+') || tz.startsWith('-'))) {
     final sign = tz[0] == '-' ? -1 : 1;
     final offH = int.tryParse(tz.substring(1, 3)) ?? 0;
     final offM = int.tryParse(tz.substring(3, 5)) ?? 0;

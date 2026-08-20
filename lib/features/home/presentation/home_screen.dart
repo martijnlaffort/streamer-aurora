@@ -338,8 +338,18 @@ class _FeaturedHeroState extends State<_FeaturedHero> {
   }
 
   @override
+  void didUpdateWidget(_FeaturedHero old) {
+    super.didUpdateWidget(old);
+    // A pull-to-refresh can hand over a shorter hero list; keep the index in
+    // range so build() can't RangeError on the next frame.
+    if (_index >= widget.movies.length) _index = 0;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final movie = widget.movies[_index];
+    // Clamp defensively too — length can change between didUpdateWidget and a
+    // rotation tick.
+    final movie = widget.movies[_index.clamp(0, widget.movies.length - 1)];
     return MouseRegion(
       onEnter: (_) => _pause(),
       child: InkWell(
@@ -552,6 +562,9 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              // Seeds focus so the sheet is operable by remote the instant it
+              // opens (otherwise the first D-pad press is spent finding a row).
+              autofocus: true,
               leading: const Icon(Icons.play_arrow),
               title: const Text('Resume'),
               onTap: () {
@@ -599,7 +612,12 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
         // and GestureDetector ignores it, so on a TV this row took focus and
         // then did nothing.
         child: InkWell(
-          onTap: () => _resume(context, ref),
+          // A remote has no long-press, so on a TV the OK button opens the
+          // action menu (Resume / Details / Remove — all reachable), with
+          // Resume auto-focused. Touch keeps tap-to-resume, long-press-for-menu.
+          onTap: () => isTelevisionOf(ref)
+              ? _showMenu(context, ref)
+              : _resume(context, ref),
           onLongPress: () => _showMenu(context, ref),
           borderRadius: BorderRadius.circular(10),
           focusColor: Colors.transparent,

@@ -431,6 +431,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _liveEpgTimer?.cancel();
     try {
       final account = await ref.read(activeAccountProvider.future);
+      // Back-out during any of these awaits disposes the widget (and the
+      // player). Bail before touching ref/_player/setState on a dead State.
+      if (!mounted) return;
       if (account == null) {
         setState(() => _error = 'No active account.');
         return;
@@ -449,6 +452,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       final url = await ref
           .read(sourceFactoryProvider)(account)
           .buildStreamUrl(_current.streamRef);
+      if (!mounted) return;
       // Present a player User-Agent panels accept (see kStreamUserAgent).
       // Set on the native mpv handle directly — the dedicated `user-agent`
       // property overrides libmpv's default and avoids duplicate headers.
@@ -457,6 +461,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         await platform.setProperty('user-agent', kStreamUserAgent);
       }
       await _player.open(Media(url));
+      if (!mounted) return;
       _scheduleHide();
       if (_current.isLive) {
         _refreshLiveEpg();
@@ -474,11 +479,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<void> _refreshLiveEpg() async {
     if (!_current.isLive) return;
     final account = await ref.read(activeAccountProvider.future);
-    if (account == null) return;
+    // Fires on a 60s timer; the widget may be long gone by the time it resolves.
+    if (!mounted || account == null) return;
     final channel = await ref
         .read(catalogRepositoryProvider)
         .channelById(account, _current.streamRef.streamId);
-    if (channel == null) return;
+    if (!mounted || channel == null) return;
     final programme =
         await ref.read(epgRepositoryProvider).currentProgramme(account, channel);
     if (mounted) setState(() => _liveNow = programme?.title);
@@ -575,6 +581,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     setState(() {
       _index += 1;
       _upNextCountdown = null;
+      // Clear transport state for the new item. Otherwise a quick exit before
+      // it reports its own position/duration would save the PREVIOUS item's
+      // position against the NEW item's content key (dispose saves whenever
+      // position & duration are both > 0).
+      _position = Duration.zero;
+      _duration = Duration.zero;
     });
     _openCurrent();
   }
@@ -586,6 +598,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     setState(() {
       _index -= 1;
       _upNextCountdown = null;
+      // See _playNext: clear so a quick exit can't misattribute the position.
+      _position = Duration.zero;
+      _duration = Duration.zero;
     });
     _openCurrent();
   }
@@ -634,7 +649,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _zapping = true;
     try {
       final account = await ref.read(activeAccountProvider.future);
-      if (account == null) return;
+      if (!mounted || account == null) return;
       final catalog = ref.read(catalogRepositoryProvider);
       final total = await catalog.channelCount(
         account,
@@ -970,6 +985,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             ),
             for (final track in tracks)
               ListTile(
+                // Seed focus on the current track so the sheet is operable by
+                // remote as soon as it opens.
+                autofocus: (track as dynamic).id == selectedId,
                 leading: Icon(
                   (track as dynamic).id == selectedId
                       ? Icons.radio_button_checked

@@ -35,6 +35,9 @@ class SeriesScreen extends ConsumerWidget {
         ],
       ),
       body: categories.when(
+        // A background sync must never blank a screen that already has content:
+        // when() shows its loading branch on a dependency reload by default.
+        skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) =>
             ErrorView(error: e, onRetry: () => ref.invalidate(seriesCategoriesProvider)),
@@ -65,6 +68,8 @@ class _SeriesCategoryRail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final rail = ref.watch(seriesCategoryRailProvider(category.id));
     return rail.when(
+      // Keep the rail painted while it reloads instead of blanking to a placeholder.
+      skipLoadingOnReload: true,
       loading: () => CategoryRailPlaceholder(title: category.name),
       error: (e, _) => const SizedBox.shrink(),
       data: (series) {

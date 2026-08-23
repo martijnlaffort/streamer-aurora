@@ -18,11 +18,11 @@ class WatchProgress extends Equatable {
   final int positionSeconds;
   final int durationSeconds;
 
-  /// For an episode, the id of the series it belongs to. Carried through sync
-  /// only — it is NOT stored in the local `watch_progress` table — so a device
-  /// receiving episode progress from another device knows which series to fetch
-  /// and cache, which is the one thing an episode content key cannot tell it.
-  /// Null for movies and for locally-read rows.
+  /// For an episode, the id of the series it belongs to — the one thing an
+  /// episode content key cannot tell you, and the thing a device needs in order
+  /// to fetch and cache the series so the episode resolves into Continue
+  /// Watching. Travels through sync AND is persisted locally (schema v10), so
+  /// the catalogue backfill can retry until it succeeds. Null for movies.
   final String? seriesId;
 
   /// UTC — also the last-write-wins key for the future sync backend (PRD §9).

@@ -37,15 +37,20 @@ class WatchProgressRepository {
     required String contentKey,
     required int positionSeconds,
     required int durationSeconds,
+    String? seriesId,
   }) async {
     final completed = durationSeconds > 0 &&
         positionSeconds / durationSeconds >= resumeMaxFraction;
+    // Never lose a known series id by overwriting the row without one — it is
+    // what lets the backfill retry (see WatchProgress.seriesId).
+    final existing = seriesId == null ? await get(contentKey) : null;
     final progress = WatchProgress(
       contentKey: contentKey,
       positionSeconds: positionSeconds,
       durationSeconds: durationSeconds,
       updatedAt: _clock(),
       completed: completed,
+      seriesId: seriesId ?? existing?.seriesId,
     );
     await _db.watchProgressTable.insertOnConflictUpdate(progress.toCompanion());
     onChanged?.call();
@@ -123,6 +128,10 @@ class WatchProgressRepository {
   /// Applies a remote entry the reconciler judged newer, marking it synced so
   /// it isn't immediately pushed back (PRD §9 last-write-wins).
   Future<void> applyRemote(WatchProgress remote) async {
+    // Keep any series id we already knew if this payload omits one, so a later
+    // push from a device that could not resolve it cannot erase it.
+    final seriesId =
+        remote.seriesId ?? (await get(remote.contentKey))?.seriesId;
     await _db.watchProgressTable.insertOnConflictUpdate(
       WatchProgressTableCompanion.insert(
         contentKey: remote.contentKey,
@@ -131,6 +140,7 @@ class WatchProgressRepository {
         updatedAtMillisUtc: utcMillis(remote.updatedAt),
         syncedAtMillisUtc: Value(utcMillis(_clock())),
         completed: Value(remote.completed),
+        seriesId: Value(seriesId),
       ),
     );
   }
@@ -139,6 +149,9 @@ class WatchProgressRepository {
   /// `updatedAt`. If a local save bumped a row's `updatedAt` between the push
   /// snapshot and here, that row stays dirty and is pushed on the next sync, so
   /// a concurrent write is never silently lost (PRD §9).
+  /// Pass the ENRICHED entries (the ones actually pushed): any series id
+  /// resolved while building the payload is persisted here too, so the device
+  /// that originated the progress also stops depending on a one-shot lookup.
   Future<void> markSynced(Iterable<WatchProgress> entries) async {
     final now = utcMillis(_clock());
     for (final e in entries) {
@@ -146,7 +159,13 @@ class WatchProgressRepository {
             ..where((t) =>
                 t.contentKey.equals(e.contentKey) &
                 t.updatedAtMillisUtc.equals(utcMillis(e.updatedAt))))
-          .write(WatchProgressTableCompanion(syncedAtMillisUtc: Value(now)));
+          .write(WatchProgressTableCompanion(
+            syncedAtMillisUtc: Value(now),
+            // `absent` = leave the column alone; only ever writes a known id,
+            // never clears one.
+            seriesId:
+                e.seriesId == null ? const Value.absent() : Value(e.seriesId),
+          ));
     }
   }
 }

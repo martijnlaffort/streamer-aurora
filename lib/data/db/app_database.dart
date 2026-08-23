@@ -157,6 +157,15 @@ class WatchProgressTable extends Table {
   IntColumn get syncedAtMillisUtc => integer().nullable()();
   BoolColumn get completed => boolean().withDefault(const Constant(false))();
 
+  /// For an episode, the series it belongs to (added in v10). An episode
+  /// content key cannot tell you its series, and the id only ever arrives in a
+  /// sync payload — so it MUST be persisted. It used to be transient, which
+  /// meant that if the one backfill attempt right after the pull failed or hit
+  /// its cap, the series was never fetched again (the watermark had moved on,
+  /// so the id never came back) and those episodes were missing from Continue
+  /// Watching on that device forever. Stored, the backfill simply retries.
+  TextColumn get seriesId => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {contentKey};
 }
@@ -400,7 +409,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -449,6 +458,12 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(favoritesTable, favoritesTable.updatedAtMillisUtc);
             await customStatement(
                 'UPDATE favorites SET updated_at_millis_utc = added_at_millis_utc');
+          }
+          // v10: remember which series an episode belongs to, so the catalogue
+          // backfill for synced episode progress can be retried instead of
+          // being a one-shot that silently gave up.
+          if (from < 10) {
+            await m.addColumn(watchProgressTable, watchProgressTable.seriesId);
           }
         },
         beforeOpen: (details) async {

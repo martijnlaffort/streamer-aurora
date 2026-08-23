@@ -83,7 +83,11 @@ class FavoritesRepository {
 
   /// Applies a record pulled from the backend, last-write-wins by [updatedAt]
   /// (PRD §9). A remote tombstone removes locally; a remote add restores.
-  Future<void> applyRemote(FavoriteRecord record) async {
+  ///
+  /// Returns whether it actually wrote. Callers use that to decide whether the
+  /// UI needs rebuilding — the test lives here, next to the rule it mirrors,
+  /// rather than being re-implemented (and drifting) at the call site.
+  Future<bool> applyRemote(FavoriteRecord record) async {
     final existing = await (_db.favoritesTable.select()
           ..where((t) => t.contentKey.equals(record.contentKey)))
         .getSingleOrNull();
@@ -92,7 +96,7 @@ class FavoritesRepository {
         : (existing.updatedAtMillisUtc == 0
             ? existing.addedAtMillisUtc
             : existing.updatedAtMillisUtc);
-    if (utcMillis(record.updatedAt) <= localUpdated) return;
+    if (utcMillis(record.updatedAt) <= localUpdated) return false;
     await _db.favoritesTable.insertOne(
       FavoritesTableCompanion.insert(
         contentKey: record.contentKey,
@@ -102,5 +106,6 @@ class FavoritesRepository {
       ),
       mode: InsertMode.insertOrReplace,
     );
+    return true;
   }
 }

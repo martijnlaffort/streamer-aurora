@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/models/models.dart';
 import '../providers.dart';
 import 'http_sync_backends.dart';
 import 'sync_config.dart';
@@ -50,14 +51,21 @@ final syncServiceProvider = FutureProvider<SyncService?>((ref) async {
 Future<SyncResult?> runSync(WidgetRef ref) async {
   final service = await ref.read(syncServiceProvider.future);
   if (service == null) return null;
-  final result = await service.reconcile();
+  var result = await service.reconcile();
   if (result.ok) {
-    ref.invalidate(preferencesProvider);
-    // A playlist synced in from another device is a new account row; refresh
-    // the account providers so it shows up (and so the read below sees any
-    // active account the reconcile just adopted on a fresh device).
-    ref.invalidate(accountsProvider);
-    ref.invalidate(activeAccountProvider);
+    // Invalidate ONLY what the reconcile actually changed. These providers are
+    // dependencies of Home, My List, the Live list and the category filters, so
+    // invalidating them on every 2-minute cycle sent all of those into
+    // `isReloading` — and `AsyncValue.when` shows its loading branch on a
+    // reload, which is exactly the "screen refreshes itself" the user saw.
+    if (result.preferencesChanged) ref.invalidate(preferencesProvider);
+    if (result.accountsChanged) {
+      // A playlist synced in from another device is a new account row; refresh
+      // the account providers so it shows up (and so the read below sees any
+      // active account the reconcile just adopted on a fresh device).
+      ref.invalidate(accountsProvider);
+      ref.invalidate(activeAccountProvider);
+    }
     // A synced content key only shows in Continue Watching / My List once the
     // title it points at is in the local catalogue. History synced from
     // ANOTHER device references titles this one has never browsed, so pull
@@ -68,19 +76,44 @@ Future<SyncResult?> runSync(WidgetRef ref) async {
     final account = await ref.read(activeAccountProvider.future);
     if (account != null) {
       final catalog = ref.read(catalogRepositoryProvider);
-      final progress =
-          await ref.read(watchProgressRepositoryProvider).recentlyWatched();
+      final progressRepo = ref.read(watchProgressRepositoryProvider);
+      final progress = await progressRepo.recentlyWatched();
       final favorites = await ref.read(favoritesRepositoryProvider).all();
-      await catalog.ensureTitlesCached(
+      // Series behind episode progress — the piece that lets a part-watched
+      // series reappear in Continue Watching on this device.
+      //
+      // Taken from the STORED rows, not just from what this pull returned, so a
+      // series that failed to fetch (offline, timeout, or past the per-run cap)
+      // is retried next sync instead of being lost the moment the watermark
+      // moved on. Two properties matter and are easy to get wrong:
+      //  * BOUNDED — `progress` is `recentlyWatched()`, already capped, so this
+      //    can never grow into an unbounded per-cycle fetch list.
+      //  * ORDERED BY RECENCY — a LinkedHashSet preserving that order, because
+      //    the backfill takes only the first N. Feeding it an unordered set
+      //    starves everything past N forever; ordered, the N it fetches are the
+      //    N the rail can actually show.
+      // Scoped to the active account: a series id belonging to another playlist
+      // would be fetched against the wrong panel, and a miss there would count
+      // against the id for the account it IS valid on.
+      final orderedSeriesIds = <String>{
+        for (final p in progress)
+          if (parseContentKey(p.contentKey)?.accountId == account.id)
+            ?p.seriesId,
+        ...result.pulledSeriesIds,
+      };
+      final backfilled = await catalog.ensureTitlesCached(
         account,
         [
           ...progress.map((p) => p.contentKey),
           ...favorites.map((f) => f.$1),
         ],
-        // Series behind freshly-pulled episode progress — the piece that lets
-        // a part-watched series reappear in Continue Watching on this device.
-        extraSeriesIds: result.pulledSeriesIds,
+        extraSeriesIds: orderedSeriesIds,
       );
+      // Caching a title is itself a reason to rebuild the rails: the common
+      // convergence case is a sync that pulled nothing new but finally resolved
+      // a series, and without this the card stays invisible until something
+      // unrelated changes.
+      if (backfilled) result = result.withBackfill();
     }
   }
   return result;

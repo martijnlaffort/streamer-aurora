@@ -130,6 +130,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ],
       ),
       body: results.when(
+        skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(searchResultsProvider(_query))),
         data: (data) {

@@ -785,7 +785,35 @@ class CatalogRepository {
   /// Episode keys are intentionally not handled: an episode cannot be fetched
   /// without its series id, which the content key does not carry. Series
   /// Continue Watching therefore needs the separate series-id-in-sync change.
-  Future<void> ensureTitlesCached(
+  /// How many times this session a backfill fetch produced nothing, keyed by
+  /// `accountId|kind|id`.
+  ///
+  /// A title the panel has dropped can never satisfy the "is it cached?" test,
+  /// so without this it squats a slot in every backfill run forever — turning a
+  /// bounded catch-up into permanent periodic network traffic, and (because the
+  /// backfill reports "I cached something") re-arming the very periodic UI
+  /// rebuild this app works hard to avoid.
+  ///
+  /// It counts rather than blacklisting on the first miss, because a miss is
+  /// ambiguous: `seriesDetail` falls back to the cache when the panel is
+  /// unreachable and then legitimately reports zero episodes. Blacklisting on
+  /// that would mean a TV that happened to be offline at boot gives up on those
+  /// series for the whole session — exactly the retry this is meant to protect.
+  /// In memory only, so everything is retried on the next launch.
+  final Map<String, int> _backfillMisses = {};
+  static const _maxBackfillMisses = 3;
+
+  bool _givenUpOn(String accountId, String kind, String id) =>
+      (_backfillMisses['$accountId|$kind|$id'] ?? 0) >= _maxBackfillMisses;
+
+  void _noteBackfillMiss(String accountId, String kind, String id) {
+    final key = '$accountId|$kind|$id';
+    _backfillMisses[key] = (_backfillMisses[key] ?? 0) + 1;
+  }
+
+  /// Returns whether anything new was actually cached, so the caller can rebuild
+  /// the rails only when there is something new for them to show.
+  Future<bool> ensureTitlesCached(
     Account account,
     Iterable<String> contentKeys, {
     Iterable<String> extraSeriesIds = const [],
@@ -833,18 +861,32 @@ class CatalogRepository {
         return found;
       }
 
-      Future<Set<String>> existingSeriesIds(List<String> ids) async {
+      // Which series already have their EPISODES cached — deliberately NOT
+      // "which series rows exist".
+      //
+      // This distinction is the whole ballgame for Continue Watching. A series
+      // ROW is written wholesale by every category/slice refresh, but the
+      // EPISODE rows are written in exactly one place: `seriesDetail`. An
+      // episode content key can only resolve through `episodeById`, i.e.
+      // through the episodes table. Testing the series row meant that for any
+      // series in a category this device had ever refreshed, backfill concluded
+      // "already cached", never called `seriesDetail`, and the episode stayed
+      // unresolvable — so that show was silently missing from Continue Watching
+      // on this device forever, while a device that happened not to have
+      // refreshed that category showed it. Exactly the "not all my episodes are
+      // on the TV" divergence.
+      Future<Set<String>> seriesWithCachedEpisodes(List<String> ids) async {
         final found = <String>{};
         const chunk = 900;
         for (var i = 0; i < ids.length; i += chunk) {
           final part = ids.skip(i).take(chunk).toList();
-          final rows = await (_db.seriesTable.selectOnly()
-                ..addColumns([_db.seriesTable.id])
-                ..where(_db.seriesTable.accountId.equals(account.id) &
-                    _db.seriesTable.id.isIn(part)))
+          final rows = await (_db.episodesTable.selectOnly(distinct: true)
+                ..addColumns([_db.episodesTable.seriesId])
+                ..where(_db.episodesTable.accountId.equals(account.id) &
+                    _db.episodesTable.seriesId.isIn(part)))
               .get();
           for (final r in rows) {
-            final v = r.read(_db.seriesTable.id);
+            final v = r.read(_db.episodesTable.seriesId);
             if (v != null) found.add(v);
           }
         }
@@ -853,28 +895,36 @@ class CatalogRepository {
 
       final existingMovies = await existingMovieIds(candidateMovieIds);
       final existingSeries =
-          await existingSeriesIds(candidateSeriesIds.toList());
+          await seriesWithCachedEpisodes(candidateSeriesIds.toList());
       final movieIds = candidateMovieIds
-          .where((id) => !existingMovies.contains(id))
+          .where((id) =>
+              !existingMovies.contains(id) &&
+              !_givenUpOn(account.id, 'movie', id))
           .toList();
       final seriesIds = candidateSeriesIds
-          .where((id) => !existingSeries.contains(id))
-          .toSet();
-      if (movieIds.isEmpty && seriesIds.isEmpty) return;
+          .where((id) =>
+              !existingSeries.contains(id) &&
+              !_givenUpOn(account.id, 'series', id))
+          .toList(); // ordered: the caller sorts by recency, `take` relies on it
+      if (movieIds.isEmpty && seriesIds.isEmpty) return false;
 
       // Cap the work: only enough to fill what the rails actually show, so a
       // huge synced history can't turn the first Home load into a minutes-long
       // fetch. The rest fill in as they are browsed.
       const maxToFetch = 24;
 
+      var cachedSomething = false;
+
       Future<void> fetchAll(
-          Iterable<String> ids, Future<void> Function(String) fetch) async {
+          Iterable<String> ids, Future<bool> Function(String) fetch) async {
         const maxConcurrent = 4;
         final take = ids.take(maxToFetch).toList();
         for (var i = 0; i < take.length; i += maxConcurrent) {
           await Future.wait(take.skip(i).take(maxConcurrent).map((id) async {
             try {
-              await fetch(id).timeout(const Duration(seconds: 12));
+              if (await fetch(id).timeout(const Duration(seconds: 12))) {
+                cachedSomething = true;
+              }
             } on Object {
               // A title the panel no longer serves, or a slow one, just stays
               // unresolved rather than holding up the rest.
@@ -883,11 +933,30 @@ class CatalogRepository {
         }
       }
 
-      await fetchAll(movieIds, (id) => movieDetail(account, id));
-      await fetchAll(seriesIds, (id) => seriesDetail(account, id));
+      // Each fetch reports whether it actually cached something. Reporting
+      // "true" unconditionally would mean an unresolvable title marks every
+      // sync as having changed the catalogue, which re-arms the periodic UI
+      // rebuild; and a miss has to be counted, or it retries forever.
+      await fetchAll(movieIds, (id) async {
+        await movieDetail(account, id);
+        if (await movieById(account, id) != null) return true;
+        _noteBackfillMiss(account.id, 'movie', id);
+        return false;
+      });
+      await fetchAll(seriesIds, (id) async {
+        // fallbackToCache: false — an unreachable panel must throw (and be
+        // retried next sync), not quietly report "no episodes" and get counted
+        // as a miss. Only a real response with no episodes counts.
+        final detail = await seriesDetail(account, id, fallbackToCache: false);
+        if (detail.episodes.isNotEmpty) return true;
+        _noteBackfillMiss(account.id, 'series', id);
+        return false;
+      });
+      return cachedSomething;
     } on Object catch (e, s) {
       developer.log('ensureTitlesCached failed: $e',
           name: 'CatalogRepository', error: e, stackTrace: s);
+      return false;
     }
   }
 
@@ -1202,7 +1271,14 @@ class CatalogRepository {
   }
 
   /// Seasons + episodes: fetched and cached; rebuilt from cache offline.
-  Future<SeriesDetail> seriesDetail(Account account, String seriesId) async {
+  ///
+  /// [fallbackToCache] exists for the backfill, which MUST be able to tell "the
+  /// panel served this series and it has no episodes" from "the panel could not
+  /// be reached". With the fallback on, an unreachable panel returns the cached
+  /// row with an empty episode list, which is indistinguishable from the former
+  /// — and the backfill would give up on a series because the network blipped.
+  Future<SeriesDetail> seriesDetail(Account account, String seriesId,
+      {bool fallbackToCache = true}) async {
     try {
       final detail = await _sourceFactory(account).getSeriesInfo(seriesId);
       await _db.transaction(() async {
@@ -1216,6 +1292,7 @@ class CatalogRepository {
       });
       return detail;
     } on SourceException {
+      if (!fallbackToCache) rethrow;
       final seriesRow = await (_db.seriesTable.select()
             ..where((t) =>
                 t.accountId.equals(account.id) & t.id.equals(seriesId)))

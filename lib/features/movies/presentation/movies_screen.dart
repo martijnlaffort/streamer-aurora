@@ -44,6 +44,9 @@ class MoviesScreen extends ConsumerWidget {
         ],
       ),
       body: categories.when(
+        // A background sync must never blank a screen that already has content:
+        // when() shows its loading branch on a dependency reload by default.
+        skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) =>
             ErrorView(error: e, onRetry: () => ref.invalidate(vodCategoriesProvider)),
@@ -76,6 +79,8 @@ class _MovieCategoryRail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final rail = ref.watch(movieCategoryRailProvider(category.id));
     return rail.when(
+      // Keep the rail painted while it reloads instead of blanking to a placeholder.
+      skipLoadingOnReload: true,
       loading: () => CategoryRailPlaceholder(title: category.name),
       // A rail that cannot load is not worth a row of error text among dozens
       // of working ones.

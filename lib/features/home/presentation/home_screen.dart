@@ -29,6 +29,9 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       body: home.when(
+        // A background sync must never blank a screen that already has content:
+        // when() shows its loading branch on a dependency reload by default.
+        skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorView(
             error: e,

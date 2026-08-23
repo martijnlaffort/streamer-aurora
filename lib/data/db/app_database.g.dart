@@ -3858,6 +3858,17 @@ class $WatchProgressTableTable extends WatchProgressTable
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _seriesIdMeta = const VerificationMeta(
+    'seriesId',
+  );
+  @override
+  late final GeneratedColumn<String> seriesId = GeneratedColumn<String>(
+    'series_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     contentKey,
@@ -3866,6 +3877,7 @@ class $WatchProgressTableTable extends WatchProgressTable
     updatedAtMillisUtc,
     syncedAtMillisUtc,
     completed,
+    seriesId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3935,6 +3947,12 @@ class $WatchProgressTableTable extends WatchProgressTable
         completed.isAcceptableOrUnknown(data['completed']!, _completedMeta),
       );
     }
+    if (data.containsKey('series_id')) {
+      context.handle(
+        _seriesIdMeta,
+        seriesId.isAcceptableOrUnknown(data['series_id']!, _seriesIdMeta),
+      );
+    }
     return context;
   }
 
@@ -3968,6 +3986,10 @@ class $WatchProgressTableTable extends WatchProgressTable
         DriftSqlType.bool,
         data['${effectivePrefix}completed'],
       )!,
+      seriesId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}series_id'],
+      ),
     );
   }
 
@@ -3988,6 +4010,15 @@ class WatchProgressRow extends DataClass
   final int updatedAtMillisUtc;
   final int? syncedAtMillisUtc;
   final bool completed;
+
+  /// For an episode, the series it belongs to (added in v10). An episode
+  /// content key cannot tell you its series, and the id only ever arrives in a
+  /// sync payload — so it MUST be persisted. It used to be transient, which
+  /// meant that if the one backfill attempt right after the pull failed or hit
+  /// its cap, the series was never fetched again (the watermark had moved on,
+  /// so the id never came back) and those episodes were missing from Continue
+  /// Watching on that device forever. Stored, the backfill simply retries.
+  final String? seriesId;
   const WatchProgressRow({
     required this.contentKey,
     required this.positionSeconds,
@@ -3995,6 +4026,7 @@ class WatchProgressRow extends DataClass
     required this.updatedAtMillisUtc,
     this.syncedAtMillisUtc,
     required this.completed,
+    this.seriesId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4007,6 +4039,9 @@ class WatchProgressRow extends DataClass
       map['synced_at_millis_utc'] = Variable<int>(syncedAtMillisUtc);
     }
     map['completed'] = Variable<bool>(completed);
+    if (!nullToAbsent || seriesId != null) {
+      map['series_id'] = Variable<String>(seriesId);
+    }
     return map;
   }
 
@@ -4020,6 +4055,9 @@ class WatchProgressRow extends DataClass
           ? const Value.absent()
           : Value(syncedAtMillisUtc),
       completed: Value(completed),
+      seriesId: seriesId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(seriesId),
     );
   }
 
@@ -4035,6 +4073,7 @@ class WatchProgressRow extends DataClass
       updatedAtMillisUtc: serializer.fromJson<int>(json['updatedAtMillisUtc']),
       syncedAtMillisUtc: serializer.fromJson<int?>(json['syncedAtMillisUtc']),
       completed: serializer.fromJson<bool>(json['completed']),
+      seriesId: serializer.fromJson<String?>(json['seriesId']),
     );
   }
   @override
@@ -4047,6 +4086,7 @@ class WatchProgressRow extends DataClass
       'updatedAtMillisUtc': serializer.toJson<int>(updatedAtMillisUtc),
       'syncedAtMillisUtc': serializer.toJson<int?>(syncedAtMillisUtc),
       'completed': serializer.toJson<bool>(completed),
+      'seriesId': serializer.toJson<String?>(seriesId),
     };
   }
 
@@ -4057,6 +4097,7 @@ class WatchProgressRow extends DataClass
     int? updatedAtMillisUtc,
     Value<int?> syncedAtMillisUtc = const Value.absent(),
     bool? completed,
+    Value<String?> seriesId = const Value.absent(),
   }) => WatchProgressRow(
     contentKey: contentKey ?? this.contentKey,
     positionSeconds: positionSeconds ?? this.positionSeconds,
@@ -4066,6 +4107,7 @@ class WatchProgressRow extends DataClass
         ? syncedAtMillisUtc.value
         : this.syncedAtMillisUtc,
     completed: completed ?? this.completed,
+    seriesId: seriesId.present ? seriesId.value : this.seriesId,
   );
   WatchProgressRow copyWithCompanion(WatchProgressTableCompanion data) {
     return WatchProgressRow(
@@ -4085,6 +4127,7 @@ class WatchProgressRow extends DataClass
           ? data.syncedAtMillisUtc.value
           : this.syncedAtMillisUtc,
       completed: data.completed.present ? data.completed.value : this.completed,
+      seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
     );
   }
 
@@ -4096,7 +4139,8 @@ class WatchProgressRow extends DataClass
           ..write('durationSeconds: $durationSeconds, ')
           ..write('updatedAtMillisUtc: $updatedAtMillisUtc, ')
           ..write('syncedAtMillisUtc: $syncedAtMillisUtc, ')
-          ..write('completed: $completed')
+          ..write('completed: $completed, ')
+          ..write('seriesId: $seriesId')
           ..write(')'))
         .toString();
   }
@@ -4109,6 +4153,7 @@ class WatchProgressRow extends DataClass
     updatedAtMillisUtc,
     syncedAtMillisUtc,
     completed,
+    seriesId,
   );
   @override
   bool operator ==(Object other) =>
@@ -4119,7 +4164,8 @@ class WatchProgressRow extends DataClass
           other.durationSeconds == this.durationSeconds &&
           other.updatedAtMillisUtc == this.updatedAtMillisUtc &&
           other.syncedAtMillisUtc == this.syncedAtMillisUtc &&
-          other.completed == this.completed);
+          other.completed == this.completed &&
+          other.seriesId == this.seriesId);
 }
 
 class WatchProgressTableCompanion extends UpdateCompanion<WatchProgressRow> {
@@ -4129,6 +4175,7 @@ class WatchProgressTableCompanion extends UpdateCompanion<WatchProgressRow> {
   final Value<int> updatedAtMillisUtc;
   final Value<int?> syncedAtMillisUtc;
   final Value<bool> completed;
+  final Value<String?> seriesId;
   final Value<int> rowid;
   const WatchProgressTableCompanion({
     this.contentKey = const Value.absent(),
@@ -4137,6 +4184,7 @@ class WatchProgressTableCompanion extends UpdateCompanion<WatchProgressRow> {
     this.updatedAtMillisUtc = const Value.absent(),
     this.syncedAtMillisUtc = const Value.absent(),
     this.completed = const Value.absent(),
+    this.seriesId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   WatchProgressTableCompanion.insert({
@@ -4146,6 +4194,7 @@ class WatchProgressTableCompanion extends UpdateCompanion<WatchProgressRow> {
     required int updatedAtMillisUtc,
     this.syncedAtMillisUtc = const Value.absent(),
     this.completed = const Value.absent(),
+    this.seriesId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        positionSeconds = Value(positionSeconds),
@@ -4158,6 +4207,7 @@ class WatchProgressTableCompanion extends UpdateCompanion<WatchProgressRow> {
     Expression<int>? updatedAtMillisUtc,
     Expression<int>? syncedAtMillisUtc,
     Expression<bool>? completed,
+    Expression<String>? seriesId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4168,6 +4218,7 @@ class WatchProgressTableCompanion extends UpdateCompanion<WatchProgressRow> {
         'updated_at_millis_utc': updatedAtMillisUtc,
       if (syncedAtMillisUtc != null) 'synced_at_millis_utc': syncedAtMillisUtc,
       if (completed != null) 'completed': completed,
+      if (seriesId != null) 'series_id': seriesId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4179,6 +4230,7 @@ class WatchProgressTableCompanion extends UpdateCompanion<WatchProgressRow> {
     Value<int>? updatedAtMillisUtc,
     Value<int?>? syncedAtMillisUtc,
     Value<bool>? completed,
+    Value<String?>? seriesId,
     Value<int>? rowid,
   }) {
     return WatchProgressTableCompanion(
@@ -4188,6 +4240,7 @@ class WatchProgressTableCompanion extends UpdateCompanion<WatchProgressRow> {
       updatedAtMillisUtc: updatedAtMillisUtc ?? this.updatedAtMillisUtc,
       syncedAtMillisUtc: syncedAtMillisUtc ?? this.syncedAtMillisUtc,
       completed: completed ?? this.completed,
+      seriesId: seriesId ?? this.seriesId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4213,6 +4266,9 @@ class WatchProgressTableCompanion extends UpdateCompanion<WatchProgressRow> {
     if (completed.present) {
       map['completed'] = Variable<bool>(completed.value);
     }
+    if (seriesId.present) {
+      map['series_id'] = Variable<String>(seriesId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4228,6 +4284,7 @@ class WatchProgressTableCompanion extends UpdateCompanion<WatchProgressRow> {
           ..write('updatedAtMillisUtc: $updatedAtMillisUtc, ')
           ..write('syncedAtMillisUtc: $syncedAtMillisUtc, ')
           ..write('completed: $completed, ')
+          ..write('seriesId: $seriesId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9830,6 +9887,7 @@ typedef $$WatchProgressTableTableCreateCompanionBuilder =
       required int updatedAtMillisUtc,
       Value<int?> syncedAtMillisUtc,
       Value<bool> completed,
+      Value<String?> seriesId,
       Value<int> rowid,
     });
 typedef $$WatchProgressTableTableUpdateCompanionBuilder =
@@ -9840,6 +9898,7 @@ typedef $$WatchProgressTableTableUpdateCompanionBuilder =
       Value<int> updatedAtMillisUtc,
       Value<int?> syncedAtMillisUtc,
       Value<bool> completed,
+      Value<String?> seriesId,
       Value<int> rowid,
     });
 
@@ -9879,6 +9938,11 @@ class $$WatchProgressTableTableFilterComposer
 
   ColumnFilters<bool> get completed => $composableBuilder(
     column: $table.completed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get seriesId => $composableBuilder(
+    column: $table.seriesId,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -9921,6 +9985,11 @@ class $$WatchProgressTableTableOrderingComposer
     column: $table.completed,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get seriesId => $composableBuilder(
+    column: $table.seriesId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WatchProgressTableTableAnnotationComposer
@@ -9959,6 +10028,9 @@ class $$WatchProgressTableTableAnnotationComposer
 
   GeneratedColumn<bool> get completed =>
       $composableBuilder(column: $table.completed, builder: (column) => column);
+
+  GeneratedColumn<String> get seriesId =>
+      $composableBuilder(column: $table.seriesId, builder: (column) => column);
 }
 
 class $$WatchProgressTableTableTableManager
@@ -10007,6 +10079,7 @@ class $$WatchProgressTableTableTableManager
                 Value<int> updatedAtMillisUtc = const Value.absent(),
                 Value<int?> syncedAtMillisUtc = const Value.absent(),
                 Value<bool> completed = const Value.absent(),
+                Value<String?> seriesId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WatchProgressTableCompanion(
                 contentKey: contentKey,
@@ -10015,6 +10088,7 @@ class $$WatchProgressTableTableTableManager
                 updatedAtMillisUtc: updatedAtMillisUtc,
                 syncedAtMillisUtc: syncedAtMillisUtc,
                 completed: completed,
+                seriesId: seriesId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10025,6 +10099,7 @@ class $$WatchProgressTableTableTableManager
                 required int updatedAtMillisUtc,
                 Value<int?> syncedAtMillisUtc = const Value.absent(),
                 Value<bool> completed = const Value.absent(),
+                Value<String?> seriesId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WatchProgressTableCompanion.insert(
                 contentKey: contentKey,
@@ -10033,6 +10108,7 @@ class $$WatchProgressTableTableTableManager
                 updatedAtMillisUtc: updatedAtMillisUtc,
                 syncedAtMillisUtc: syncedAtMillisUtc,
                 completed: completed,
+                seriesId: seriesId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

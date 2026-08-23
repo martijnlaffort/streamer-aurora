@@ -8,6 +8,8 @@ import 'core/theme/app_theme.dart';
 import 'data/sync/sync_providers.dart';
 import 'data/sync/sync_trigger.dart';
 import 'features/home/home_providers.dart';
+import 'features/live/live_providers.dart' show favoriteChannelsProvider;
+import 'features/movies/movies_providers.dart' show isFavoriteProvider;
 
 class DawnPlayerApp extends ConsumerStatefulWidget {
   const DawnPlayerApp({super.key});
@@ -66,11 +68,20 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
     _syncing = true;
     try {
       final result = await runSync(ref);
-      if (result != null && result.ok && mounted) {
-        // Sync may have pulled new progress/favourites and backfilled the
-        // titles they reference; rebuild both rails so they appear.
+      // Only rebuild the rails when the reconcile actually changed something.
+      // Doing it every cycle is what made the screen visibly refresh itself
+      // every couple of minutes; a sync that found nothing new must be
+      // completely invisible.
+      if (result != null && result.ok && result.changedLocally && mounted) {
         ref.invalidate(homeDataProvider);
         ref.invalidate(myListProvider);
+        // A favourite added or removed on another device also changes the Live
+        // tab's Favourites row and every heart/My List icon, which read their
+        // own providers. Invalidating the family clears all its keys.
+        if (result.favoritesChanged) {
+          ref.invalidate(favoriteChannelsProvider);
+          ref.invalidate(isFavoriteProvider);
+        }
       }
     } finally {
       _syncing = false;

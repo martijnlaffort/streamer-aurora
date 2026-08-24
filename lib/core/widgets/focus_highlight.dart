@@ -78,9 +78,17 @@ class _FocusHighlightState extends State<FocusHighlight> {
               borderRadius: radius,
               boxShadow: _engaged
                   ? [
+                      // Two shadows: an accent glow that reads on dark chrome,
+                      // and a tight black one underneath so the white ring still
+                      // separates when the control sits on bright artwork.
                       BoxShadow(
-                        color: AppColors.accent.withValues(alpha: 0.55),
-                        blurRadius: 18,
+                        color: AppColors.accent.withValues(alpha: 0.7),
+                        blurRadius: 26,
+                        spreadRadius: 2,
+                      ),
+                      const BoxShadow(
+                        color: Colors.black54,
+                        blurRadius: 6,
                         spreadRadius: 1,
                       ),
                     ]
@@ -91,7 +99,7 @@ class _FocusHighlightState extends State<FocusHighlight> {
               borderRadius: radius,
               border: Border.all(
                 color: _engaged ? AppColors.focusRing : Colors.transparent,
-                width: 3,
+                width: 4,
               ),
             ),
             child: widget.child,

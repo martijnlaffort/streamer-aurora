@@ -10,11 +10,14 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 
+import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
+import '../../../core/widgets/focus_highlight.dart';
 import '../../../data/providers.dart';
 import '../../../data/repositories/watch_progress_repository.dart';
+import '../../../data/sync/playback_activity.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart'
     show Preferences, StreamRef, StreamType, contentKeyFor;
@@ -159,6 +162,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Keep background catalogue catch-up off the connection while we stream —
+    // it is a big enough fetch to show up as buffering.
+    ref.read(playbackActivityProvider).enter();
     // PopScope's canPop depends on where focus currently sits, and focus
     // changes do not rebuild by themselves.
     _keyboardFocus.addListener(() {
@@ -270,6 +276,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   void dispose() {
+    ref.read(playbackActivityProvider).leave();
     WidgetsBinding.instance.removeObserver(this);
     // Save on exit (PRD §8.9) before the player goes away.
     if (_position > Duration.zero && _duration > Duration.zero) {
@@ -1349,6 +1356,238 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
+  /// Focus styling for the television transport.
+  ///
+  /// A focused control becomes a solid white pill with a dark glyph. This is
+  /// what Netflix and HBO both do, and the reason is not decoration: Material's
+  /// default focus state is a faint translucent wash, which over moving video on
+  /// a big panel is genuinely invisible — "I can't tell where my cursor is" was
+  /// the exact complaint. Inverting the control is impossible to miss from a
+  /// sofa, whatever frame is behind it.
+  ButtonStyle get _tvTransportStyle => ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.focused) ? Colors.white : null),
+        iconColor: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.focused) ? Colors.black : null),
+        // Returning null for every other state deliberately falls through to
+        // the Material defaults, so the ripple and hover feel are untouched.
+        overlayColor: WidgetStateProperty.resolveWith((states) => null),
+      );
+
+  /// The television transport: one cluster at the bottom of the screen.
+  ///
+  /// Deliberately shaped like Netflix's and HBO's, and for a reason that is
+  /// about the remote rather than fashion. The touch layout scatters controls
+  /// across three zones — a top bar, a big play button in the middle, a seek bar
+  /// at the bottom — which is fine for a thumb and awful for a D-pad: every
+  /// up/down press jumps across the whole screen, and the geometry decides where
+  /// focus lands. Gathering everything into one bottom cluster makes the moves
+  /// short and predictable: UP/DOWN swaps between the scrubber and the button
+  /// row, LEFT/RIGHT walks the row, BACK drops you back to the picture.
+  ///
+  /// There is no on-screen Back button, also on purpose: BACK on the remote
+  /// already leaves the controls, and a second press exits.
+  Widget _tvControls(
+      Duration position, int durationSeconds, double bufferFraction) {
+    final queued = widget.request.queue.length > 1;
+    return AnimatedOpacity(
+      opacity: _controlsVisible ? 1 : 0,
+      duration: const Duration(milliseconds: 200),
+      child: IgnorePointer(
+        ignoring: !_controlsVisible,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.transparent, Colors.black87],
+              stops: [0.45, 1],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Generous side padding: real sets crop the outer few percent.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(48, 0, 48, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_current.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.display.copyWith(fontSize: 24)),
+                      if (_liveNow != null)
+                        Text('Now: $_liveNow',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.label
+                                .copyWith(color: AppColors.accentAlt))
+                      else if (_current.subtitle != null)
+                        Text(_current.subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.label),
+                      const SizedBox(height: 14),
+                      if (_current.isLive)
+                        Align(
+                            alignment: Alignment.centerLeft,
+                            child: _liveIndicator())
+                      else
+                        _tvSeekBar(position, durationSeconds, bufferFraction),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          if (queued)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Previous episode',
+                              onPressed: _hasPrevious ? _playPrevious : null,
+                              icon: const Icon(Icons.skip_previous),
+                            ),
+                          if (_canZap)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Channel down',
+                              onPressed: () => _zapBy(-1),
+                              icon: const Icon(Icons.keyboard_arrow_down),
+                            )
+                          else if (!_current.isLive)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Back 10 seconds',
+                              onPressed: () => _seekRelative(-10),
+                              icon: const Icon(Icons.replay_10),
+                            ),
+                          IconButton(
+                            focusNode: _playPauseFocus,
+                            style: _tvTransportStyle,
+                            iconSize: 38,
+                            tooltip: _playing ? 'Pause' : 'Play',
+                            onPressed: () {
+                              _player.playOrPause();
+                              _scheduleHide();
+                            },
+                            icon: Icon(_playing
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded),
+                          ),
+                          if (_canZap)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Channel up',
+                              onPressed: () => _zapBy(1),
+                              icon: const Icon(Icons.keyboard_arrow_up),
+                            )
+                          else if (!_current.isLive)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Forward 10 seconds',
+                              onPressed: () => _seekRelative(10),
+                              icon: const Icon(Icons.forward_10),
+                            ),
+                          if (queued)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Next episode',
+                              onPressed: _next != null ? _playNext : null,
+                              icon: const Icon(Icons.skip_next),
+                            ),
+                          const Spacer(),
+                          IconButton(
+                            style: _tvTransportStyle,
+                            iconSize: 26,
+                            tooltip: 'Audio',
+                            onPressed: _showAudioSheet,
+                            icon: const Icon(Icons.audiotrack_outlined),
+                          ),
+                          IconButton(
+                            style: _tvTransportStyle,
+                            iconSize: 26,
+                            tooltip: 'Subtitles',
+                            onPressed: _showSubtitleSheet,
+                            icon: const Icon(Icons.subtitles_outlined),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Scrubber sized for a ten-foot view, and focusable: once the remote is on
+  /// it, LEFT/RIGHT scrub instead of walking the button row.
+  Widget _tvSeekBar(
+      Duration position, int durationSeconds, double bufferFraction) {
+    return Row(
+      children: [
+        Text(formatSeconds(position.inSeconds), style: AppTypography.label),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FocusHighlight(
+            borderRadius: 8,
+            scale: 1.0,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: LinearProgressIndicator(
+                    value: bufferFraction,
+                    minHeight: 5,
+                    backgroundColor: Colors.white24,
+                    color: Colors.white38,
+                  ),
+                ),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 5,
+                    activeTrackColor: AppColors.accent,
+                    inactiveTrackColor: Colors.transparent,
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 9),
+                    overlayShape:
+                        const RoundSliderOverlayShape(overlayRadius: 18),
+                  ),
+                  child: Slider(
+                    value: durationSeconds > 0
+                        ? position.inSeconds.clamp(0, durationSeconds).toDouble()
+                        : 0,
+                    max: durationSeconds > 0 ? durationSeconds.toDouble() : 1,
+                    onChanged: durationSeconds > 0
+                        ? (v) => setState(() => _dragSeekSeconds = v)
+                        : null,
+                    onChangeEnd: (v) {
+                      _player.seek(Duration(seconds: v.round()));
+                      setState(() => _dragSeekSeconds = null);
+                      _scheduleHide();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(formatSeconds(durationSeconds), style: AppTypography.label),
+      ],
+    );
+  }
+
   Widget _controlsOverlay() {
     if (_locked) {
       // Locked: everything hidden except the unlock affordance.
@@ -1382,6 +1621,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final bufferFraction = durationSeconds > 0
         ? (_buffer.inSeconds / durationSeconds).clamp(0.0, 1.0)
         : 0.0;
+
+    if (isTelevisionOf(ref)) {
+      return _tvControls(position, durationSeconds, bufferFraction);
+    }
 
     return AnimatedOpacity(
       opacity: _controlsVisible ? 1 : 0,

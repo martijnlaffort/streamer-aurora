@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/models.dart';
 import '../providers.dart';
 import 'http_sync_backends.dart';
+import 'playback_activity.dart';
 import 'sync_config.dart';
 import 'sync_service.dart';
 
@@ -74,7 +75,13 @@ Future<SyncResult?> runSync(WidgetRef ref) async {
     // caller once this returns. Best-effort; a title the panel dropped just
     // stays unresolved.
     final account = await ref.read(activeAccountProvider.future);
-    if (account != null) {
+    // Never behind a playing video. The reconcile above is a few small requests,
+    // but this backfill can be dozens of full series/movie detail fetches, and a
+    // long-running series is a big response — enough to compete with the stream
+    // on the same connection and surface as buffering. It is pure catch-up, so
+    // deferring it to the next sync after playback costs nothing.
+    final playing = ref.read(playbackActivityProvider).isPlaying;
+    if (account != null && !playing) {
       final catalog = ref.read(catalogRepositoryProvider);
       final progressRepo = ref.read(watchProgressRepositoryProvider);
       final progress = await progressRepo.recentlyWatched();

@@ -911,13 +911,17 @@ class CatalogRepository {
       // Cap the work: only enough to fill what the rails actually show, so a
       // huge synced history can't turn the first Home load into a minutes-long
       // fetch. The rest fill in as they are browsed.
-      const maxToFetch = 24;
+      // Deliberately small. This is background catch-up, and each fetch is a
+      // full detail response (a long-running series is a big one), so a large
+      // batch saturates the same connection the video is using. Eight per run,
+      // two at a time, still converges a full rail within a few sync cycles.
+      const maxToFetch = 8;
 
       var cachedSomething = false;
 
       Future<void> fetchAll(
           Iterable<String> ids, Future<bool> Function(String) fetch) async {
-        const maxConcurrent = 4;
+        const maxConcurrent = 2;
         final take = ids.take(maxToFetch).toList();
         for (var i = 0; i < take.length; i += maxConcurrent) {
           await Future.wait(take.skip(i).take(maxConcurrent).map((id) async {

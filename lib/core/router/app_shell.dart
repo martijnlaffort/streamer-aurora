@@ -66,6 +66,16 @@ class _AppShellState extends ConsumerState<AppShell> {
         if (mounted) setState(() {});
       });
     }
+    // Put the cursor somewhere real as soon as the first tab has built, so the
+    // app opens with something visibly highlighted instead of waiting for a
+    // press to reveal where focus is. Two frames: one for the shell, one for the
+    // branch's own content.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !isTelevisionOf(ref)) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_railHasFocus) _enterContent();
+      });
+    });
   }
 
   @override
@@ -169,11 +179,25 @@ class _AppShellState extends ConsumerState<AppShell> {
     (icon: Icons.settings_outlined, selected: Icons.settings, label: 'Settings'),
   ];
 
-  void _go(int index) => shell.goBranch(
-        index,
-        // Re-selecting the current tab pops it back to its root.
-        initialLocation: index == shell.currentIndex,
-      );
+  void _go(int index) {
+    shell.goBranch(
+      index,
+      // Re-selecting the current tab pops it back to its root.
+      initialLocation: index == shell.currentIndex,
+    );
+    // Hand focus into the new branch once it has actually built.
+    //
+    // Without this the remote felt broken for one press after every tab switch:
+    // the new branch's cards do not exist yet when goBranch returns, so there is
+    // nothing to focus, focus stays on the shell's own node, and the next
+    // direction press is spent getting into the content instead of moving
+    // within it. A post-frame hand-off means the tab is live the moment it
+    // appears.
+    if (!isTelevisionOf(ref)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _enterContent();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

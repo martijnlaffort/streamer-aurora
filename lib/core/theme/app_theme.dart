@@ -33,6 +33,24 @@ abstract final class AppTheme {
 
     return base.copyWith(
       textTheme: textTheme,
+      // The app-wide cursor for a remote.
+      //
+      // Material's default focus tint is ~10% white, which on this near-black
+      // palette is invisible from a sofa — so every plain row (Settings, the
+      // account list, search results, the favourites list) looked identical
+      // whether or not the D-pad was on it. One strong value here gives every
+      // InkWell and ListTile in the app an obvious highlight, which is far more
+      // reliable than remembering to decorate each one. Individually styled
+      // surfaces (poster cards, the player transport) opt out by setting
+      // `focusColor: Colors.transparent` and drawing their own.
+      focusColor: AppColors.accent.withValues(alpha: 0.38),
+      hoverColor: AppColors.accent.withValues(alpha: 0.12),
+      listTileTheme: ListTileThemeData(
+        // A rounded highlight rather than a full-bleed band: it reads as a
+        // selected item instead of a coloured stripe across the screen.
+        // (ListTile picks the colour up from ThemeData.focusColor above.)
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,

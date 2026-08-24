@@ -115,6 +115,9 @@ class AccountsScreen extends ConsumerWidget {
             'account will be removed too.'),
         actions: [
           TextButton(
+            // Focus the safe choice so an immediate OK on a remote cancels
+            // rather than deletes the account and all its data.
+            autofocus: true,
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),

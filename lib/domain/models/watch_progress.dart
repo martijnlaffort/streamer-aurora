@@ -10,12 +10,20 @@ class WatchProgress extends Equatable {
     required this.updatedAt,
     this.syncedAt,
     this.completed = false,
+    this.seriesId,
   });
 
   /// Stable identity across accounts/types: `account:type:id` (PRD §7).
   final String contentKey;
   final int positionSeconds;
   final int durationSeconds;
+
+  /// For an episode, the id of the series it belongs to — the one thing an
+  /// episode content key cannot tell you, and the thing a device needs in order
+  /// to fetch and cache the series so the episode resolves into Continue
+  /// Watching. Travels through sync AND is persisted locally (schema v10), so
+  /// the catalogue backfill can retry until it succeeds. Null for movies.
+  final String? seriesId;
 
   /// UTC — also the last-write-wins key for the future sync backend (PRD §9).
   final DateTime updatedAt;
@@ -30,6 +38,7 @@ class WatchProgress extends Equatable {
     DateTime? updatedAt,
     DateTime? syncedAt,
     bool? completed,
+    String? seriesId,
   }) {
     return WatchProgress(
       contentKey: contentKey,
@@ -38,6 +47,7 @@ class WatchProgress extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       syncedAt: syncedAt ?? this.syncedAt,
       completed: completed ?? this.completed,
+      seriesId: seriesId ?? this.seriesId,
     );
   }
 
@@ -49,6 +59,7 @@ class WatchProgress extends Equatable {
         updatedAt,
         syncedAt,
         completed,
+        seriesId,
       ];
 
   @override

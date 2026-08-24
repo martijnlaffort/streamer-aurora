@@ -9,6 +9,7 @@ import '../../../core/widgets/error_view.dart';
 import '../../../data/providers.dart';
 import '../../../data/sync/pairing_service.dart';
 import '../../../data/sync/sync_providers.dart';
+import '../../home/home_providers.dart';
 
 /// The receiving side of pairing — normally the TV.
 ///
@@ -22,10 +23,21 @@ class PairDeviceScreen extends ConsumerStatefulWidget {
 }
 
 class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
-  /// Baked in at build time so a television never has to type a URL. Empty in
-  /// a plain build, in which case we ask for it once.
-  static const _bakedBaseUrl =
-      String.fromEnvironment('DAWN_SYNC_URL', defaultValue: '');
+  /// Where to open the pairing session, so a television never has to type a URL.
+  ///
+  /// The default is the project's own sync backend, and it has to be a real
+  /// value rather than empty: pairing exists precisely so that nothing is typed
+  /// with a remote, and a fresh install has no sync config to fall back on — so
+  /// an empty default put a URL text field in front of the one screen that must
+  /// never need one. Overridable at build time
+  /// (`--dart-define=DAWN_SYNC_URL=...`) for a different backend; the manual
+  /// field below remains as the last resort.
+  ///
+  /// Only the pairing endpoints are reached with this, and those are
+  /// unauthenticated by design (the TV has no token yet) and guarded by the
+  /// per-session secret and the code's 10-minute expiry.
+  static const _bakedBaseUrl = String.fromEnvironment('DAWN_SYNC_URL',
+      defaultValue: 'https://aurora.laffort.nl');
 
   final _baseUrl = TextEditingController();
   PairingSession? _session;
@@ -33,6 +45,9 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
   Object? _error;
   bool _starting = false;
   String? _done;
+
+  /// The user chose to type a server after the baked-in one failed.
+  bool _manualEntry = false;
 
   @override
   void initState() {
@@ -61,6 +76,7 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
     final base = _baseUrl.text.trim();
     if (base.isEmpty) return;
     setState(() {
+      _manualEntry = false;
       _starting = true;
       _error = null;
       _done = null;
@@ -108,17 +124,37 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
       await accounts.setActiveAccount(payload.accounts.first.id);
     }
     final sync = payload.sync;
+    var pulled = false;
     if (sync != null && (sync.token?.isNotEmpty ?? false)) {
       await ref.read(syncConfigStoreProvider).save(sync);
       ref.invalidate(syncConfigProvider);
+      ref.invalidate(syncServiceProvider);
+      // Pull watch history and favourites now. Pairing brings the account and
+      // the sync credentials, but Continue Watching and My List live on the
+      // sync backend, NOT in the pairing payload — without this they stay empty
+      // until the next launch, and the "watch history is on this device now"
+      // message below would simply be false. A backend that is unreachable, or
+      // a phone that has not pushed yet, just leaves them empty rather than
+      // failing the pairing.
+      try {
+        final result = await runSync(ref);
+        pulled = result?.ok ?? false;
+      } on Object {
+        // Non-fatal: the account and sync config are saved either way, and the
+        // next automatic sync (launch/resume/periodic) will pull the history.
+      }
     }
     ref.invalidate(accountsProvider);
     ref.invalidate(activeAccountProvider);
+    // The rails are resolved from what was just pulled.
+    ref.invalidate(homeDataProvider);
+    ref.invalidate(myListProvider);
     if (!mounted) return;
     setState(() {
       final n = payload.accounts.length;
       _done = 'Paired. ${n == 1 ? '1 playlist' : '$n playlists'} added'
-          '${sync?.token?.isNotEmpty ?? false ? ', sync switched on' : ''}.';
+          '${sync?.token?.isNotEmpty ?? false ? ', sync switched on' : ''}'
+          '${pulled ? '. Watch history and My List synced' : ''}.';
     });
   }
 
@@ -144,18 +180,35 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
           Text(_done!, textAlign: TextAlign.center, style: AppTypography.title),
           const SizedBox(height: 8),
           const Text(
-            'Your playlists and watch history are on this device now.',
+            'Your watch history and My List will fill in automatically over the '
+            'next moment, and stay in sync from now on.',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textSecondary),
           ),
         ],
       );
     }
-    if (_error != null) {
-      return ErrorView(error: _error!, onRetry: _start);
+    if (_error != null && !_manualEntry) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(child: ErrorView(error: _error!, onRetry: _start)),
+          const SizedBox(height: 8),
+          // Escape hatch: with a backend baked in, the field below is otherwise
+          // unreachable, which would make a moved or unreachable server a dead
+          // end on a device that cannot easily be typed into.
+          TextButton(
+            onPressed: () => setState(() {
+              _manualEntry = true;
+              _error = null;
+            }),
+            child: const Text('Use a different server'),
+          ),
+        ],
+      );
     }
-    if (_baseUrl.text.trim().isEmpty && _session == null && !_starting) {
-      // Only reached in a build with no baked-in backend and no sync set up.
+    if (_manualEntry ||
+        (_baseUrl.text.trim().isEmpty && _session == null && !_starting)) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -17,12 +17,15 @@ import '../../features/settings/presentation/about_screen.dart';
 import '../../features/settings/presentation/accounts_screen.dart';
 import '../../features/settings/presentation/add_account_screen.dart';
 import '../../features/settings/presentation/content_languages_screen.dart';
+import '../../features/settings/presentation/hidden_channels_screen.dart';
+import '../../features/settings/presentation/manage_categories_screen.dart';
 import '../../features/settings/presentation/pair_device_screen.dart';
 import '../../features/settings/presentation/pair_tv_screen.dart';
 import '../../features/settings/presentation/favorites_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/source_probe_screen.dart';
 import '../../features/settings/presentation/sync_settings_screen.dart';
+import '../../domain/models/models.dart' show CategoryType;
 import 'app_shell.dart';
 
 /// Provider-wrapped so later tasks can add guards that watch app state.
@@ -117,6 +120,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/player',
         name: 'player',
+        // The player needs a queue handed over in `extra`. Reached without one
+        // (a deep link, a stray `context.go('/player')`), send the user home
+        // rather than crashing on `extra!`.
+        redirect: (context, state) =>
+            state.extra is PlayerRequest ? null : '/',
         builder: (context, state) =>
             PlayerScreen(request: state.extra! as PlayerRequest),
       ),
@@ -149,6 +157,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings/sync',
         name: 'sync',
         builder: (context, state) => const SyncSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/groups/:type',
+        name: 'manageGroups',
+        builder: (context, state) => ManageCategoriesScreen(
+          type: CategoryType.values.firstWhere(
+            (t) => t.name == state.pathParameters['type'],
+            orElse: () => CategoryType.live,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/settings/hidden-channels',
+        name: 'hiddenChannels',
+        builder: (context, state) => const HiddenChannelsScreen(),
       ),
       GoRoute(
         path: '/settings/languages',

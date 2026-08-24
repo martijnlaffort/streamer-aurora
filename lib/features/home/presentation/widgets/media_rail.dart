@@ -63,3 +63,31 @@ class MediaRail extends StatelessWidget {
     );
   }
 }
+
+/// Stand-in for a rail whose category has not resolved yet.
+///
+/// Built FROM [MediaRail] rather than hand-sized, and that is the whole point:
+/// it is guaranteed to occupy exactly the height of the real thing. When it was
+/// laid out by hand the two differed by ~30px, so every rail that resolved
+/// nudged everything below it — and a tab of dozens of rails resolving as you
+/// scrolled jittered continuously.
+class CategoryRailPlaceholder extends StatelessWidget {
+  const CategoryRailPlaceholder({super.key, required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return MediaRail(
+      title: title,
+      itemCount: 4,
+      itemBuilder: (context, i) => Container(
+        width: 128,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+}

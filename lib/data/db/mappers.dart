@@ -205,6 +205,7 @@ extension WatchProgressRowMapper on WatchProgressRow {
         updatedAt: fromUtcMillis(updatedAtMillisUtc),
         syncedAt: fromUtcMillisOrNull(syncedAtMillisUtc),
         completed: completed,
+        seriesId: seriesId,
       );
 }
 
@@ -217,6 +218,7 @@ extension WatchProgressMapper on WatchProgress {
         updatedAtMillisUtc: utcMillis(updatedAt),
         syncedAtMillisUtc: Value(utcMillisOrNull(syncedAt)),
         completed: Value(completed),
+        seriesId: Value(seriesId),
       );
 }
 

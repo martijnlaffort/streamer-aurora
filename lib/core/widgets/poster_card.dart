@@ -114,25 +114,59 @@ class _PosterCardState extends State<PosterCard> {
             }
           },
           child: AnimatedScale(
-              scale: _engaged ? 1.05 : 1.0,
-              duration: const Duration(milliseconds: 140),
+              // A pronounced pop, because this is the only thing telling a
+              // viewer ten feet away which card the remote is on. 1.05 was
+              // barely perceptible from a sofa.
+              scale: _engaged ? 1.12 : 1.0,
+              // Grow downward from the top edge, not outward from the centre:
+              // a poster sits flush with the top of its rail, so centre-scaling
+              // pushed the ring's top border up out of the rail's clip and cut
+              // it off — the opposite of making focus obvious.
+              alignment: Alignment.topCenter,
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AspectRatio(
                     aspectRatio: 2 / 3,
-                    child: Stack(
+                    // The focus affordance lives here: a bright white ring in
+                    // the foreground (so it never insets the artwork or shifts
+                    // layout) plus an accent glow behind, so the focused card
+                    // visibly lights up rather than merely nudging in size.
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOut,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: _engaged
+                            ? [
+                                BoxShadow(
+                                  color:
+                                      AppColors.accent.withValues(alpha: 0.6),
+                                  blurRadius: 20,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : const [],
+                      ),
+                      foregroundDecoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _engaged
+                              ? AppColors.focusRing
+                              : Colors.transparent,
+                          width: 3,
+                        ),
+                      ),
+                      child: Stack(
                       children: [
                         Positioned.fill(
                           child: _maybeHero(ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: DecoratedBox(
-                              decoration: BoxDecoration(
+                              decoration: const BoxDecoration(
                                 color: AppColors.surfaceElevated,
-                                border: _engaged
-                                    ? Border.all(
-                                        color: AppColors.focusRing, width: 2)
-                                    : null,
                               ),
                               child: widget.imageUrl != null
                                   ? CachedNetworkImage(
@@ -175,6 +209,7 @@ class _PosterCardState extends State<PosterCard> {
                             child: _RankNumeral(widget.rank!),
                           ),
                       ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),

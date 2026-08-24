@@ -622,6 +622,14 @@ class CatalogRepository {
     Account account, {
     String? categoryId,
     Set<String>? categoryIds,
+    Set<String>? excludeIds,
+    /// Order alphabetically instead of by the panel's own `sortOrder`. Needed
+    /// for the A–Z index: jumping to a letter is meaningless in panel order.
+    bool byName = false,
+
+    /// Only channels whose name starts with this (case-insensitive) — the A–Z
+    /// index. Applied in SQL so pages stay full.
+    String? namePrefix,
     int? limit,
     int offset = 0,
   }) async {
@@ -634,12 +642,18 @@ class CatalogRepository {
       await _ensureSliceBootstrapped(account, CatalogKind.live);
     }
     final query = _db.channelsTable.select()
-      ..where((t) => t.accountId.equals(account.id))
-      ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]);
-    if (categoryId != null) {
-      query.where((t) => t.categoryId.equals(categoryId));
-    } else if (categoryIds != null) {
-      query.where((t) => t.categoryId.isIn(categoryIds));
+      ..orderBy([
+        if (byName)
+          (t) => OrderingTerm.asc(t.name)
+        else
+          (t) => OrderingTerm.asc(t.sortOrder),
+      ]);
+    _scopeChannels(query, account, categoryId, categoryIds, excludeIds);
+    if (namePrefix != null && namePrefix.isNotEmpty) {
+      // The A–Z index passes a single letter, never user-typed text, so there
+      // is nothing here for LIKE's `%`/`_` wildcards to misread. (SQLite's LIKE
+      // is ASCII case-insensitive, which is what makes `b%` find `BBC`.)
+      query.where((t) => t.name.like('$namePrefix%'));
     }
     if (limit != null) query.limit(limit, offset: offset);
     return (await query.get()).map((r) => r.toModel()).toList();
@@ -767,6 +781,203 @@ class CatalogRepository {
     return row?.toModel();
   }
 
+  /// Fetches and caches any movies or series referenced by [contentKeys] that
+  /// are not already in the local cache.
+  ///
+  /// Continue Watching and My List resolve a saved key against the cached
+  /// catalogue and silently drop whatever they cannot find. On a device that
+  /// pulled those keys from ANOTHER device — a freshly paired TV — the titles
+  /// have usually never been browsed here, so they are absent from the lazily
+  /// built cache and every row vanishes even though the sync itself worked.
+  /// This pulls the missing titles in once; afterwards they resolve from cache
+  /// like anything else.
+  ///
+  /// Best-effort and bounded: per-title failures are swallowed (a title the
+  /// panel has since dropped simply stays unresolved), and fetches run a few at
+  /// a time rather than stampeding the panel with a long list.
+  ///
+  /// Episode keys are intentionally not handled: an episode cannot be fetched
+  /// without its series id, which the content key does not carry. Series
+  /// Continue Watching therefore needs the separate series-id-in-sync change.
+  /// How many times this session a backfill fetch produced nothing, keyed by
+  /// `accountId|kind|id`.
+  ///
+  /// A title the panel has dropped can never satisfy the "is it cached?" test,
+  /// so without this it squats a slot in every backfill run forever — turning a
+  /// bounded catch-up into permanent periodic network traffic, and (because the
+  /// backfill reports "I cached something") re-arming the very periodic UI
+  /// rebuild this app works hard to avoid.
+  ///
+  /// It counts rather than blacklisting on the first miss, because a miss is
+  /// ambiguous: `seriesDetail` falls back to the cache when the panel is
+  /// unreachable and then legitimately reports zero episodes. Blacklisting on
+  /// that would mean a TV that happened to be offline at boot gives up on those
+  /// series for the whole session — exactly the retry this is meant to protect.
+  /// In memory only, so everything is retried on the next launch.
+  final Map<String, int> _backfillMisses = {};
+  static const _maxBackfillMisses = 3;
+
+  bool _givenUpOn(String accountId, String kind, String id) =>
+      (_backfillMisses['$accountId|$kind|$id'] ?? 0) >= _maxBackfillMisses;
+
+  void _noteBackfillMiss(String accountId, String kind, String id) {
+    final key = '$accountId|$kind|$id';
+    _backfillMisses[key] = (_backfillMisses[key] ?? 0) + 1;
+  }
+
+  /// Returns whether anything new was actually cached, so the caller can rebuild
+  /// the rails only when there is something new for them to show.
+  Future<bool> ensureTitlesCached(
+    Account account,
+    Iterable<String> contentKeys, {
+    Iterable<String> extraSeriesIds = const [],
+  }) async {
+    // Whole-body guard: this is a best-effort enhancement on Home's critical
+    // path, so it must never throw back into the caller and turn a working
+    // (cached) Home into an error screen. Whatever goes wrong, the rails just
+    // fall back to what is already cached.
+    try {
+      // Collect candidates first (cheap, no DB), then find which are already
+      // cached in ONE bulk query per kind — a large synced history used to fire
+      // one SELECT per content key (hundreds of serial round-trips).
+      final candidateMovieIds = <String>[];
+      // Series behind episode progress: the content key is the episode, which
+      // cannot be fetched on its own, so the series id is supplied separately
+      // (from what sync pulled). Fetching the series caches all its episodes,
+      // which is what lets a part-watched series resolve into Continue Watching
+      // on a freshly paired device.
+      final candidateSeriesIds = <String>{...extraSeriesIds};
+      for (final key in contentKeys) {
+        final parsed = parseContentKey(key);
+        if (parsed == null || parsed.accountId != account.id) continue;
+        if (parsed.type == StreamType.movie.name) {
+          candidateMovieIds.add(parsed.id);
+        } else if (parsed.type == seriesContentType) {
+          candidateSeriesIds.add(parsed.id);
+        }
+      }
+
+      Future<Set<String>> existingMovieIds(List<String> ids) async {
+        final found = <String>{};
+        const chunk = 900;
+        for (var i = 0; i < ids.length; i += chunk) {
+          final part = ids.skip(i).take(chunk).toList();
+          final rows = await (_db.moviesTable.selectOnly()
+                ..addColumns([_db.moviesTable.id])
+                ..where(_db.moviesTable.accountId.equals(account.id) &
+                    _db.moviesTable.id.isIn(part)))
+              .get();
+          for (final r in rows) {
+            final v = r.read(_db.moviesTable.id);
+            if (v != null) found.add(v);
+          }
+        }
+        return found;
+      }
+
+      // Which series already have their EPISODES cached — deliberately NOT
+      // "which series rows exist".
+      //
+      // This distinction is the whole ballgame for Continue Watching. A series
+      // ROW is written wholesale by every category/slice refresh, but the
+      // EPISODE rows are written in exactly one place: `seriesDetail`. An
+      // episode content key can only resolve through `episodeById`, i.e.
+      // through the episodes table. Testing the series row meant that for any
+      // series in a category this device had ever refreshed, backfill concluded
+      // "already cached", never called `seriesDetail`, and the episode stayed
+      // unresolvable — so that show was silently missing from Continue Watching
+      // on this device forever, while a device that happened not to have
+      // refreshed that category showed it. Exactly the "not all my episodes are
+      // on the TV" divergence.
+      Future<Set<String>> seriesWithCachedEpisodes(List<String> ids) async {
+        final found = <String>{};
+        const chunk = 900;
+        for (var i = 0; i < ids.length; i += chunk) {
+          final part = ids.skip(i).take(chunk).toList();
+          final rows = await (_db.episodesTable.selectOnly(distinct: true)
+                ..addColumns([_db.episodesTable.seriesId])
+                ..where(_db.episodesTable.accountId.equals(account.id) &
+                    _db.episodesTable.seriesId.isIn(part)))
+              .get();
+          for (final r in rows) {
+            final v = r.read(_db.episodesTable.seriesId);
+            if (v != null) found.add(v);
+          }
+        }
+        return found;
+      }
+
+      final existingMovies = await existingMovieIds(candidateMovieIds);
+      final existingSeries =
+          await seriesWithCachedEpisodes(candidateSeriesIds.toList());
+      final movieIds = candidateMovieIds
+          .where((id) =>
+              !existingMovies.contains(id) &&
+              !_givenUpOn(account.id, 'movie', id))
+          .toList();
+      final seriesIds = candidateSeriesIds
+          .where((id) =>
+              !existingSeries.contains(id) &&
+              !_givenUpOn(account.id, 'series', id))
+          .toList(); // ordered: the caller sorts by recency, `take` relies on it
+      if (movieIds.isEmpty && seriesIds.isEmpty) return false;
+
+      // Cap the work: only enough to fill what the rails actually show, so a
+      // huge synced history can't turn the first Home load into a minutes-long
+      // fetch. The rest fill in as they are browsed.
+      // Deliberately small. This is background catch-up, and each fetch is a
+      // full detail response (a long-running series is a big one), so a large
+      // batch saturates the same connection the video is using. Eight per run,
+      // two at a time, still converges a full rail within a few sync cycles.
+      const maxToFetch = 8;
+
+      var cachedSomething = false;
+
+      Future<void> fetchAll(
+          Iterable<String> ids, Future<bool> Function(String) fetch) async {
+        const maxConcurrent = 2;
+        final take = ids.take(maxToFetch).toList();
+        for (var i = 0; i < take.length; i += maxConcurrent) {
+          await Future.wait(take.skip(i).take(maxConcurrent).map((id) async {
+            try {
+              if (await fetch(id).timeout(const Duration(seconds: 12))) {
+                cachedSomething = true;
+              }
+            } on Object {
+              // A title the panel no longer serves, or a slow one, just stays
+              // unresolved rather than holding up the rest.
+            }
+          }));
+        }
+      }
+
+      // Each fetch reports whether it actually cached something. Reporting
+      // "true" unconditionally would mean an unresolvable title marks every
+      // sync as having changed the catalogue, which re-arms the periodic UI
+      // rebuild; and a miss has to be counted, or it retries forever.
+      await fetchAll(movieIds, (id) async {
+        await movieDetail(account, id);
+        if (await movieById(account, id) != null) return true;
+        _noteBackfillMiss(account.id, 'movie', id);
+        return false;
+      });
+      await fetchAll(seriesIds, (id) async {
+        // fallbackToCache: false — an unreachable panel must throw (and be
+        // retried next sync), not quietly report "no episodes" and get counted
+        // as a miss. Only a real response with no episodes counts.
+        final detail = await seriesDetail(account, id, fallbackToCache: false);
+        if (detail.episodes.isNotEmpty) return true;
+        _noteBackfillMiss(account.id, 'series', id);
+        return false;
+      });
+      return cachedSomething;
+    } on Object catch (e, s) {
+      developer.log('ensureTitlesCached failed: $e',
+          name: 'CatalogRepository', error: e, stackTrace: s);
+      return false;
+    }
+  }
+
   /// Cache-only episode list for one series, in broadcast order. Used to work
   /// out which episode comes after the one you just finished.
   Future<List<Episode>> episodesOfSeries(
@@ -801,12 +1012,27 @@ class CatalogRepository {
   Future<List<Channel>> channelsByEpgKeys(
       Account account, Set<String> keys) async {
     if (keys.isEmpty) return const [];
-    final rows = await (_db.channelsTable.select()
-          ..where((t) =>
-              t.accountId.equals(account.id) &
-              (t.epgChannelId.isIn(keys) | t.id.isIn(keys)))
-          ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
-        .get();
+    // `epgChannelId IN keys OR id IN keys` binds TWO host variables per key,
+    // and SQLite caps host variables per statement. A guide on a large line can
+    // start from tens of thousands of EPG keys, which would blow that cap and
+    // throw. Query in chunks and merge — 450 keys → 900 variables, safe under
+    // any SQLite build's limit.
+    const chunkSize = 450;
+    final list = keys.toList();
+    final byId = <String, ChannelRow>{};
+    for (var i = 0; i < list.length; i += chunkSize) {
+      final chunk = list.skip(i).take(chunkSize).toList();
+      final rows = await (_db.channelsTable.select()
+            ..where((t) =>
+                t.accountId.equals(account.id) &
+                (t.epgChannelId.isIn(chunk) | t.id.isIn(chunk))))
+          .get();
+      for (final r in rows) {
+        byId[r.id] = r;
+      }
+    }
+    final rows = byId.values.toList()
+      ..sort((a, b) => (a.sortOrder ?? 0).compareTo(b.sortOrder ?? 0));
     return rows.map((r) => r.toModel()).toList();
   }
 
@@ -871,13 +1097,20 @@ class CatalogRepository {
     SimpleSelectStatement<$ChannelsTableTable, ChannelRow> query,
     Account account,
     String? categoryId,
-    Set<String>? categoryIds,
-  ) {
+    Set<String>? categoryIds, [
+    Set<String>? excludeIds,
+  ]) {
     query.where((t) => t.accountId.equals(account.id));
     if (categoryId != null) {
       query.where((t) => t.categoryId.equals(categoryId));
     } else if (categoryIds != null) {
       query.where((t) => t.categoryId.isIn(categoryIds));
+    }
+    // Channels the user hid. Excluded in SQL, never after paging: filtering a
+    // page in Dart hands the caller short pages, which is the bug the
+    // language filter was moved into SQL to avoid.
+    if (excludeIds != null && excludeIds.isNotEmpty) {
+      query.where((t) => t.id.isNotIn(excludeIds.toList()));
     }
   }
 
@@ -893,6 +1126,7 @@ class CatalogRepository {
     int index, {
     String? categoryId,
     Set<String>? categoryIds,
+    Set<String>? excludeIds,
   }) async {
     if (index < 0) return null;
     if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
@@ -901,7 +1135,7 @@ class CatalogRepository {
     final query = _db.channelsTable.select()
       ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)])
       ..limit(1, offset: index);
-    _scopeChannels(query, account, categoryId, categoryIds);
+    _scopeChannels(query, account, categoryId, categoryIds, excludeIds);
     return (await query.getSingleOrNull())?.toModel();
   }
 
@@ -911,6 +1145,7 @@ class CatalogRepository {
     Account account, {
     String? categoryId,
     Set<String>? categoryIds,
+    Set<String>? excludeIds,
   }) async {
     if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
       return 0;
@@ -922,6 +1157,11 @@ class CatalogRepository {
       query.where(_db.channelsTable.categoryId.equals(categoryId));
     } else if (categoryIds != null) {
       query.where(_db.channelsTable.categoryId.isIn(categoryIds));
+    }
+    // Must match `channels` and `channelAt` exactly, or zapping walks past the
+    // end of the list the user can actually see.
+    if (excludeIds != null && excludeIds.isNotEmpty) {
+      query.where(_db.channelsTable.id.isNotIn(excludeIds.toList()));
     }
     return (await query.getSingle()).read(count) ?? 0;
   }
@@ -1063,7 +1303,14 @@ class CatalogRepository {
   }
 
   /// Seasons + episodes: fetched and cached; rebuilt from cache offline.
-  Future<SeriesDetail> seriesDetail(Account account, String seriesId) async {
+  ///
+  /// [fallbackToCache] exists for the backfill, which MUST be able to tell "the
+  /// panel served this series and it has no episodes" from "the panel could not
+  /// be reached". With the fallback on, an unreachable panel returns the cached
+  /// row with an empty episode list, which is indistinguishable from the former
+  /// — and the backfill would give up on a series because the network blipped.
+  Future<SeriesDetail> seriesDetail(Account account, String seriesId,
+      {bool fallbackToCache = true}) async {
     try {
       final detail = await _sourceFactory(account).getSeriesInfo(seriesId);
       await _db.transaction(() async {
@@ -1077,6 +1324,7 @@ class CatalogRepository {
       });
       return detail;
     } on SourceException {
+      if (!fallbackToCache) rethrow;
       final seriesRow = await (_db.seriesTable.select()
             ..where((t) =>
                 t.accountId.equals(account.id) & t.id.equals(seriesId)))

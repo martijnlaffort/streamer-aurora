@@ -10,15 +10,21 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 
+import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
+import '../../../core/widgets/focus_highlight.dart';
+import '../../../data/cast/cast_service.dart';
+import '../../../data/cast/cast_url.dart';
 import '../../../data/providers.dart';
 import '../../../data/repositories/watch_progress_repository.dart';
+import '../../../data/sync/playback_activity.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart'
     show Preferences, StreamRef, StreamType, contentKeyFor;
 import '../player_request.dart';
+import 'cast_picker.dart';
 
 /// Android emulators stall on hardware video decode (documented media_kit
 /// quirk): run with `--dart-define=DAWN_SW_DECODE=true` there. Real
@@ -59,7 +65,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   late final WatchProgressRepository _progressRepo =
       ref.read(watchProgressRepositoryProvider);
 
-  late int _index = widget.request.startIndex;
+  // Clamped: a caller can hand over a stale or -1 start index (an episode that
+  // fell out of a refreshed list), and `queue[_index]` must never RangeError.
+  late int _index =
+      widget.request.startIndex.clamp(0, widget.request.queue.length - 1);
 
   // Resume state (PRD §8.9).
   int? _pendingResumeSeconds;
@@ -128,6 +137,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// than relying on focus traversal between buttons.
   final _keyboardFocus = FocusNode(debugLabel: 'player-keys');
 
+  /// The play/pause button — the entry point when the remote moves off the
+  /// video surface into the on-screen controls. Focusing a concrete control is
+  /// the only way in: directional traversal from [_keyboardFocus] has no target
+  /// because that node's rect is the whole screen.
+  final _playPauseFocus = FocusNode(debugLabel: 'player-playpause');
+
+  // --- Casting ---------------------------------------------------------------
+  //
+  // Casting is not mirroring: the Chromecast fetches the URL and decodes it
+  // itself, so local playback is paused rather than continuing silently, and
+  // watch progress is written from the RECEIVER's position while it runs — the
+  // whole point is that stopping halfway on the TV still shows up in Continue
+  // Watching.
+  StreamSubscription<CastStatus>? _castSub;
+  CastStatus _cast = const CastStatus();
+  bool _castAvailable = false;
+  DateTime _lastCastSave = DateTime.fromMillisecondsSinceEpoch(0);
+
   /// Live zapping state. Starts from the list position the caller handed over
   /// and moves as the user changes channel.
   late ZapContext? _zap = widget.request.zap;
@@ -150,6 +177,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Keep background catalogue catch-up off the connection while we stream —
+    // it is a big enough fetch to show up as buffering.
+    ref.read(playbackActivityProvider).enter();
     // PopScope's canPop depends on where focus currently sits, and focus
     // changes do not rebuild by themselves.
     _keyboardFocus.addListener(() {
@@ -169,6 +199,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     ref.read(preferencesRepositoryProvider).get().then((prefs) {
       if (mounted) _prefs = prefs;
+    });
+
+    // Cast is Android + Play Services only, and is pointless on a television —
+    // you are already on the big screen — so the button never appears there.
+    final cast = ref.read(castServiceProvider);
+    Future(() async {
+      final onTv = await ref.read(isTelevisionProvider.future);
+      final available = await cast.isAvailable();
+      if (!mounted || onTv || !available) return;
+      setState(() => _castAvailable = true);
+      _castSub = cast.status.listen(_onCastStatus);
     });
 
     // Fullscreen + landscape lock is a mobile concern; on desktop these calls
@@ -261,6 +302,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   void dispose() {
+    _castSub?.cancel();
+    ref.read(playbackActivityProvider).leave();
     WidgetsBinding.instance.removeObserver(this);
     // Save on exit (PRD §8.9) before the player goes away.
     if (_position > Duration.zero && _duration > Duration.zero) {
@@ -273,6 +316,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _reconnectTimer?.cancel();
     _zapToastTimer?.cancel();
     _keyboardFocus.dispose();
+    _playPauseFocus.dispose();
     for (final sub in _subs) {
       sub.cancel();
     }
@@ -336,13 +380,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// The media just reported its length — this is the moment a pending
   /// resume seek becomes possible.
+  ///
+  /// The pending seek is consumed ONLY when we actually perform it — i.e. once
+  /// a duration arrives that the resume point falls within. Series episodes are
+  /// frequently MPEG-TS, and mpv reports a TS file's duration as 0 or a small,
+  /// growing value before it settles on the real length. The old code nulled
+  /// the pending resume on that first bogus value without seeking, so the real
+  /// duration arrived too late and the episode silently played from the start.
+  /// Movies are clean MP4/MKV that report a correct duration at once, which is
+  /// why only episodes were affected. Waiting for a usable duration fixes it.
   void _onDuration(Duration duration) {
     final resume = _pendingResumeSeconds;
-    if (resume != null && duration > Duration.zero) {
+    if (resume != null && resume < duration.inSeconds) {
       _pendingResumeSeconds = null;
-      if (resume < duration.inSeconds) {
-        _player.seek(Duration(seconds: resume));
-      }
+      _player.seek(Duration(seconds: resume));
     }
   }
 
@@ -414,6 +465,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _liveEpgTimer?.cancel();
     try {
       final account = await ref.read(activeAccountProvider.future);
+      // Back-out during any of these awaits disposes the widget (and the
+      // player). Bail before touching ref/_player/setState on a dead State.
+      if (!mounted) return;
       if (account == null) {
         setState(() => _error = 'No active account.');
         return;
@@ -432,6 +486,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       final url = await ref
           .read(sourceFactoryProvider)(account)
           .buildStreamUrl(_current.streamRef);
+      if (!mounted) return;
       // Present a player User-Agent panels accept (see kStreamUserAgent).
       // Set on the native mpv handle directly — the dedicated `user-agent`
       // property overrides libmpv's default and avoids duplicate headers.
@@ -440,6 +495,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         await platform.setProperty('user-agent', kStreamUserAgent);
       }
       await _player.open(Media(url));
+      if (!mounted) return;
       _scheduleHide();
       if (_current.isLive) {
         _refreshLiveEpg();
@@ -457,11 +513,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Future<void> _refreshLiveEpg() async {
     if (!_current.isLive) return;
     final account = await ref.read(activeAccountProvider.future);
-    if (account == null) return;
+    // Fires on a 60s timer; the widget may be long gone by the time it resolves.
+    if (!mounted || account == null) return;
     final channel = await ref
         .read(catalogRepositoryProvider)
         .channelById(account, _current.streamRef.streamId);
-    if (channel == null) return;
+    if (!mounted || channel == null) return;
     final programme =
         await ref.read(epgRepositoryProvider).currentProgramme(account, channel);
     if (mounted) setState(() => _liveNow = programme?.title);
@@ -558,6 +615,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     setState(() {
       _index += 1;
       _upNextCountdown = null;
+      // Clear transport state for the new item. Otherwise a quick exit before
+      // it reports its own position/duration would save the PREVIOUS item's
+      // position against the NEW item's content key (dispose saves whenever
+      // position & duration are both > 0).
+      _position = Duration.zero;
+      _duration = Duration.zero;
     });
     _openCurrent();
   }
@@ -569,6 +632,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     setState(() {
       _index -= 1;
       _upNextCountdown = null;
+      // See _playNext: clear so a quick exit can't misattribute the position.
+      _position = Duration.zero;
+      _duration = Duration.zero;
     });
     _openCurrent();
   }
@@ -580,6 +646,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _hideTimer = Timer(const Duration(milliseconds: 3200), () {
       if (mounted && _playing && _error == null) {
         setState(() => _controlsVisible = false);
+        // If the remote was parked on a control, hand it back to the video
+        // surface as the controls fade — otherwise left/right would keep
+        // driving a button that is no longer visible instead of scrubbing.
+        if (!_keyboardFocus.hasPrimaryFocus) _keyboardFocus.requestFocus();
       }
     });
   }
@@ -589,10 +659,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (_controlsVisible) _scheduleHide();
   }
 
-  void _hint(String text) {
+  /// Gesture feedback is glanceable and gone; an explanation ("a Chromecast
+  /// can't play .mkv") has to stay up long enough to read.
+  void _hint(String text,
+      {Duration duration = const Duration(milliseconds: 900)}) {
     _hintTimer?.cancel();
     setState(() => _gestureHint = text);
-    _hintTimer = Timer(const Duration(milliseconds: 900), () {
+    _hintTimer = Timer(duration, () {
       if (mounted) setState(() => _gestureHint = null);
     });
   }
@@ -613,7 +686,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _zapping = true;
     try {
       final account = await ref.read(activeAccountProvider.future);
-      if (account == null) return;
+      if (!mounted || account == null) return;
       final catalog = ref.read(catalogRepositoryProvider);
       final total = await catalog.channelCount(
         account,
@@ -693,11 +766,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final key = event.logicalKey;
 
     // Key events bubble up from whatever descendant holds focus. Once the user
-    // has moved up into the overlay's buttons, the arrows belong to focus
-    // traversal — hijacking them here would make the audio, subtitle and lock
-    // buttons unreachable, since moving between them IS left/right.
+    // has moved into the overlay's buttons, the arrows belong to focus
+    // traversal — hijacking them here would make the buttons unreachable, since
+    // moving between them IS left/right.
     if (!_keyboardFocus.hasPrimaryFocus) {
       _wake();
+      // OK/centre activates the focused control. D-pad centre arrives as
+      // `select` on many televisions, which is NOT in Flutter's default
+      // activation shortcuts, so trigger the focused control ourselves.
+      // Everything else (arrows) falls through to traversal and to the focused
+      // widget — the seek slider scrubs with left/right, buttons move focus.
+      if (key == LogicalKeyboardKey.select ||
+          key == LogicalKeyboardKey.enter ||
+          key == LogicalKeyboardKey.space ||
+          key == LogicalKeyboardKey.gameButtonA) {
+        final ctx = FocusManager.instance.primaryFocus?.context;
+        if (ctx != null) Actions.maybeInvoke(ctx, const ActivateIntent());
+        return KeyEventResult.handled;
+      }
       return KeyEventResult.ignored;
     }
 
@@ -783,11 +869,119 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _wake();
         return KeyEventResult.handled;
       }
+      // Move the remote off the video surface and into the on-screen controls,
+      // landing on play/pause. From there directional traversal reaches the
+      // top bar, the transport buttons and the seek bar; Back (PopScope) steps
+      // back out to plain viewing, where left/right scrub again. This explicit
+      // hand-off is necessary because traversal from the full-screen key node
+      // has no target of its own.
       _wake();
-      return KeyEventResult.ignored;
+      _playPauseFocus.requestFocus();
+      return KeyEventResult.handled;
     }
 
     return KeyEventResult.ignored;
+  }
+
+  // --- Casting ---------------------------------------------------------------
+
+  void _onCastStatus(CastStatus status) {
+    if (!mounted) return;
+    final wasCasting = _cast.isCasting;
+    setState(() => _cast = status);
+
+    // The receiver is authoritative while it plays, so progress comes from it.
+    // Live has no meaningful position, and a zero duration means it has not
+    // reported yet.
+    if (status.isCasting &&
+        !_current.isLive &&
+        status.durationSeconds > 0 &&
+        status.positionSeconds > 0) {
+      final now = DateTime.now();
+      if (now.difference(_lastCastSave) >= const Duration(seconds: 10)) {
+        _lastCastSave = now;
+        _progressRepo.savePosition(
+          contentKey: _current.contentKey,
+          positionSeconds: status.positionSeconds,
+          durationSeconds: status.durationSeconds,
+        );
+      }
+    }
+
+    // The session ended on the device (someone stopped it from another app, or
+    // the TV was switched off). Pick playback back up here at wherever it got
+    // to, which is what the user expects to see when the TV goes away.
+    if (wasCasting && !status.isCasting) {
+      final resumeAt = _cast.positionSeconds;
+      if (!_current.isLive && resumeAt > 0) {
+        _player.seek(Duration(seconds: resumeAt));
+      }
+      _player.play();
+    }
+  }
+
+  /// Hand the current stream to a Chromecast.
+  Future<void> _startCasting() async {
+    final account = await ref.read(activeAccountProvider.future);
+    if (!mounted || account == null) return;
+
+    final String url;
+    try {
+      url = await ref
+          .read(sourceFactoryProvider)(account)
+          .buildStreamUrl(_current.streamRef);
+    } on Object catch (e) {
+      if (mounted) _toast('$e');
+      return;
+    }
+    if (!mounted) return;
+
+    // Decided in one place, because "can this be cast?" is entirely a question
+    // about the container — see castTargetFor.
+    final target = castTargetFor(_current.streamRef, url);
+    if (!target.canCast) {
+      _toast(target.refusal!);
+      return;
+    }
+
+    // Save where we are before handing over, so nothing is lost if the cast
+    // fails, and pause here — two copies playing at once is the classic bug.
+    _saveProgress();
+    await _player.pause();
+    if (!mounted) return;
+
+    final picked = await showCastPicker(context);
+    if (!mounted) return;
+    if (picked != true) {
+      // Backed out — carry on watching here.
+      if (!_cast.isCasting) await _player.play();
+      return;
+    }
+
+    try {
+      await ref.read(castServiceProvider).load(
+            url: target.url!,
+            contentType: target.contentType!,
+            isLive: target.isLive,
+            title: _current.title,
+            subtitle: _current.subtitle,
+            positionSeconds: _current.isLive ? 0 : _position.inSeconds,
+          );
+    } on PlatformException catch (e) {
+      if (mounted) {
+        _toast(e.message ?? 'That device would not accept the stream.');
+        await _player.play();
+      }
+    }
+  }
+
+  Future<void> _stopCasting() async {
+    await ref.read(castServiceProvider).disconnect();
+  }
+
+  /// Message that needs reading, not glancing at.
+  void _toast(String message) {
+    _hint(message, duration: const Duration(seconds: 4));
   }
 
   void _seekRelative(int seconds) {
@@ -929,6 +1123,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             ),
             for (final track in tracks)
               ListTile(
+                // Seed focus on the current track so the sheet is operable by
+                // remote as soon as it opens.
+                autofocus: (track as dynamic).id == selectedId,
                 leading: Icon(
                   (track as dynamic).id == selectedId
                       ? Icons.radio_button_checked
@@ -990,6 +1187,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             if (_buffering && _error == null && !_reconnecting)
               const Center(
                   child: CircularProgressIndicator(color: AppColors.accent)),
+            // Covers the (paused) video while the TV has it, so there is never
+            // any doubt about which screen is playing.
+            if (_cast.isCasting) _castingView(),
             if (_reconnecting) _reconnectingView(),
             if (_error != null) _errorView(),
             if (_gestureHint != null)
@@ -1036,6 +1236,102 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// Shown while a dropped stream is being reopened. Deliberately quiet: this
   /// is the state that used to be a full error screen, and most of the time it
   /// resolves itself within a couple of seconds.
+  /// Shown while a Chromecast has the stream: this device becomes the remote.
+  Widget _castingView() {
+    return ColoredBox(
+      color: AppColors.background,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cast_connected,
+                  size: 56, color: AppColors.accent),
+              const SizedBox(height: 20),
+              Text(
+                _cast.deviceName == null
+                    ? 'Casting'
+                    : 'Casting to ${_cast.deviceName}',
+                textAlign: TextAlign.center,
+                style: AppTypography.title,
+              ),
+              const SizedBox(height: 6),
+              Text(_current.title,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.textSecondary)),
+              if (!_current.isLive && _cast.durationSeconds > 0) ...[
+                const SizedBox(height: 14),
+                Text(
+                  '${formatSeconds(_cast.positionSeconds)} / '
+                  '${formatSeconds(_cast.durationSeconds)}',
+                  style: AppTypography.label,
+                ),
+              ],
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (!_current.isLive)
+                    FocusHighlight(
+                      borderRadius: 24,
+                      child: IconButton(
+                        iconSize: 32,
+                        tooltip: 'Back 10 seconds',
+                        onPressed: () => ref
+                            .read(castServiceProvider)
+                            .seek((_cast.positionSeconds - 10)
+                                .clamp(0, 1 << 30)),
+                        icon: const Icon(Icons.replay_10),
+                      ),
+                    ),
+                  FocusHighlight(
+                    borderRadius: 32,
+                    child: IconButton(
+                      autofocus: true,
+                      iconSize: 46,
+                      tooltip: _cast.isPlaying ? 'Pause' : 'Play',
+                      onPressed: () {
+                        final cast = ref.read(castServiceProvider);
+                        _cast.isPlaying ? cast.pause() : cast.play();
+                      },
+                      icon: Icon(_cast.isPlaying
+                          ? Icons.pause_circle_filled
+                          : Icons.play_circle_filled),
+                    ),
+                  ),
+                  if (!_current.isLive)
+                    FocusHighlight(
+                      borderRadius: 24,
+                      child: IconButton(
+                        iconSize: 32,
+                        tooltip: 'Forward 10 seconds',
+                        onPressed: () => ref
+                            .read(castServiceProvider)
+                            .seek(_cast.positionSeconds + 10),
+                        icon: const Icon(Icons.forward_10),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              FocusHighlight(
+                borderRadius: 20,
+                child: FilledButton.tonalIcon(
+                  onPressed: _stopCasting,
+                  icon: const Icon(Icons.stop, size: 18),
+                  label: const Text('Stop casting'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _reconnectingView() {
     return Center(
       child: Column(
@@ -1290,6 +1586,251 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
+  /// Focus styling for the television transport.
+  ///
+  /// A focused control becomes a solid white pill with a dark glyph. This is
+  /// what Netflix and HBO both do, and the reason is not decoration: Material's
+  /// default focus state is a faint translucent wash, which over moving video on
+  /// a big panel is genuinely invisible — "I can't tell where my cursor is" was
+  /// the exact complaint. Inverting the control is impossible to miss from a
+  /// sofa, whatever frame is behind it.
+  ButtonStyle get _tvTransportStyle => ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.focused) ? Colors.white : null),
+        iconColor: WidgetStateProperty.resolveWith((states) =>
+            states.contains(WidgetState.focused) ? Colors.black : null),
+        // Returning null for every other state deliberately falls through to
+        // the Material defaults, so the ripple and hover feel are untouched.
+        overlayColor: WidgetStateProperty.resolveWith((states) => null),
+      );
+
+  /// The television transport: one cluster at the bottom of the screen.
+  ///
+  /// Deliberately shaped like Netflix's and HBO's, and for a reason that is
+  /// about the remote rather than fashion. The touch layout scatters controls
+  /// across three zones — a top bar, a big play button in the middle, a seek bar
+  /// at the bottom — which is fine for a thumb and awful for a D-pad: every
+  /// up/down press jumps across the whole screen, and the geometry decides where
+  /// focus lands. Gathering everything into one bottom cluster makes the moves
+  /// short and predictable: UP/DOWN swaps between the scrubber and the button
+  /// row, LEFT/RIGHT walks the row, BACK drops you back to the picture.
+  ///
+  /// There is no on-screen Back button, also on purpose: BACK on the remote
+  /// already leaves the controls, and a second press exits.
+  Widget _tvControls(
+      Duration position, int durationSeconds, double bufferFraction) {
+    final queued = widget.request.queue.length > 1;
+    return AnimatedOpacity(
+      opacity: _controlsVisible ? 1 : 0,
+      duration: const Duration(milliseconds: 200),
+      child: IgnorePointer(
+        ignoring: !_controlsVisible,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.transparent, Colors.black87],
+              stops: [0.45, 1],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Generous side padding: real sets crop the outer few percent.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(48, 0, 48, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_current.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.display.copyWith(fontSize: 24)),
+                      if (_liveNow != null)
+                        Text('Now: $_liveNow',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.label
+                                .copyWith(color: AppColors.accentAlt))
+                      else if (_current.subtitle != null)
+                        Text(_current.subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.label),
+                      const SizedBox(height: 14),
+                      if (_current.isLive)
+                        Align(
+                            alignment: Alignment.centerLeft,
+                            child: _liveIndicator())
+                      else
+                        _tvSeekBar(position, durationSeconds, bufferFraction),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          if (queued)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Previous episode',
+                              onPressed: _hasPrevious ? _playPrevious : null,
+                              icon: const Icon(Icons.skip_previous),
+                            ),
+                          if (_canZap)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Channel down',
+                              onPressed: () => _zapBy(-1),
+                              icon: const Icon(Icons.keyboard_arrow_down),
+                            )
+                          else if (!_current.isLive)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Back 10 seconds',
+                              onPressed: () => _seekRelative(-10),
+                              icon: const Icon(Icons.replay_10),
+                            ),
+                          IconButton(
+                            focusNode: _playPauseFocus,
+                            style: _tvTransportStyle,
+                            iconSize: 38,
+                            tooltip: _playing ? 'Pause' : 'Play',
+                            onPressed: () {
+                              _player.playOrPause();
+                              _scheduleHide();
+                            },
+                            icon: Icon(_playing
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded),
+                          ),
+                          if (_canZap)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Channel up',
+                              onPressed: () => _zapBy(1),
+                              icon: const Icon(Icons.keyboard_arrow_up),
+                            )
+                          else if (!_current.isLive)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Forward 10 seconds',
+                              onPressed: () => _seekRelative(10),
+                              icon: const Icon(Icons.forward_10),
+                            ),
+                          if (queued)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Next episode',
+                              onPressed: _next != null ? _playNext : null,
+                              icon: const Icon(Icons.skip_next),
+                            ),
+                          const Spacer(),
+                          // On a television you are already on the big screen,
+                          // so casting is only offered when this build is NOT
+                          // the TV one (see _castAvailable, which is false
+                          // there) — this branch keeps the row consistent if
+                          // that ever changes.
+                          if (_castAvailable)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 26,
+                              tooltip: 'Cast to a TV',
+                              onPressed: _startCasting,
+                              icon: const Icon(Icons.cast),
+                            ),
+                          IconButton(
+                            style: _tvTransportStyle,
+                            iconSize: 26,
+                            tooltip: 'Audio',
+                            onPressed: _showAudioSheet,
+                            icon: const Icon(Icons.audiotrack_outlined),
+                          ),
+                          IconButton(
+                            style: _tvTransportStyle,
+                            iconSize: 26,
+                            tooltip: 'Subtitles',
+                            onPressed: _showSubtitleSheet,
+                            icon: const Icon(Icons.subtitles_outlined),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Scrubber sized for a ten-foot view, and focusable: once the remote is on
+  /// it, LEFT/RIGHT scrub instead of walking the button row.
+  Widget _tvSeekBar(
+      Duration position, int durationSeconds, double bufferFraction) {
+    return Row(
+      children: [
+        Text(formatSeconds(position.inSeconds), style: AppTypography.label),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FocusHighlight(
+            borderRadius: 8,
+            scale: 1.0,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: LinearProgressIndicator(
+                    value: bufferFraction,
+                    minHeight: 5,
+                    backgroundColor: Colors.white24,
+                    color: Colors.white38,
+                  ),
+                ),
+                SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 5,
+                    activeTrackColor: AppColors.accent,
+                    inactiveTrackColor: Colors.transparent,
+                    thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 9),
+                    overlayShape:
+                        const RoundSliderOverlayShape(overlayRadius: 18),
+                  ),
+                  child: Slider(
+                    value: durationSeconds > 0
+                        ? position.inSeconds.clamp(0, durationSeconds).toDouble()
+                        : 0,
+                    max: durationSeconds > 0 ? durationSeconds.toDouble() : 1,
+                    onChanged: durationSeconds > 0
+                        ? (v) => setState(() => _dragSeekSeconds = v)
+                        : null,
+                    onChangeEnd: (v) {
+                      _player.seek(Duration(seconds: v.round()));
+                      setState(() => _dragSeekSeconds = null);
+                      _scheduleHide();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(formatSeconds(durationSeconds), style: AppTypography.label),
+      ],
+    );
+  }
+
   Widget _controlsOverlay() {
     if (_locked) {
       // Locked: everything hidden except the unlock affordance.
@@ -1323,6 +1864,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final bufferFraction = durationSeconds > 0
         ? (_buffer.inSeconds / durationSeconds).clamp(0.0, 1.0)
         : 0.0;
+
+    if (isTelevisionOf(ref)) {
+      return _tvControls(position, durationSeconds, bufferFraction);
+    }
 
     return AnimatedOpacity(
       opacity: _controlsVisible ? 1 : 0,
@@ -1370,6 +1915,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         ],
                       ),
                     ),
+                    if (_castAvailable)
+                      IconButton(
+                        tooltip: 'Cast to a TV',
+                        onPressed: _startCasting,
+                        icon: const Icon(Icons.cast),
+                      ),
                     IconButton(
                       tooltip: 'Audio',
                       onPressed: _showAudioSheet,
@@ -1425,6 +1976,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       const SizedBox(width: 28),
                     ],
                     IconButton(
+                      focusNode: _playPauseFocus,
                       iconSize: 64,
                       onPressed: () {
                         _player.playOrPause();

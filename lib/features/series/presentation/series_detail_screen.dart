@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
+import '../../../core/widgets/focus_highlight.dart';
 import '../../../core/widgets/my_list_button.dart';
 import '../../../data/providers.dart';
 import '../../../core/matching/title_label.dart';
@@ -53,7 +55,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             containerExt: e.containerExt,
           ),
           title: prettyTitle(detail.series.name, year: detail.series.year),
-          subtitle: 'S${e.seasonNumber} · E${e.episodeNumber} — ${e.title}',
+          subtitle: episodeLabel(
+            season: e.seasonNumber,
+            episode: e.episodeNumber,
+            title: e.title,
+            seriesName: detail.series.name,
+          ),
           contentKey: _episodeKey(accountId, e),
         ),
     ];
@@ -104,15 +111,25 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(seriesDetailProvider(widget.seriesId));
     final progressAsync = ref.watch(seriesProgressProvider(widget.seriesId));
-    final account = ref.watch(activeAccountProvider).value;
+    final accountAsync = ref.watch(activeAccountProvider);
 
     return Scaffold(
       appBar: AppBar(),
       extendBodyBehindAppBar: true,
       body: detailAsync.when(
+        // A background sync must never blank a screen that already has content:
+        // when() shows its loading branch on a dependency reload by default.
+        skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(seriesDetailProvider(widget.seriesId))),
         data: (detail) {
+          // Wait for the account too: reading `.value` while it is still
+          // loading briefly returned null and flashed "Not found" before the
+          // real content appeared.
+          if (accountAsync.isLoading && !accountAsync.hasValue) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final account = accountAsync.value;
           if (detail == null || account == null) {
             return const Center(child: Text('Not found in the catalog.'));
           }
@@ -121,12 +138,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
           final selectedSeason =
               _selectedSeason ?? seasons.firstOrNull?.seasonNumber ?? 1;
           final episodes = detail.episodesOfSeason(selectedSeason);
-          final (nextIndex, nextProgress) =
-              _nextUp(detail, account.id, progress);
-          final next = detail.episodes[nextIndex];
-          final resume = ref
-              .read(watchProgressRepositoryProvider)
-              .shouldOfferResume(nextProgress);
+          // A series can arrive with no episodes at all — a stub entry on the
+          // panel, or a season list the panel holds no files for. Guard every
+          // path that indexes into episodes so the screen degrades to an empty
+          // state instead of crashing with a RangeError.
+          final hasEpisodes = detail.episodes.isNotEmpty;
+          final (nextIndex, nextProgress) = hasEpisodes
+              ? _nextUp(detail, account.id, progress)
+              : (0, null);
+          final next = hasEpisodes ? detail.episodes[nextIndex] : null;
+          final resume = hasEpisodes &&
+              ref
+                  .read(watchProgressRepositoryProvider)
+                  .shouldOfferResume(nextProgress);
 
           final series = detail.series;
           final image = series.backdropUrl ?? series.posterUrl;
@@ -137,11 +161,22 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             if (series.rating != null) '★ ${series.rating!.toStringAsFixed(1)}',
           ].join('  ·  ');
 
+          // Proportional, not fixed: a television reports a far shorter logical
+          // height than a phone, so a fixed 280px backdrop ate a third of the
+          // screen there. The wider side padding is deliberate on a TV — sets
+          // crop the outer few percent (overscan), and a 10-foot layout wants
+          // its text well clear of the edge.
+          final tv = isTelevisionOf(ref);
+          final headerHeight =
+              (MediaQuery.sizeOf(context).height * (tv ? 0.26 : 0.30))
+                  .clamp(140.0, 280.0);
+          final sidePad = tv ? 48.0 : 24.0;
+
           return ListView(
             padding: EdgeInsets.zero,
             children: [
               SizedBox(
-                height: 280,
+                height: headerHeight,
                 child: widget.heroTag != null
                     ? Hero(
                         tag: widget.heroTag!,
@@ -150,44 +185,60 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                     : _headerImage(image),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                padding: EdgeInsets.fromLTRB(sidePad, 24, sidePad, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(prettyTitle(series.name, year: series.year),
-                        style: AppTypography.display.copyWith(fontSize: 28)),
-                    const SizedBox(height: 8),
+                        style: AppTypography.display.copyWith(fontSize: 25)),
+                    const SizedBox(height: 10),
                     Text(meta,
                         style: const TextStyle(color: AppColors.textSecondary)),
                     if (series.plot != null) ...[
-                      const SizedBox(height: 12),
-                      Text(series.plot!, style: AppTypography.body),
+                      const SizedBox(height: 16),
+                      Text(series.plot!,
+                          style: AppTypography.body.copyWith(height: 1.5)),
                     ],
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     Row(
                       children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: () => _play(
-                                detail, account.id, nextIndex,
-                                resumeFrom: resume
-                                    ? nextProgress!.positionSeconds
-                                    : null),
-                            icon: const Icon(Icons.play_arrow),
-                            label: Text(
-                              resume
-                                  ? 'Resume S${next.seasonNumber} E${next.episodeNumber} '
-                                      'from ${formatSeconds(nextProgress!.positionSeconds)}'
-                                  : 'Play S${next.seasonNumber} E${next.episodeNumber}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                        if (hasEpisodes) ...[
+                          // FocusHighlight, not Material's focus overlay: that
+                          // overlay is invisible on this near-black theme from a
+                          // sofa, which is why the page felt cursor-less.
+                          Expanded(
+                            child: FocusHighlight(
+                              borderRadius: 20,
+                              scale: 1.0,
+                              child: FilledButton.icon(
+                                // Seed focus on a TV so the page opens with a
+                                // visible cursor.
+                                autofocus: tv,
+                                onPressed: () => _play(
+                                    detail, account.id, nextIndex,
+                                    resumeFrom: resume
+                                        ? nextProgress!.positionSeconds
+                                        : null),
+                                icon: const Icon(Icons.play_arrow),
+                                label: Text(
+                                  resume
+                                      ? 'Resume S${next!.seasonNumber} E${next.episodeNumber} '
+                                          'from ${formatSeconds(nextProgress!.positionSeconds)}'
+                                      : 'Play S${next!.seasonNumber} E${next.episodeNumber}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        MyListButton(
-                          contentKey: contentKeyForSeries(
-                              accountId: account.id, id: series.id),
+                          const SizedBox(width: 12),
+                        ],
+                        FocusHighlight(
+                          borderRadius: 20,
+                          child: MyListButton(
+                            contentKey: contentKeyForSeries(
+                                accountId: account.id, id: series.id),
+                          ),
                         ),
                       ],
                     ),
@@ -199,26 +250,48 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                   height: 44,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: EdgeInsets.symmetric(horizontal: sidePad - 4),
                     itemCount: seasons.length,
                     separatorBuilder: (context, i) => const SizedBox(width: 8),
                     itemBuilder: (context, i) {
                       final season = seasons[i];
                       final selected = season.seasonNumber == selectedSeason;
-                      return ChoiceChip(
-                        label: Text(season.name ?? 'Season ${season.seasonNumber}'),
-                        selected: selected,
-                        onSelected: (_) => setState(
-                            () => _selectedSeason = season.seasonNumber),
-                        selectedColor: AppColors.accent.withValues(alpha: 0.28),
+                      // FocusHighlight: gives the chip a ring the remote can see
+                      // (the season selector is the control the D-pad must pass
+                      // through between Play and the episode list), and scrolls
+                      // the chip itself into view — `ensureVisible` with the
+                      // itemBuilder's context would target the ListView's sliver
+                      // element instead and jump to a fixed offset.
+                      return FocusHighlight(
+                        borderRadius: 20,
+                        scale: 1.0,
+                        ensureVisible: true,
+                        child: ChoiceChip(
+                          label: Text(
+                              season.name ?? 'Season ${season.seasonNumber}'),
+                          selected: selected,
+                          onSelected: (_) => setState(
+                              () => _selectedSeason = season.seasonNumber),
+                          selectedColor:
+                              AppColors.accent.withValues(alpha: 0.28),
+                        ),
                       );
                     },
                   ),
                 ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+              if (!hasEpisodes)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(sidePad, 8, sidePad, 0),
+                  child: const Text(
+                      'No episodes available for this series yet.',
+                      style: TextStyle(color: AppColors.textSecondary)),
+                ),
               for (final episode in episodes)
                 _EpisodeTile(
                   episode: episode,
+                  sidePad: sidePad,
+                  seriesName: series.name,
                   progress: progress[_episodeKey(account.id, episode)],
                   fallbackImage: series.posterUrl,
                   onTap: () {
@@ -245,6 +318,8 @@ class _EpisodeTile extends StatelessWidget {
     required this.episode,
     required this.progress,
     required this.onTap,
+    required this.sidePad,
+    required this.seriesName,
     this.fallbackImage,
   });
 
@@ -253,14 +328,33 @@ class _EpisodeTile extends StatelessWidget {
   final String? fallbackImage;
   final VoidCallback onTap;
 
+  /// Used only to strip the series name back out of the episode's own title,
+  /// which panels routinely repeat there.
+  final String seriesName;
+
+  /// Matches the page's side padding so the rows line up with the title above.
+  final double sidePad;
+
   @override
   Widget build(BuildContext context) {
     final image = episode.stillUrl ?? fallbackImage;
     final fraction = progress != null && progress!.durationSeconds > 0
         ? (progress!.positionSeconds / progress!.durationSeconds).clamp(0.0, 1.0)
         : 0.0;
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    // Wrapped so the D-pad shows which episode it is on, and scrolled into view
+    // so focus can't walk off the bottom of a long season.
+    // Inset by the page's side padding so the focus ring sits inside the
+    // overscan margin (a full-bleed ring would be drawn at x=0, i.e. in the
+    // part of the picture a real TV crops) and the rows line up with the title.
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: sidePad - 8),
+      child: FocusHighlight(
+        scale: 1.0,
+        // Re-centres the focused row. The framework's own scroll-into-view puts
+        // it flush against the bottom edge, which overscan then clips.
+        ensureVisible: true,
+        child: ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       onTap: onTap,
       leading: SizedBox(
         width: 96,
@@ -298,8 +392,13 @@ class _EpisodeTile extends StatelessWidget {
           ),
         ),
       ),
-      title: Text('E${episode.episodeNumber} · ${episode.title}',
-          maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text(
+          switch (prettyEpisodeTitle(episode.title, seriesName: seriesName)) {
+            '' => 'Episode ${episode.episodeNumber}',
+            final name => 'E${episode.episodeNumber} · $name',
+          },
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis),
       subtitle: episode.durationSeconds != null
           ? Text('${(episode.durationSeconds! / 60).ceil()} min',
               style: const TextStyle(color: AppColors.textSecondary))
@@ -308,6 +407,8 @@ class _EpisodeTile extends StatelessWidget {
           ? const Icon(Icons.check_circle, color: AppColors.accentAlt, size: 20)
           : const Icon(Icons.play_circle_outline,
               color: AppColors.textSecondary, size: 20),
+        ),
+      ),
     );
   }
 }

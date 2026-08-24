@@ -66,6 +66,16 @@ class _AppShellState extends ConsumerState<AppShell> {
         if (mounted) setState(() {});
       });
     }
+    // Put the cursor somewhere real as soon as the first tab has built, so the
+    // app opens with something visibly highlighted instead of waiting for a
+    // press to reveal where focus is. Two frames: one for the shell, one for the
+    // branch's own content.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !isTelevisionOf(ref)) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_railHasFocus) _enterContent();
+      });
+    });
   }
 
   @override
@@ -77,19 +87,82 @@ class _AppShellState extends ConsumerState<AppShell> {
     super.dispose();
   }
 
+  /// Moves focus onto a real widget inside the page.
+  ///
+  /// [FocusScopeNode.requestFocus] stops at the scope: go_router wraps every
+  /// branch in its own Navigator (its own scope), so requesting focus on the
+  /// content scope left the actual poster cards unfocused — the page scrolled
+  /// under the D-pad but nothing ever highlighted, and there was no way to tell
+  /// what was selected. Focusing a concrete descendant crosses that boundary.
+  ///
+  /// A scope remembers where focus last sat, so re-entering the page returns
+  /// you to the card you left rather than jumping back to the top.
+  void _enterContent() {
+    final scope = _contentFocus;
+    if (scope.focusedChild != null) {
+      scope.requestFocus(); // Restores the last focused card.
+      return;
+    }
+    final first = scope.traversalDescendants
+        .where((n) => n.canRequestFocus && !n.skipTraversal)
+        .firstOrNull;
+    (first ?? scope).requestFocus();
+  }
+
+  void _enterRail() => _railItemFocus[shell.currentIndex].requestFocus();
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    if (event.logicalKey == LogicalKeyboardKey.arrowLeft && !_railHasFocus) {
-      // Land on the tab you are already looking at, not the top of the list.
-      _railItemFocus[shell.currentIndex].requestFocus();
+    final key = event.logicalKey;
+    // The shell node holds focus only in the brief limbo before anything real
+    // does — on first launch, or just after a tab switch. Any directional
+    // press from there should land on actual content rather than do nothing,
+    // which was the whole reason the remote felt dead on the Home screen.
+    final inLimbo = node.hasPrimaryFocus;
+
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      if (_railHasFocus) return KeyEventResult.handled; // already leftmost
+      if (inLimbo) {
+        _enterRail();
+        return KeyEventResult.handled;
+      }
+      // In content: move left through the row first, and only fall through to
+      // the rail when there is nothing further left — so LEFT scrubs a poster
+      // rail exactly as expected and reaches the nav only at the edge.
+      //
+      // The move MUST be asked of the focused card itself, not of
+      // _contentFocus. go_router nests each branch in its own Navigator scope,
+      // so _contentFocus's focused child is that whole nested scope — its rect
+      // is the entire page, "is anything to my left?" always answered no, and
+      // the rail opened on every single LEFT press. The primary focus is the
+      // real card, sitting in the branch scope beside its neighbours, so a left
+      // move finds the previous card and only fails at the true edge of the row.
+      final moved = FocusManager.instance.primaryFocus
+              ?.focusInDirection(TraversalDirection.left) ??
+          false;
+      if (!moved) _enterRail();
       return KeyEventResult.handled;
     }
-    if (event.logicalKey == LogicalKeyboardKey.arrowRight && _railHasFocus) {
-      _contentFocus.requestFocus();
-      return KeyEventResult.handled;
+
+    if (key == LogicalKeyboardKey.arrowRight) {
+      if (_railHasFocus || inLimbo) {
+        _enterContent();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored; // content traversal moves between cards
     }
+
+    if (key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown) {
+      if (inLimbo) {
+        _enterContent();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored; // traversal within the rail or the page
+    }
+
     return KeyEventResult.ignored;
   }
 
@@ -106,11 +179,25 @@ class _AppShellState extends ConsumerState<AppShell> {
     (icon: Icons.settings_outlined, selected: Icons.settings, label: 'Settings'),
   ];
 
-  void _go(int index) => shell.goBranch(
-        index,
-        // Re-selecting the current tab pops it back to its root.
-        initialLocation: index == shell.currentIndex,
-      );
+  void _go(int index) {
+    shell.goBranch(
+      index,
+      // Re-selecting the current tab pops it back to its root.
+      initialLocation: index == shell.currentIndex,
+    );
+    // Hand focus into the new branch once it has actually built.
+    //
+    // Without this the remote felt broken for one press after every tab switch:
+    // the new branch's cards do not exist yet when goBranch returns, so there is
+    // nothing to focus, focus stays on the shell's own node, and the next
+    // direction press is spent getting into the content instead of moving
+    // within it. A post-frame hand-off means the tab is live the moment it
+    // appears.
+    if (!isTelevisionOf(ref)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _enterContent();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -137,10 +224,13 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       body: Focus(
         onKeyEvent: _onKey,
-        // Not focusable itself — it only watches keys bubbling up from whatever
-        // currently holds focus, so it can hand focus across the scope
-        // boundary.
-        canRequestFocus: false,
+        // Holds focus on first build so the very first D-pad press is handled
+        // rather than lost to the root view (which left the remote apparently
+        // dead until something happened to grab focus). skipTraversal keeps it
+        // out of the traversal order once real widgets take over; autofocus
+        // seeds it.
+        autofocus: true,
+        skipTraversal: true,
         child: Stack(
           children: [
             // The page is inset by the COLLAPSED width only, so expanding the

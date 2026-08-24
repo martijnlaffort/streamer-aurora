@@ -1,20 +1,39 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/language/content_language.dart';
 import '../../data/providers.dart';
 import '../../domain/models/models.dart';
 
-final liveCategoriesProvider = FutureProvider<List<Category>>((ref) async {
+final liveCategoriesProvider = FutureProvider<List<Category>>(
+    (ref) => visibleCategories(ref, CategoryType.live));
+
+/// Sentinel category id for the Favourites filter on the Live tab. Not a real
+/// catalogue category — it never reaches the repository.
+const favoritesCategoryId = '__favorites__';
+
+/// The user's favourite channels, resolved against the cached catalogue and
+/// kept in the order they were added (newest first, as favourites are stored).
+///
+/// Favourites are content keys, so this is a handful of indexed lookups — there
+/// is no scale concern here the way there is with the 25k-channel list itself.
+/// A key for another account, or for a channel the playlist no longer carries,
+/// is simply skipped: the Favourites row is a shortcut, not a source of truth.
+final favoriteChannelsProvider = FutureProvider<List<Channel>>((ref) async {
   final account = await ref.watch(activeAccountProvider.future);
-  if (account == null) return [];
-  final cats = await ref
-      .watch(catalogRepositoryProvider)
-      .categories(account, CategoryType.live);
-  final enabled = await ref.watch(contentLanguageFilterProvider.future);
-  if (enabled == null) return cats;
-  return cats
-      .where((c) => enabled.contains(detectContentLanguage(c.name).code))
-      .toList();
+  if (account == null) return const [];
+  final favorites = await ref.watch(favoritesRepositoryProvider).all();
+  final catalog = ref.watch(catalogRepositoryProvider);
+  final channels = <Channel>[];
+  for (final (contentKey, _) in favorites) {
+    final key = parseContentKey(contentKey);
+    if (key == null ||
+        key.accountId != account.id ||
+        key.type != StreamType.live.name) {
+      continue;
+    }
+    final channel = await catalog.channelById(account, key.id);
+    if (channel != null) channels.add(channel);
+  }
+  return channels;
 });
 
 /// Page size for the Live channel list. The list used to load every channel at

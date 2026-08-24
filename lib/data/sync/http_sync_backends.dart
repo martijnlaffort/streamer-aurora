@@ -33,6 +33,7 @@ class HttpProgressSyncBackend implements ProgressSyncBackend {
         for (final e in entries)
           {
             'content_key': e.contentKey,
+            if (e.seriesId != null) 'series_id': e.seriesId,
             'position_seconds': e.positionSeconds,
             'duration_seconds': e.durationSeconds,
             'completed': e.completed,
@@ -55,6 +56,7 @@ class HttpProgressSyncBackend implements ProgressSyncBackend {
       for (final e in entries.cast<Map<String, dynamic>>())
         WatchProgress(
           contentKey: e['content_key'] as String,
+          seriesId: e['series_id'] as String?,
           positionSeconds: (e['position_seconds'] as num).toInt(),
           durationSeconds: (e['duration_seconds'] as num).toInt(),
           updatedAt: DateTime.parse(e['updated_at'] as String).toUtc(),
@@ -108,19 +110,82 @@ class HttpFavoritesSyncBackend implements FavoritesSyncBackend {
   final _ApiClient _api;
 
   @override
-  Future<void> push(List<String> contentKeys) async {
-    for (final key in contentKeys) {
-      await _api._dio.post('/favorites', data: {'content_key': key});
-    }
+  Future<void> push(List<FavoriteRecord> records) async {
+    if (records.isEmpty) return;
+    await _api._dio.post('/favorites', data: {
+      'entries': [
+        for (final r in records)
+          {
+            'content_key': r.contentKey,
+            'removed': r.removed,
+            'added_at': r.addedAt.toUtc().toIso8601String(),
+            'updated_at': r.updatedAt.toUtc().toIso8601String(),
+          },
+      ],
+    });
   }
 
   @override
-  Future<List<String>> pull() async {
+  Future<List<FavoriteRecord>> pull() async {
     final response = await _api._dio.get<Map<String, dynamic>>('/favorites');
     final favorites = (response.data?['favorites'] as List?) ?? const [];
     return [
       for (final f in favorites.cast<Map<String, dynamic>>())
-        f['content_key'] as String,
+        (
+          contentKey: f['content_key'] as String,
+          removed: f['removed'] as bool? ?? false,
+          addedAt: DateTime.parse(f['added_at'] as String).toUtc(),
+          updatedAt: DateTime.parse(
+                  (f['updated_at'] ?? f['added_at']) as String)
+              .toUtc(),
+        ),
+    ];
+  }
+}
+
+class HttpAccountSyncBackend implements AccountSyncBackend {
+  HttpAccountSyncBackend(
+      {required String baseUrl, required String token, Dio? dio})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+
+  final _ApiClient _api;
+
+  @override
+  Future<void> push(List<AccountRecord> records) async {
+    if (records.isEmpty) return;
+    await _api._dio.post('/accounts', data: {
+      'entries': [
+        for (final r in records)
+          {
+            'account_id': r.accountId,
+            'type': r.type,
+            'name': r.name,
+            'server_url': r.serverUrl,
+            'username': r.username,
+            'password': r.password,
+            if (r.epgUrl != null) 'epg_url': r.epgUrl,
+            'updated_at': r.updatedAt.toUtc().toIso8601String(),
+          },
+      ],
+    });
+  }
+
+  @override
+  Future<List<AccountRecord>> pull() async {
+    final response = await _api._dio.get<Map<String, dynamic>>('/accounts');
+    final accounts = (response.data?['accounts'] as List?) ?? const [];
+    return [
+      for (final a in accounts.cast<Map<String, dynamic>>())
+        (
+          accountId: a['account_id'] as String,
+          type: a['type'] as String,
+          name: a['name'] as String,
+          serverUrl: a['server_url'] as String,
+          username: a['username'] as String? ?? '',
+          password: a['password'] as String? ?? '',
+          epgUrl: a['epg_url'] as String?,
+          updatedAt: DateTime.parse(a['updated_at'] as String).toUtc(),
+        ),
     ];
   }
 }

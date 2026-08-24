@@ -1,6 +1,6 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/language/content_language.dart';
 import '../../core/rotation.dart';
 import '../../data/db/app_database.dart' show CatalogKind;
 import '../../data/providers.dart';
@@ -17,18 +17,8 @@ extension SeriesSortLabel on SeriesSort {
       };
 }
 
-final seriesCategoriesProvider = FutureProvider<List<Category>>((ref) async {
-  final account = await ref.watch(activeAccountProvider.future);
-  if (account == null) return [];
-  final cats = await ref
-      .watch(catalogRepositoryProvider)
-      .categories(account, CategoryType.series);
-  final enabled = await ref.watch(contentLanguageFilterProvider.future);
-  if (enabled == null) return cats;
-  return cats
-      .where((c) => enabled.contains(detectContentLanguage(c.name).code))
-      .toList();
-});
+final seriesCategoriesProvider = FutureProvider<List<Category>>(
+    (ref) => visibleCategories(ref, CategoryType.series));
 
 /// Page size for the browse grid — mirrors the movies feed so a large catalog
 /// is never held in memory all at once. Pagination lives in [PagedPosterGrid].
@@ -44,6 +34,19 @@ final seriesCategoryRailProvider =
   ref.onDispose(() => gone = true);
   await Future<void>.delayed(const Duration(milliseconds: 350));
   if (gone) return const [];
+
+  // Past the dwell, this is a rail the user actually stopped on — so keep the
+  // result for a few minutes instead of letting autoDispose drop it the moment
+  // it scrolls out of view.
+  //
+  // Without this, every scroll past a rail disposed it, and scrolling back re-ran
+  // the dwell, re-showed a placeholder and re-decided the row's height. Dozens
+  // of rails doing that is what made the tab look like it was reloading itself,
+  // and when enough of them collapsed at once the list became shorter than the
+  // scroll offset and threw you back to the top. A fast flick still costs
+  // nothing — those disposals happen during the dwell above.
+  final keepAlive = ref.keepAlive();
+  Timer(const Duration(minutes: 5), keepAlive.close);
 
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return const [];

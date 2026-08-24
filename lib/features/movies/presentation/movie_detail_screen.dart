@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
+import '../../../core/widgets/focus_highlight.dart';
 import '../../../core/widgets/my_list_button.dart';
 import '../../../data/providers.dart';
 import '../../../core/matching/title_label.dart';
@@ -46,6 +48,9 @@ class MovieDetailScreen extends ConsumerWidget {
       appBar: AppBar(),
       extendBodyBehindAppBar: true,
       body: movie.when(
+        // A background sync must never blank a screen that already has content:
+        // when() shows its loading branch on a dependency reload by default.
+        skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(movieByIdProvider(movieId))),
         data: (m) => m == null
@@ -106,11 +111,23 @@ class _MovieDetail extends ConsumerWidget {
       if (movie.rating != null) '★ ${movie.rating!.toStringAsFixed(1)}',
     ].join('  ·  ');
 
+    // Sizing is proportional rather than fixed. A television reports a much
+    // shorter logical height than a phone, so the old fixed 300px backdrop ate
+    // well over a third of the screen there — which is what made the detail
+    // page feel oversized. The generous side padding is deliberate on a TV:
+    // real sets crop the outer few percent (overscan), and a 10-foot layout
+    // wants its text away from the edge anyway.
+    final tv = isTelevisionOf(ref);
+    final headerHeight =
+        (MediaQuery.sizeOf(context).height * (tv ? 0.26 : 0.30))
+            .clamp(140.0, 300.0);
+    final sidePad = tv ? 48.0 : 24.0;
+
     return ListView(
       padding: EdgeInsets.zero,
       children: [
         SizedBox(
-          height: 300,
+          height: headerHeight,
           child: _maybeHero(Stack(
             fit: StackFit.expand,
             children: [
@@ -132,53 +149,76 @@ class _MovieDetail extends ConsumerWidget {
           )),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          padding: EdgeInsets.fromLTRB(sidePad, 24, sidePad, 40),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(prettyTitle(movie.name, year: movie.year),
-                  style: AppTypography.display.copyWith(fontSize: 28)),
+                  style: AppTypography.display.copyWith(fontSize: 25)),
               if (meta.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(meta,
                     style: const TextStyle(color: AppColors.textSecondary)),
               ],
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               Row(
                 children: [
+                  // FocusHighlight, not the Material focus overlay: on this
+                  // near-black theme that overlay is invisible from a sofa,
+                  // which is why the detail page felt like it had no cursor.
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _play(context, ref,
-                          resumeFrom:
-                              offerResume ? progress!.positionSeconds : null),
-                      icon: const Icon(Icons.play_arrow),
-                      label: Text(offerResume
-                          ? 'Resume from ${formatSeconds(progress!.positionSeconds)}'
-                          : 'Play'),
+                    child: FocusHighlight(
+                      borderRadius: 20,
+                      scale: 1.0,
+                      child: FilledButton.icon(
+                        // Seed focus on a TV so the page has a visible cursor the
+                        // moment it opens, instead of the unhighlighted AppBar
+                        // back button.
+                        autofocus: tv,
+                        onPressed: () => _play(context, ref,
+                            resumeFrom:
+                                offerResume ? progress!.positionSeconds : null),
+                        icon: const Icon(Icons.play_arrow),
+                        label: Text(
+                          offerResume
+                              ? 'Resume from ${formatSeconds(progress!.positionSeconds)}'
+                              : 'Play',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  MyListButton(contentKey: _contentKey),
+                  const SizedBox(width: 12),
+                  FocusHighlight(borderRadius: 20, child: MyListButton(contentKey: _contentKey)),
                 ],
               ),
               if (offerResume) ...[
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () => _play(context, ref),
-                  icon: const Icon(Icons.replay, size: 18),
-                  label: const Text('Start over'),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FocusHighlight(
+                    borderRadius: 20,
+                    child: TextButton.icon(
+                      onPressed: () => _play(context, ref),
+                      icon: const Icon(Icons.replay, size: 18),
+                      label: const Text('Start over'),
+                    ),
+                  ),
                 ),
               ],
               if (movie.plot != null) ...[
-                const SizedBox(height: 20),
-                Text(movie.plot!, style: AppTypography.body),
+                const SizedBox(height: 28),
+                Text(movie.plot!,
+                    style: AppTypography.body.copyWith(height: 1.5)),
               ],
               if (movie.cast != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 24),
                 Text('Cast', style: AppTypography.title.copyWith(fontSize: 16)),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(movie.cast!,
-                    style: const TextStyle(color: AppColors.textSecondary)),
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, height: 1.5)),
               ],
             ],
           ),

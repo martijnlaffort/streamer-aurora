@@ -39,7 +39,11 @@ const _trailingNoise = {
   'atmos', 'xvid', 'divx', 'amzn', 'nf', 'dsnp', 'hmax', 'atvp',
 };
 
-final _separators = RegExp(r'[|•·]+');
+/// Bar-ish characters panels bracket names with. Not just ASCII `|`: several
+/// lines use a look-alike (broken bar, fullwidth bar, box-drawing bar), and a
+/// name split on the wrong one keeps its `| MULTI |` prefix intact all the way
+/// to the player's title.
+final _separators = RegExp(r'[|¦｜∣│┃‖•·]+');
 final _whitespace = RegExp(r'\s+');
 final _plausibleYear = RegExp(r'^(19|20)\d{2}$');
 
@@ -108,6 +112,64 @@ String prettyTitle(String raw, {int? year}) {
   final out = words.join(' ').replaceAll(RegExp(r'[\s\-–]+$'), '').trim();
   // Never hand back nothing; a noisy title beats a blank one.
   return out.isEmpty ? raw.trim() : out;
+}
+
+/// Just the episode's own name, for a line that already says which episode it is.
+///
+/// Panels name an episode file, not an episode: `| MULTI | Gold Rush (2010) -
+/// S03E07 - Game Changer`. Printed after a `S3 · E7 —` label that already
+/// carries the series and the numbers, every part of that except the last is
+/// repeated back at the viewer, and the part they actually want is the bit that
+/// gets truncated.
+///
+/// Returns an EMPTY string when nothing distinctive is left (a panel that names
+/// episodes `S03E07` and nothing more), so the caller can drop the dash rather
+/// than print a trailing separator.
+String prettyEpisodeTitle(String raw, {String? seriesName}) {
+  // Reuse the display cleaner first: it removes the bracketed tags, bracketed
+  // years and trailing quality junk.
+  var text = prettyTitle(raw);
+
+  // Drop a repeated series name. Compared after the same cleaning so
+  // `| MULTI | Gold Rush` and `Gold Rush (2010)` still match each other.
+  if (seriesName != null && seriesName.trim().isNotEmpty) {
+    final series = prettyTitle(seriesName).trim();
+    if (series.isNotEmpty && text.toLowerCase().startsWith(series.toLowerCase())) {
+      text = text.substring(series.length);
+    }
+  }
+
+  String trimEdges(String s) =>
+      s.replaceAll(RegExp(r'^[\s\-–—:._|]+'), '').replaceAll(RegExp(r'[\s\-–—:._|]+$'), '');
+
+  text = trimEdges(text);
+  // Episode markers in the forms panels actually use: S03E07, S3 E7, 3x07.
+  text = trimEdges(text.replaceFirst(
+      RegExp(r'^(s\s*\d{1,3}\s*[.\-x_ ]?\s*e\s*\d{1,4}|\d{1,3}\s*x\s*\d{1,4})',
+          caseSensitive: false),
+      ''));
+  // A bare leading episode number ("07 - Game Changer").
+  text = trimEdges(text.replaceFirst(RegExp(r'^(ep?|episode)?\s*\d{1,4}(?=\s*[-–—:]\s)',
+      caseSensitive: false), ''));
+
+  return text;
+}
+
+/// `S3 · E7 — Game Changer`, or just `S3 · E7` when the panel gave the episode
+/// no name of its own.
+///
+/// One place for the format so the separators are not re-typed at each call
+/// site — the episode line is the app's most-repeated string.
+String episodeLabel({
+  required int season,
+  required int episode,
+  String? title,
+  String? seriesName,
+}) {
+  final base = 'S$season · E$episode';
+  if (title == null) return base;
+  final name = prettyEpisodeTitle(title, seriesName: seriesName);
+  return name.isEmpty ? base : '$base — $name';
 }
 
 bool _isNoiseSegment(String segment) {

@@ -76,6 +76,7 @@ Future<void> _editDiscovery(
           const SizedBox(height: 16),
           TextField(
             controller: keyController,
+            autofocus: true,
             autocorrect: false,
             enableSuggestions: false,
             decoration: const InputDecoration(
@@ -180,6 +181,9 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           for (final (code, label) in options)
             RadioListTile<String?>(
+              // Seed focus on the current choice so the dialog is operable by
+              // remote the moment it opens.
+              autofocus: code == current,
               value: code,
               // ignore: deprecated_member_use
               groupValue: current,
@@ -301,6 +305,43 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/languages'),
           ),
+          // Hiding groups is the blunt instrument that makes a 200-category
+          // line usable, so it sits right next to the language filter that
+          // does a coarser version of the same job.
+          ListTile(
+            leading: const Icon(Icons.tune),
+            title: const Text('Live TV groups'),
+            subtitle: const Text('Hide, rename and reorder',
+                style: TextStyle(color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/groups/live'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.tune),
+            title: const Text('Movie groups'),
+            subtitle: const Text('Hide, rename and reorder',
+                style: TextStyle(color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/groups/vod'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.tune),
+            title: const Text('Series groups'),
+            subtitle: const Text('Hide, rename and reorder',
+                style: TextStyle(color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/groups/series'),
+          ),
+          // The way back from hiding a channel, which happens from a menu on
+          // the channel itself — without this the action would be one-way.
+          ListTile(
+            leading: const Icon(Icons.visibility_off_outlined),
+            title: const Text('Hidden channels'),
+            subtitle: const Text('Bring individual channels back',
+                style: TextStyle(color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/hidden-channels'),
+          ),
           ListTile(
             leading: const Icon(Icons.local_fire_department_outlined),
             title: const Text('Discovery rails'),
@@ -417,6 +458,9 @@ class SettingsScreen extends ConsumerWidget {
                       'next load. Watch progress and favorites are kept.'),
                   actions: [
                     TextButton(
+                        // Focus the safe choice, so an immediate OK on a remote
+                        // cancels rather than clears.
+                        autofocus: true,
                         onPressed: () => Navigator.pop(context, false),
                         child: const Text('Cancel')),
                     FilledButton(

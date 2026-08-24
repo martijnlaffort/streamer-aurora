@@ -6,9 +6,12 @@ import '../../../data/sync/sync_config.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../home/home_providers.dart';
 
-/// Sync settings (PRD §8.12/§9): backend URL + shared token, an enable toggle,
-/// and a manual "Sync now". Cross-device sync is optional; the app is fully
-/// functional without it.
+/// Sync settings (PRD §8.12/§9): backend URL + shared token, an enable toggle.
+///
+/// There is no "Sync now" — sync runs automatically (on launch, on resume, in
+/// the background, and shortly after any change). This screen only exists to
+/// enter the server details when NOT setting up via pairing, and to turn sync
+/// off. Cross-device sync is optional; the app is fully functional without it.
 class SyncSettingsScreen extends ConsumerStatefulWidget {
   const SyncSettingsScreen({super.key});
 
@@ -40,6 +43,9 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
     _enabled = config.enabled;
   }
 
+  /// Saves the config and kicks an immediate sync so the user gets confirmation
+  /// it works — this is part of saving, not a standalone manual sync. From here
+  /// on it is automatic.
   Future<void> _save() async {
     final store = ref.read(syncConfigStoreProvider);
     final config = SyncConfig(
@@ -53,25 +59,26 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
       await store.setPreferencesChangedAt(DateTime.now().toUtc());
     }
     ref.invalidate(syncConfigProvider);
-    if (mounted) setState(() => _status = 'Saved.');
-  }
-
-  Future<void> _syncNow() async {
-    await _save();
+    ref.invalidate(syncServiceProvider);
+    if (!config.isConfigured) {
+      if (mounted) setState(() => _status = 'Saved. Sync is off.');
+      return;
+    }
     setState(() {
       _busy = true;
-      _status = 'Syncing…';
+      _status = 'Saved. Checking the connection…';
     });
     final result = await runSync(ref);
     ref.invalidate(homeDataProvider);
+    ref.invalidate(myListProvider);
     if (!mounted) return;
     setState(() {
       _busy = false;
       _status = switch (result) {
-        null => 'Sync is off or not configured.',
+        null => 'Saved, but sync is off or not configured.',
         _ when result.ok =>
-          'Synced — pulled ${result.pulledProgress}, pushed ${result.pushedProgress}.',
-        _ => 'Sync failed: ${result.error}',
+          'Connected. Syncing automatically from now on.',
+        _ => 'Could not reach the server: ${result.error}',
       };
     });
   }
@@ -88,8 +95,9 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
         children: [
           const Text(
             'Sync watch progress, favorites, and preferences across your '
-            'devices via your own server. Optional — Dawn Player works fully '
-            'without it.',
+            'devices via your own server — automatically, in the background. '
+            'Optional; Dawn Player works fully without it. Usually there is '
+            'nothing to do here: pairing a device fills this in for you.',
             style: TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
@@ -126,24 +134,15 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
             onChanged: (v) => setState(() => _enabled = v),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              OutlinedButton(
-                onPressed: _busy ? null : _save,
-                child: const Text('Save'),
-              ),
-              const SizedBox(width: 12),
-              FilledButton.icon(
-                onPressed: _busy ? null : _syncNow,
-                icon: _busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.sync),
-                label: const Text('Sync now'),
-              ),
-            ],
+          FilledButton.icon(
+            onPressed: _busy ? null : _save,
+            icon: _busy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.check),
+            label: const Text('Save'),
           ),
           if (_status != null) ...[
             const SizedBox(height: 16),

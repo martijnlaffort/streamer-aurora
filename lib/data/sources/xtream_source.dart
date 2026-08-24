@@ -207,6 +207,13 @@ class XtreamSource implements PlaylistSource {
     ));
     final info = optMap(data?['info']) ?? const <String, dynamic>{};
     final movieData = optMap(data?['movie_data']) ?? const <String, dynamic>{};
+    // A panel returns empty info AND movie_data for an id it no longer carries.
+    // Treat that as "not found" rather than manufacturing a blank "Unnamed"
+    // movie — which is what a title synced from another device but since
+    // dropped by the panel would otherwise become in Continue Watching.
+    if (info.isEmpty && movieData.isEmpty) {
+      throw SourceException('Title $vodId is not available on this panel');
+    }
     final id = optString(movieData['stream_id']) ?? vodId;
     return Movie(
       id: id,
@@ -297,8 +304,14 @@ class XtreamSource implements PlaylistSource {
           final id = optString(map['id']);
           if (id == null) throw const FormatException('missing id');
           final epInfo = optMap(map['info']) ?? const <String, dynamic>{};
+          // The episodes object is keyed by season ("1", "2", …) and that key
+          // is the panel's authoritative grouping — it lines up with the
+          // `seasons` block, whereas some panels put a wrong or constant value
+          // in each episode's own `season` field. Prefer the numeric key, fall
+          // back to the field. Reading the field first made big series (Top
+          // Gear) mislabel episodes so the season chips opened to nothing.
           final seasonNumber =
-              optInt(map['season']) ?? optInt(seasonKey) ?? 0;
+              optInt(seasonKey) ?? optInt(map['season']) ?? 0;
           episodes.add(Episode(
             id: id,
             seriesId: seriesId,
@@ -321,39 +334,38 @@ class XtreamSource implements PlaylistSource {
         ? a.seasonNumber.compareTo(b.seasonNumber)
         : a.episodeNumber.compareTo(b.episodeNumber));
 
-    // Seasons block is often incomplete or absent — derive missing ones from
-    // the episodes themselves so the UI always has a season list.
-    final seasons = <int, Season>{};
+    // The season list is built from the episodes that actually exist, so every
+    // season the UI offers has something to play. Names and posters are pulled
+    // from the panel's `seasons` block where a number matches. Panel seasons
+    // with no episodes are dropped, not shown: big series (Top Gear) routinely
+    // advertise seasons the panel holds no files for, and those surfaced as
+    // chips that opened to an empty list.
+    final panelSeasons = <int, Map<String, dynamic>>{};
     for (final (index, row) in listOr(data?['seasons']).indexed) {
       try {
         final map = optMap(row);
         if (map == null) throw const FormatException('row is not an object');
         final number = optInt(map['season_number']);
         if (number == null) throw const FormatException('missing season_number');
-        seasons[number] = Season(
-          id: optString(map['id']) ?? '$seriesId-s$number',
-          seriesId: seriesId,
-          seasonNumber: number,
-          name: optString(map['name']),
-          posterUrl: optString(map['cover'] ?? map['cover_big']),
-          episodeCount: optInt(map['episode_count']),
-        );
+        panelSeasons[number] = map;
       } catch (e) {
         _skip('get_series_info/seasons', index, e);
       }
     }
-    for (final episode in episodes) {
-      seasons.putIfAbsent(
-        episode.seasonNumber,
-        () => Season(
-          id: '$seriesId-s${episode.seasonNumber}',
-          seriesId: seriesId,
-          seasonNumber: episode.seasonNumber,
-        ),
-      );
+    final seasonNumbers = episodes.map((e) => e.seasonNumber).toSet().toList()
+      ..sort();
+    final seasonList = <Season>[];
+    for (final n in seasonNumbers) {
+      final map = panelSeasons[n];
+      seasonList.add(Season(
+        id: optString(map?['id']) ?? '$seriesId-s$n',
+        seriesId: seriesId,
+        seasonNumber: n,
+        name: optString(map?['name']),
+        posterUrl: optString(map?['cover'] ?? map?['cover_big']),
+        episodeCount: optInt(map?['episode_count']),
+      ));
     }
-    final seasonList = seasons.values.toList()
-      ..sort((a, b) => a.seasonNumber.compareTo(b.seasonNumber));
 
     return SeriesDetail(series: series, seasons: seasonList, episodes: episodes);
   }

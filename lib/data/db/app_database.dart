@@ -157,6 +157,15 @@ class WatchProgressTable extends Table {
   IntColumn get syncedAtMillisUtc => integer().nullable()();
   BoolColumn get completed => boolean().withDefault(const Constant(false))();
 
+  /// For an episode, the series it belongs to (added in v10). An episode
+  /// content key cannot tell you its series, and the id only ever arrives in a
+  /// sync payload — so it MUST be persisted. It used to be transient, which
+  /// meant that if the one backfill attempt right after the pull failed or hit
+  /// its cap, the series was never fetched again (the watermark had moved on,
+  /// so the id never came back) and those episodes were missing from Continue
+  /// Watching on that device forever. Stored, the backfill simply retries.
+  TextColumn get seriesId => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {contentKey};
 }
@@ -198,6 +207,41 @@ class PreferencesTable extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// The user's edits to what the panel sent: hidden, renamed and reordered
+/// categories and channels (schema v11).
+///
+/// A real line ships hundreds of categories and tens of thousands of channels,
+/// most of which a given household never wants to see. The panel decides the
+/// names and the order; this table is how the user overrules that without
+/// touching the cached catalogue itself — a refresh replaces catalogue rows
+/// wholesale, so anything editable has to live beside them rather than in them.
+@DataClassName('CatalogOverrideRow')
+class CatalogOverridesTable extends Table {
+  @override
+  String get tableName => 'catalog_overrides';
+
+  TextColumn get accountId => text()();
+
+  /// [OverrideScope] name — categories and channels have separate id spaces.
+  TextColumn get scope => text()();
+  TextColumn get targetId => text()();
+
+  BoolColumn get hidden => boolean().withDefault(const Constant(false))();
+
+  /// Replacement display name; null keeps the panel's own.
+  TextColumn get customName => text().nullable()();
+
+  /// Position in the user's ordering; null sorts after everything explicitly
+  /// placed, keeping the panel's order among themselves.
+  IntColumn get sortIndex => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {accountId, scope, targetId};
+}
+
+/// What a [CatalogOverridesTable] row applies to.
+enum OverrideScope { category, channel }
+
 @DataClassName('FavoriteRow')
 class FavoritesTable extends Table {
   @override
@@ -205,6 +249,15 @@ class FavoritesTable extends Table {
 
   TextColumn get contentKey => text()();
   IntColumn get addedAtMillisUtc => integer()();
+
+  /// Tombstone: a removed favourite is kept as a row with `removed = true` so
+  /// the removal can propagate through sync (last-write-wins by [updatedAt]),
+  /// which a bare delete could not. Hidden from My List; see FavoritesRepository
+  /// (added in schema v9).
+  BoolColumn get removed => boolean().withDefault(const Constant(false))();
+
+  /// LWW key across devices — the time of the last add/remove (added in v9).
+  IntColumn get updatedAtMillisUtc => integer().withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {contentKey};
@@ -372,6 +425,7 @@ class SearchHistoryTable extends Table {
   WatchProgressTable,
   PreferencesTable,
   FavoritesTable,
+  CatalogOverridesTable,
   EpgCacheTable,
   CatalogMetaTable,
   CatalogCategoryMetaTable,
@@ -391,7 +445,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -432,6 +486,26 @@ class AppDatabase extends _$AppDatabase {
           // v8: artwork for titles the panel has no image for.
           if (from < 8) {
             await m.createTable(artworkCacheTable);
+          }
+          // v9: favourite tombstones so removals propagate. Existing rows are
+          // active, stamped at their add time so a later remote edit wins.
+          if (from < 9) {
+            await m.addColumn(favoritesTable, favoritesTable.removed);
+            await m.addColumn(favoritesTable, favoritesTable.updatedAtMillisUtc);
+            await customStatement(
+                'UPDATE favorites SET updated_at_millis_utc = added_at_millis_utc');
+          }
+          // v10: remember which series an episode belongs to, so the catalogue
+          // backfill for synced episode progress can be retried instead of
+          // being a one-shot that silently gave up.
+          if (from < 10) {
+            await m.addColumn(watchProgressTable, watchProgressTable.seriesId);
+          }
+          // v11: the user's hidden / renamed / reordered categories and
+          // channels. Kept beside the catalogue rather than in it, because a
+          // refresh replaces catalogue rows wholesale.
+          if (from < 11) {
+            await m.createTable(catalogOverridesTable);
           }
         },
         beforeOpen: (details) async {

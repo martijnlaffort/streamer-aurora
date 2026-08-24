@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, Platform;
 
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 
 import '../../../core/platform/television.dart';
@@ -150,6 +151,40 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   // watch progress is written from the RECEIVER's position while it runs — the
   // whole point is that stopping halfway on the TV still shows up in Continue
   // Watching.
+  // --- Timeshift (live) ------------------------------------------------------
+  //
+  // Pausing and rewinding a live channel needs somewhere to keep what has
+  // already gone past. libmpv already has that — its demuxer keeps a back-buffer
+  // and will seek inside it — so this is a matter of sizing that buffer and
+  // exposing it, not of building a recorder.
+  //
+  // The buffer is spilled to DISK (`cache-on-disk`) rather than held in RAM.
+  // That is the difference between a rewind window measured in seconds and one
+  // measured in minutes: half a gigabyte of RAM is not something to ask of a TV
+  // stick that is also decoding 1080p, while half a gigabyte of scratch file is
+  // unremarkable.
+  static const _timeshiftBackBytes = 512 * 1024 * 1024;
+  static const _timeshiftForwardBytes = 64 * 1024 * 1024;
+
+  /// Timestamp of the newest buffered packet — i.e. where "live" currently is.
+  /// Null until mpv reports it, which is also how we know timeshift is working.
+  Duration? _liveEdge;
+
+  bool get _canTimeshift => _current.isLive && _liveEdge != null;
+
+  /// How far behind the live edge playback is. Never negative: the edge and the
+  /// position are sampled independently, so they can cross by a few ms.
+  Duration get _behindLive {
+    final edge = _liveEdge;
+    if (edge == null) return Duration.zero;
+    final behind = edge - _position;
+    return behind.isNegative ? Duration.zero : behind;
+  }
+
+  /// Close enough to count as live — a few seconds of slack, because the buffer
+  /// end always runs slightly ahead of the decoder.
+  bool get _atLiveEdge => _behindLive.inSeconds <= 3;
+
   StreamSubscription<CastStatus>? _castSub;
   CastStatus _cast = const CastStatus();
   bool _castAvailable = false;
@@ -281,6 +316,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _subs.add(_player.stream.completed.listen((completed) {
       if (completed) _onCompleted();
     }));
+
+    // Registered ONCE, here rather than per open: observeProperty throws if the
+    // same property is observed twice, and _openCurrent runs on every zap and
+    // queue advance. A build of libmpv that does not know the property just
+    // never calls back, and timeshift stays off.
+    final platform = _player.platform;
+    if (platform is NativePlayer) {
+      unawaited(
+        platform.observeProperty('demuxer-cache-time', (value) async {
+          final seconds = double.tryParse(value);
+          if (seconds == null || !mounted) return;
+          setState(() => _liveEdge =
+              Duration(milliseconds: (seconds * 1000).round()));
+        }).catchError((Object _) {}),
+      );
+    }
 
     _openCurrent(resumeFrom: widget.request.resumeFromSeconds);
   }
@@ -453,6 +504,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _error = null;
       _upNextCountdown = null;
       _liveNow = null;
+      // A new stream has a new buffer; keeping the old edge would report a
+      // wildly wrong "behind live" until mpv next reported.
+      _liveEdge = null;
       _diagLog.clear();
       _showErrorDetails = false;
       if (!isRetry) {
@@ -493,6 +547,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       final platform = _player.platform;
       if (platform is NativePlayer) {
         await platform.setProperty('user-agent', kStreamUserAgent);
+        await _configureCache(platform, live: _current.isLive);
       }
       await _player.open(Media(url));
       if (!mounted) return;
@@ -507,6 +562,65 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // transient reasons too, and a reconnect in progress should keep trying.
       _onStreamError('$e');
     }
+  }
+
+  /// Sizes libmpv's demuxer cache for what is about to play.
+  ///
+  /// Live gets a large disk-backed BACK-buffer, which is what makes pause and
+  /// rewind possible on a stream the server will not let you seek in;
+  /// `force-seekable` is what stops mpv refusing the seek outright. VOD is
+  /// explicitly put back to a small in-memory buffer, because the server can
+  /// seek it properly and leaving a half-gigabyte scratch file behind for
+  /// something that never needs one would be careless.
+  ///
+  /// Every call is individually tolerant of failure: an older libmpv may not
+  /// know a property, and the correct outcome there is "no timeshift", not "no
+  /// playback".
+  Future<void> _configureCache(NativePlayer platform,
+      {required bool live}) async {
+    Future<void> set(String property, String value) async {
+      try {
+        await platform.setProperty(property, value);
+      } on Object {
+        // Unknown or read-only on this build — skip it.
+      }
+    }
+
+    if (!live) {
+      await set('cache-on-disk', 'no');
+      await set('demuxer-max-back-bytes', '${32 * 1024 * 1024}');
+      return;
+    }
+
+    // Scratch space for the back-buffer. Falls back to a RAM-only buffer if the
+    // directory cannot be resolved, which still gives a short rewind window.
+    String? dir;
+    try {
+      dir = '${(await getTemporaryDirectory()).path}/dawn-timeshift';
+      await Directory(dir).create(recursive: true);
+    } on Object {
+      dir = null;
+    }
+    await set('cache', 'yes');
+    if (dir != null) {
+      await set('cache-dir', dir);
+      await set('cache-on-disk', 'yes');
+    }
+    await set('demuxer-max-back-bytes', '$_timeshiftBackBytes');
+    await set('demuxer-max-bytes', '$_timeshiftForwardBytes');
+    await set('force-seekable', 'yes');
+  }
+
+  /// Jump back to the live edge. Deliberately a second short of it — seeking to
+  /// the exact end of the buffer lands on data the decoder has not caught up
+  /// with and stalls.
+  void _goLive() {
+    final edge = _liveEdge;
+    if (edge == null) return;
+    final target = edge - const Duration(seconds: 1);
+    _player.seek(target.isNegative ? Duration.zero : target);
+    _player.play();
+    _wake();
   }
 
   /// Fetches the programme airing now on the live channel (PRD §8.5).
@@ -819,7 +933,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // keys only wake the overlay rather than appearing to do nothing.
     if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.mediaRewind) {
-      if (!_current.isLive) {
+      // Live can be scrubbed too now, as far back as the timeshift buffer goes.
+      if (!_current.isLive || _canTimeshift) {
         _seekRelative(-10);
       } else {
         _wake();
@@ -828,7 +943,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     if (key == LogicalKeyboardKey.arrowRight ||
         key == LogicalKeyboardKey.mediaFastForward) {
+      // Forward only means something when there is buffered future to move
+      // into, i.e. when we are behind the live edge.
       if (!_current.isLive) {
+        _seekRelative(10);
+      } else if (_canTimeshift && !_atLiveEdge) {
         _seekRelative(10);
       } else {
         _wake();
@@ -986,9 +1105,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _seekRelative(int seconds) {
     final target = _position + Duration(seconds: seconds);
+    // A live stream has no duration to clamp against — the ceiling is the live
+    // edge, kept a second short so a forward seek cannot land on undecoded data.
+    final ceiling = _current.isLive
+        ? (_liveEdge == null
+            ? null
+            : _liveEdge! - const Duration(seconds: 1))
+        : (_duration > Duration.zero ? _duration : null);
     final clamped = target < Duration.zero
         ? Duration.zero
-        : (_duration > Duration.zero && target > _duration ? _duration : target);
+        : (ceiling != null && target > ceiling ? ceiling : target);
     _player.seek(clamped);
     _hint('${seconds.isNegative ? '−' : '+'}${seconds.abs()}s');
     _scheduleHide();
@@ -1559,6 +1685,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Widget _liveIndicator() {
+    // Behind the live edge the badge stops claiming to be live and says how far
+    // back you are, with the way forward next to it. A red LIVE dot over a
+    // programme that finished ten minutes ago is a lie the user would have to
+    // work out for themselves.
+    final behind = _behindLive;
+    final live = !_canTimeshift || _atLiveEdge;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Row(
@@ -1566,15 +1698,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           Container(
             width: 8,
             height: 8,
-            decoration:
-                const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+                color: live ? AppColors.error : AppColors.textSecondary,
+                shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
-          Text('LIVE',
-              style: AppTypography.label.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5)),
+          Text(
+            live ? 'LIVE' : '−${formatSeconds(behind.inSeconds)}',
+            style: AppTypography.label.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: live ? 1.5 : 0.5),
+          ),
+          if (!live) ...[
+            const SizedBox(width: 12),
+            FocusHighlight(
+              borderRadius: 20,
+              child: TextButton.icon(
+                onPressed: _goLive,
+                icon: const Icon(Icons.fast_forward, size: 18),
+                label: const Text('Go live'),
+              ),
+            ),
+          ],
           const Spacer(),
           if (_buffering)
             const SizedBox(
@@ -1685,8 +1831,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               tooltip: 'Channel down',
                               onPressed: () => _zapBy(-1),
                               icon: const Icon(Icons.keyboard_arrow_down),
-                            )
-                          else if (!_current.isLive)
+                            ),
+                          // Seeking is offered for VOD always, and for live once
+                          // the timeshift buffer has something to rewind into —
+                          // so a channel can have both zapping and scrubbing.
+                          if (!_current.isLive || _canTimeshift)
                             IconButton(
                               style: _tvTransportStyle,
                               iconSize: 30,
@@ -1707,6 +1856,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                 ? Icons.pause_rounded
                                 : Icons.play_arrow_rounded),
                           ),
+                          // Forward is disabled at the live edge rather than
+                          // hidden, so the row does not reflow as you scrub.
+                          if (!_current.isLive || _canTimeshift)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 30,
+                              tooltip: 'Forward 10 seconds',
+                              onPressed: _current.isLive && _atLiveEdge
+                                  ? null
+                                  : () => _seekRelative(10),
+                              icon: const Icon(Icons.forward_10),
+                            ),
                           if (_canZap)
                             IconButton(
                               style: _tvTransportStyle,
@@ -1714,14 +1875,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               tooltip: 'Channel up',
                               onPressed: () => _zapBy(1),
                               icon: const Icon(Icons.keyboard_arrow_up),
-                            )
-                          else if (!_current.isLive)
-                            IconButton(
-                              style: _tvTransportStyle,
-                              iconSize: 30,
-                              tooltip: 'Forward 10 seconds',
-                              onPressed: () => _seekRelative(10),
-                              icon: const Icon(Icons.forward_10),
                             ),
                           if (queued)
                             IconButton(
@@ -1967,7 +2120,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         icon: const Icon(Icons.keyboard_arrow_down),
                       ),
                       const SizedBox(width: 28),
-                    ] else if (!_current.isLive) ...[
+                    ],
+                    // Live gains these once the timeshift buffer has something
+                    // to rewind into, so zapping and scrubbing can coexist.
+                    if (!_current.isLive || _canTimeshift) ...[
                       IconButton(
                         iconSize: 40,
                         onPressed: () => _seekRelative(-10),
@@ -1986,6 +2142,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           ? Icons.pause_circle_filled
                           : Icons.play_circle_filled),
                     ),
+                    if (!_current.isLive || _canTimeshift) ...[
+                      const SizedBox(width: 28),
+                      IconButton(
+                        iconSize: 40,
+                        // Disabled rather than hidden at the live edge, so the
+                        // row does not reflow while you scrub.
+                        onPressed: _current.isLive && _atLiveEdge
+                            ? null
+                            : () => _seekRelative(10),
+                        icon: const Icon(Icons.forward_10),
+                      ),
+                    ],
                     if (_canZap) ...[
                       const SizedBox(width: 28),
                       IconButton(
@@ -1993,13 +2161,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         tooltip: 'Channel up',
                         onPressed: () => _zapBy(1),
                         icon: const Icon(Icons.keyboard_arrow_up),
-                      ),
-                    ] else if (!_current.isLive) ...[
-                      const SizedBox(width: 28),
-                      IconButton(
-                        iconSize: 40,
-                        onPressed: () => _seekRelative(10),
-                        icon: const Icon(Icons.forward_10),
                       ),
                     ],
                     // Next episode (series queues).

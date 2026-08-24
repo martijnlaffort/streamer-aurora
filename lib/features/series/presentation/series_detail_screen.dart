@@ -55,7 +55,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             containerExt: e.containerExt,
           ),
           title: prettyTitle(detail.series.name, year: detail.series.year),
-          subtitle: 'S${e.seasonNumber} · E${e.episodeNumber} — ${e.title}',
+          subtitle: episodeLabel(
+            season: e.seasonNumber,
+            episode: e.episodeNumber,
+            title: e.title,
+            seriesName: detail.series.name,
+          ),
           contentKey: _episodeKey(accountId, e),
         ),
     ];
@@ -286,6 +291,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                 _EpisodeTile(
                   episode: episode,
                   sidePad: sidePad,
+                  seriesName: series.name,
                   progress: progress[_episodeKey(account.id, episode)],
                   fallbackImage: series.posterUrl,
                   onTap: () {
@@ -313,6 +319,7 @@ class _EpisodeTile extends StatelessWidget {
     required this.progress,
     required this.onTap,
     required this.sidePad,
+    required this.seriesName,
     this.fallbackImage,
   });
 
@@ -320,6 +327,10 @@ class _EpisodeTile extends StatelessWidget {
   final WatchProgress? progress;
   final String? fallbackImage;
   final VoidCallback onTap;
+
+  /// Used only to strip the series name back out of the episode's own title,
+  /// which panels routinely repeat there.
+  final String seriesName;
 
   /// Matches the page's side padding so the rows line up with the title above.
   final double sidePad;
@@ -381,8 +392,13 @@ class _EpisodeTile extends StatelessWidget {
           ),
         ),
       ),
-      title: Text('E${episode.episodeNumber} · ${episode.title}',
-          maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text(
+          switch (prettyEpisodeTitle(episode.title, seriesName: seriesName)) {
+            '' => 'Episode ${episode.episodeNumber}',
+            final name => 'E${episode.episodeNumber} · $name',
+          },
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis),
       subtitle: episode.durationSeconds != null
           ? Text('${(episode.durationSeconds! / 60).ceil()} min',
               style: const TextStyle(color: AppColors.textSecondary))

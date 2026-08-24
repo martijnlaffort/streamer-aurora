@@ -31,12 +31,12 @@ final seriesCategoriesProvider = FutureProvider<List<Category>>((ref) async {
       .toList();
 });
 
-/// Page size for the browse grid â€” mirrors the movies feed so a large catalog
+/// Page size for the browse grid — mirrors the movies feed so a large catalog
 /// is never held in memory all at once. Pagination lives in [PagedPosterGrid].
 const seriesPageSize = 90;
 
 /// One category's rail. See [movieCategoryRailProvider] for why this is
-/// cache-first, non-blocking and debounced â€” a line can have hundreds of
+/// cache-first, non-blocking and debounced — a line can have hundreds of
 /// categories and warming one pulls the whole category.
 final seriesCategoryRailProvider =
     FutureProvider.autoDispose.family<List<Series>, String>(
@@ -63,7 +63,7 @@ final seriesCategoryRailProvider =
   if (account == null) return const [];
   final catalog = ref.watch(catalogRepositoryProvider);
 
-  // See movieCategoryRailProvider â€” a different slice per session, salted so
+  // See movieCategoryRailProvider — a different slice per session, salted so
   // the rails do not all turn the page together.
   final page = rotatingPage(
       seed: ref.watch(rotationSeedProvider), pages: 3, salt: categoryId);

@@ -18,8 +18,8 @@ import '../../player/player_request.dart';
 import '../home_providers.dart';
 import 'widgets/media_rail.dart';
 
-/// Home (PRD Â§8.2): rotating featured hero, Continue Watching, Recently
-/// Added, and per-category rails â€” all served from the cached catalog.
+/// Home (PRD §8.2): rotating featured hero, Continue Watching, Recently
+/// Added, and per-category rails — all served from the cached catalog.
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -65,7 +65,7 @@ class _NoAccount extends ConsumerWidget {
             style: const TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
-          // On a television, pairing is THE way in â€” typing a server URL, a
+          // On a television, pairing is THE way in — typing a server URL, a
           // username and a password with a D-pad is the thing pairing exists to
           // avoid. It was previously reachable only through Settings, i.e. only
           // through the rail, which left a fresh TV with no way to reach it at
@@ -107,7 +107,7 @@ class _HomeContent extends ConsumerWidget {
       color: AppColors.accent,
       onRefresh: () async {
         // This used to call refreshCatalog(), which sweeps the ENTIRE vod
-        // slice â€” 150k titles on a real line, i.e. minutes of spinner for a
+        // slice — 150k titles on a real line, i.e. minutes of spinner for a
         // pull-to-refresh, while the Movies and Series tabs returned instantly
         // because they only re-read. It was the last whole-slice sweep left in
         // a routine path.
@@ -147,7 +147,7 @@ class _HomeContent extends ConsumerWidget {
             ),
           ..._myListSlivers(context, ref),
           // Externally-ranked rails (Top 10, Trending, New Releases, Award
-          // Winners). Separate provider â€” Home never waits on them.
+          // Winners). Separate provider — Home never waits on them.
           ..._discoverySlivers(context, ref),
           // The seasonal rail, when there is one. Placed above the discovery
           // rails on purpose: for the few weeks it appears it is the most
@@ -199,7 +199,7 @@ Widget _posterFor(BuildContext context, Object item, String tagPrefix,
   );
 }
 
-/// "My List" rail â€” hidden entirely when empty rather than showing a bald
+/// "My List" rail — hidden entirely when empty rather than showing a bald
 /// heading over nothing.
 List<Widget> _myListSlivers(BuildContext context, WidgetRef ref) {
   final items = ref.watch(myListProvider).value ?? const [];
@@ -217,7 +217,7 @@ List<Widget> _myListSlivers(BuildContext context, WidgetRef ref) {
 }
 
 /// Slivers for the discovery rails. Renders nothing at all while they load or
-/// if none resolved â€” an empty gap is better than a spinner for content that is
+/// if none resolved — an empty gap is better than a spinner for content that is
 /// a bonus on top of what Home already shows.
 /// The seasonal rail. Renders nothing outside its few weeks of the year, which
 /// is what keeps it feeling like an occasion rather than another category row.
@@ -281,7 +281,7 @@ class _ContinueCard extends ConsumerStatefulWidget {
 }
 
 class _ContinueCardState extends ConsumerState<_ContinueCard> {
-  /// Focused (D-pad) or hovered (mouse) â€” drives the same pop/ring/glow the
+  /// Focused (D-pad) or hovered (mouse) — drives the same pop/ring/glow the
   /// poster cards use, so it is just as obvious which card the remote is on.
   bool _engaged = false;
   ContinueEntry get entry => widget.entry;
@@ -292,7 +292,7 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
   /// one episode. Resuming used to open the detail page, which built the full
   /// queue on the way through; playing directly skipped that and handed the
   /// player a queue of one, which silently disabled both the Next Episode
-  /// button and autoplay-next â€” they only exist when there is a next item.
+  /// button and autoplay-next — they only exist when there is a next item.
   Future<void> _resume(BuildContext context, WidgetRef ref) async {
     final request = await _buildRequest(ref);
     if (!context.mounted) return;
@@ -337,7 +337,14 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
               containerExt: e.containerExt,
             ),
             title: entry.title,
-            subtitle: 'S${e.seasonNumber} Â· E${e.episodeNumber} â€” ${e.title}',
+            // entry.title is the already-cleaned series name, which is also
+            // what the episode title usually repeats.
+            subtitle: episodeLabel(
+              season: e.seasonNumber,
+              episode: e.episodeNumber,
+              title: e.title,
+              seriesName: entry.title,
+            ),
             contentKey: contentKeyFor(
                 accountId: account.id,
                 type: StreamType.episode,
@@ -411,7 +418,7 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
         // then did nothing.
         child: InkWell(
           // A remote has no long-press, so on a TV the OK button opens the
-          // action menu (Resume / Details / Remove â€” all reachable), with
+          // action menu (Resume / Details / Remove — all reachable), with
           // Resume auto-focused. Touch keeps tap-to-resume, long-press-for-menu.
           onTap: () => isTelevisionOf(ref)
               ? _showMenu(context, ref)

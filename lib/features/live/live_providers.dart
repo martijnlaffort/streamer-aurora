@@ -1,21 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/language/content_language.dart';
 import '../../data/providers.dart';
 import '../../domain/models/models.dart';
 
-final liveCategoriesProvider = FutureProvider<List<Category>>((ref) async {
-  final account = await ref.watch(activeAccountProvider.future);
-  if (account == null) return [];
-  final cats = await ref
-      .watch(catalogRepositoryProvider)
-      .categories(account, CategoryType.live);
-  final enabled = await ref.watch(contentLanguageFilterProvider.future);
-  if (enabled == null) return cats;
-  return cats
-      .where((c) => enabled.contains(detectContentLanguage(c.name).code))
-      .toList();
-});
+final liveCategoriesProvider = FutureProvider<List<Category>>(
+    (ref) => visibleCategories(ref, CategoryType.live));
 
 /// Sentinel category id for the Favourites filter on the Live tab. Not a real
 /// catalogue category — it never reaches the repository.

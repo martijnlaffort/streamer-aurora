@@ -17,12 +17,14 @@ import '../../features/settings/presentation/about_screen.dart';
 import '../../features/settings/presentation/accounts_screen.dart';
 import '../../features/settings/presentation/add_account_screen.dart';
 import '../../features/settings/presentation/content_languages_screen.dart';
+import '../../features/settings/presentation/manage_categories_screen.dart';
 import '../../features/settings/presentation/pair_device_screen.dart';
 import '../../features/settings/presentation/pair_tv_screen.dart';
 import '../../features/settings/presentation/favorites_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/source_probe_screen.dart';
 import '../../features/settings/presentation/sync_settings_screen.dart';
+import '../../domain/models/models.dart' show CategoryType;
 import 'app_shell.dart';
 
 /// Provider-wrapped so later tasks can add guards that watch app state.
@@ -154,6 +156,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings/sync',
         name: 'sync',
         builder: (context, state) => const SyncSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/groups/:type',
+        name: 'manageGroups',
+        builder: (context, state) => ManageCategoriesScreen(
+          type: CategoryType.values.firstWhere(
+            (t) => t.name == state.pathParameters['type'],
+            orElse: () => CategoryType.live,
+          ),
+        ),
       ),
       GoRoute(
         path: '/settings/languages',

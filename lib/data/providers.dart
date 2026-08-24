@@ -9,6 +9,7 @@ import 'db/app_database.dart';
 import 'db/credential_store.dart';
 import 'repositories/account_repository.dart';
 import 'repositories/artwork_repository.dart';
+import 'repositories/catalog_overrides_repository.dart';
 import 'repositories/catalog_repository.dart';
 import 'repositories/discovery_repository.dart';
 import 'repositories/epg_repository.dart';
@@ -165,6 +166,48 @@ final favoritesRepositoryProvider = Provider<FavoritesRepository>(
           onChanged: () => ref.read(syncTriggerProvider).ping(),
         ));
 
+final catalogOverridesRepositoryProvider =
+    Provider<CatalogOverridesRepository>((ref) =>
+        CatalogOverridesRepository(db: ref.watch(appDatabaseProvider)));
+
+/// The active account's hidden / renamed / reordered categories and channels.
+final catalogOverridesProvider = FutureProvider<CatalogOverrides>((ref) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return CatalogOverrides.empty;
+  return ref.watch(catalogOverridesRepositoryProvider).forAccount(account.id);
+});
+
+/// Categories for one slice as the user wants to see them: the content-language
+/// filter applied, then their own hiding, renaming and ordering.
+///
+/// Shared by the Live, Movies and Series tabs so the three cannot drift apart.
+Future<List<Category>> visibleCategories(Ref ref, CategoryType type) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return const [];
+  final all = await ref.watch(catalogRepositoryProvider).categories(account, type);
+  final enabled = await ref.watch(contentLanguageFilterProvider.future);
+  final byLanguage = enabled == null
+      ? all
+      : [
+          for (final c in all)
+            if (enabled.contains(detectContentLanguage(c.name).code)) c,
+        ];
+  final overrides = await ref.watch(catalogOverridesProvider.future);
+  if (overrides.isEmpty) return byLanguage;
+  final visible =
+      overrides.applyToCategories(byLanguage, idOf: (Category c) => c.id);
+  return [
+    for (final c in visible)
+      Category(
+        id: c.id,
+        accountId: c.accountId,
+        type: c.type,
+        name: overrides.categoryName(c.id, c.name),
+        sortOrder: c.sortOrder,
+      ),
+  ];
+}
+
 final searchHistoryRepositoryProvider = Provider<SearchHistoryRepository>(
     (ref) => SearchHistoryRepository(db: ref.watch(appDatabaseProvider)));
 
@@ -218,15 +261,21 @@ final contentLanguageFilterProvider = FutureProvider<Set<String>?>((ref) async {
 final allowedCategoryIdsProvider =
     FutureProvider.family<Set<String>?, CategoryType>((ref, type) async {
   final enabled = await ref.watch(contentLanguageFilterProvider.future);
-  if (enabled == null) return null;
+  final overrides = await ref.watch(catalogOverridesProvider.future);
+  // Null means "no restriction", which is only true when neither the language
+  // filter nor a hidden category is narrowing things.
+  if (enabled == null && overrides.hiddenCategories.isEmpty) return null;
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return null;
   final cats =
       await ref.watch(catalogRepositoryProvider).categories(account, type);
-  return cats
-      .where((c) => enabled.contains(detectContentLanguage(c.name).code))
-      .map((c) => c.id)
-      .toSet();
+  return {
+    for (final c in cats)
+      if (!overrides.hiddenCategories.contains(c.id) &&
+          (enabled == null ||
+              enabled.contains(detectContentLanguage(c.name).code)))
+        c.id,
+  };
 });
 
 /// Languages present across the active account's categories, with how many

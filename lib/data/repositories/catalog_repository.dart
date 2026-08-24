@@ -622,6 +622,7 @@ class CatalogRepository {
     Account account, {
     String? categoryId,
     Set<String>? categoryIds,
+    Set<String>? excludeIds,
     int? limit,
     int offset = 0,
   }) async {
@@ -634,13 +635,8 @@ class CatalogRepository {
       await _ensureSliceBootstrapped(account, CatalogKind.live);
     }
     final query = _db.channelsTable.select()
-      ..where((t) => t.accountId.equals(account.id))
       ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]);
-    if (categoryId != null) {
-      query.where((t) => t.categoryId.equals(categoryId));
-    } else if (categoryIds != null) {
-      query.where((t) => t.categoryId.isIn(categoryIds));
-    }
+    _scopeChannels(query, account, categoryId, categoryIds, excludeIds);
     if (limit != null) query.limit(limit, offset: offset);
     return (await query.get()).map((r) => r.toModel()).toList();
   }
@@ -1083,13 +1079,20 @@ class CatalogRepository {
     SimpleSelectStatement<$ChannelsTableTable, ChannelRow> query,
     Account account,
     String? categoryId,
-    Set<String>? categoryIds,
-  ) {
+    Set<String>? categoryIds, [
+    Set<String>? excludeIds,
+  ]) {
     query.where((t) => t.accountId.equals(account.id));
     if (categoryId != null) {
       query.where((t) => t.categoryId.equals(categoryId));
     } else if (categoryIds != null) {
       query.where((t) => t.categoryId.isIn(categoryIds));
+    }
+    // Channels the user hid. Excluded in SQL, never after paging: filtering a
+    // page in Dart hands the caller short pages, which is the bug the
+    // language filter was moved into SQL to avoid.
+    if (excludeIds != null && excludeIds.isNotEmpty) {
+      query.where((t) => t.id.isNotIn(excludeIds.toList()));
     }
   }
 
@@ -1105,6 +1108,7 @@ class CatalogRepository {
     int index, {
     String? categoryId,
     Set<String>? categoryIds,
+    Set<String>? excludeIds,
   }) async {
     if (index < 0) return null;
     if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
@@ -1113,7 +1117,7 @@ class CatalogRepository {
     final query = _db.channelsTable.select()
       ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)])
       ..limit(1, offset: index);
-    _scopeChannels(query, account, categoryId, categoryIds);
+    _scopeChannels(query, account, categoryId, categoryIds, excludeIds);
     return (await query.getSingleOrNull())?.toModel();
   }
 
@@ -1123,6 +1127,7 @@ class CatalogRepository {
     Account account, {
     String? categoryId,
     Set<String>? categoryIds,
+    Set<String>? excludeIds,
   }) async {
     if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
       return 0;
@@ -1134,6 +1139,11 @@ class CatalogRepository {
       query.where(_db.channelsTable.categoryId.equals(categoryId));
     } else if (categoryIds != null) {
       query.where(_db.channelsTable.categoryId.isIn(categoryIds));
+    }
+    // Must match `channels` and `channelAt` exactly, or zapping walks past the
+    // end of the list the user can actually see.
+    if (excludeIds != null && excludeIds.isNotEmpty) {
+      query.where(_db.channelsTable.id.isNotIn(excludeIds.toList()));
     }
     return (await query.getSingle()).read(count) ?? 0;
   }

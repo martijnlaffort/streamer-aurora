@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/language/content_language.dart';
 import '../../core/rotation.dart';
 import '../../data/db/app_database.dart' show CatalogKind;
 import '../../data/providers.dart';
@@ -18,18 +17,8 @@ extension SeriesSortLabel on SeriesSort {
       };
 }
 
-final seriesCategoriesProvider = FutureProvider<List<Category>>((ref) async {
-  final account = await ref.watch(activeAccountProvider.future);
-  if (account == null) return [];
-  final cats = await ref
-      .watch(catalogRepositoryProvider)
-      .categories(account, CategoryType.series);
-  final enabled = await ref.watch(contentLanguageFilterProvider.future);
-  if (enabled == null) return cats;
-  return cats
-      .where((c) => enabled.contains(detectContentLanguage(c.name).code))
-      .toList();
-});
+final seriesCategoriesProvider = FutureProvider<List<Category>>(
+    (ref) => visibleCategories(ref, CategoryType.series));
 
 /// Page size for the browse grid — mirrors the movies feed so a large catalog
 /// is never held in memory all at once. Pagination lives in [PagedPosterGrid].

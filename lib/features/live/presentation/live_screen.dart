@@ -115,10 +115,14 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       if (gen != _generation) return; // superseded during the awaits above
       // Kept so the player can reproduce this exact scope when zapping.
       _allowedCategoryIds = allowed;
+      // Hidden channels are excluded in SQL, so pages still come back full.
+      final overrides = await ref.read(catalogOverridesProvider.future);
+      if (gen != _generation) return;
       final page = await ref.read(catalogRepositoryProvider).channels(
             account,
             categoryId: _categoryId,
             categoryIds: allowed,
+            excludeIds: overrides.hiddenChannels,
             limit: channelsPageSize,
             offset: _items.length,
           );

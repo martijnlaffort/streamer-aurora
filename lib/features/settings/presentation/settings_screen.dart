@@ -305,6 +305,33 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/languages'),
           ),
+          // Hiding groups is the blunt instrument that makes a 200-category
+          // line usable, so it sits right next to the language filter that
+          // does a coarser version of the same job.
+          ListTile(
+            leading: const Icon(Icons.tune),
+            title: const Text('Live TV groups'),
+            subtitle: const Text('Hide, rename and reorder',
+                style: TextStyle(color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/groups/live'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.tune),
+            title: const Text('Movie groups'),
+            subtitle: const Text('Hide, rename and reorder',
+                style: TextStyle(color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/groups/vod'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.tune),
+            title: const Text('Series groups'),
+            subtitle: const Text('Hide, rename and reorder',
+                style: TextStyle(color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/groups/series'),
+          ),
           ListTile(
             leading: const Icon(Icons.local_fire_department_outlined),
             title: const Text('Discovery rails'),

@@ -207,6 +207,41 @@ class PreferencesTable extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// The user's edits to what the panel sent: hidden, renamed and reordered
+/// categories and channels (schema v11).
+///
+/// A real line ships hundreds of categories and tens of thousands of channels,
+/// most of which a given household never wants to see. The panel decides the
+/// names and the order; this table is how the user overrules that without
+/// touching the cached catalogue itself — a refresh replaces catalogue rows
+/// wholesale, so anything editable has to live beside them rather than in them.
+@DataClassName('CatalogOverrideRow')
+class CatalogOverridesTable extends Table {
+  @override
+  String get tableName => 'catalog_overrides';
+
+  TextColumn get accountId => text()();
+
+  /// [OverrideScope] name — categories and channels have separate id spaces.
+  TextColumn get scope => text()();
+  TextColumn get targetId => text()();
+
+  BoolColumn get hidden => boolean().withDefault(const Constant(false))();
+
+  /// Replacement display name; null keeps the panel's own.
+  TextColumn get customName => text().nullable()();
+
+  /// Position in the user's ordering; null sorts after everything explicitly
+  /// placed, keeping the panel's order among themselves.
+  IntColumn get sortIndex => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {accountId, scope, targetId};
+}
+
+/// What a [CatalogOverridesTable] row applies to.
+enum OverrideScope { category, channel }
+
 @DataClassName('FavoriteRow')
 class FavoritesTable extends Table {
   @override
@@ -390,6 +425,7 @@ class SearchHistoryTable extends Table {
   WatchProgressTable,
   PreferencesTable,
   FavoritesTable,
+  CatalogOverridesTable,
   EpgCacheTable,
   CatalogMetaTable,
   CatalogCategoryMetaTable,
@@ -409,7 +445,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -464,6 +500,12 @@ class AppDatabase extends _$AppDatabase {
           // being a one-shot that silently gave up.
           if (from < 10) {
             await m.addColumn(watchProgressTable, watchProgressTable.seriesId);
+          }
+          // v11: the user's hidden / renamed / reordered categories and
+          // channels. Kept beside the catalogue rather than in it, because a
+          // refresh replaces catalogue rows wholesale.
+          if (from < 11) {
+            await m.createTable(catalogOverridesTable);
           }
         },
         beforeOpen: (details) async {

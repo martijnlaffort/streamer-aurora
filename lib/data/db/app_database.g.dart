@@ -5262,6 +5262,431 @@ class FavoritesTableCompanion extends UpdateCompanion<FavoriteRow> {
   }
 }
 
+class $CatalogOverridesTableTable extends CatalogOverridesTable
+    with TableInfo<$CatalogOverridesTableTable, CatalogOverrideRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CatalogOverridesTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _scopeMeta = const VerificationMeta('scope');
+  @override
+  late final GeneratedColumn<String> scope = GeneratedColumn<String>(
+    'scope',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _targetIdMeta = const VerificationMeta(
+    'targetId',
+  );
+  @override
+  late final GeneratedColumn<String> targetId = GeneratedColumn<String>(
+    'target_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _hiddenMeta = const VerificationMeta('hidden');
+  @override
+  late final GeneratedColumn<bool> hidden = GeneratedColumn<bool>(
+    'hidden',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("hidden" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _customNameMeta = const VerificationMeta(
+    'customName',
+  );
+  @override
+  late final GeneratedColumn<String> customName = GeneratedColumn<String>(
+    'custom_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sortIndexMeta = const VerificationMeta(
+    'sortIndex',
+  );
+  @override
+  late final GeneratedColumn<int> sortIndex = GeneratedColumn<int>(
+    'sort_index',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    accountId,
+    scope,
+    targetId,
+    hidden,
+    customName,
+    sortIndex,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'catalog_overrides';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CatalogOverrideRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('scope')) {
+      context.handle(
+        _scopeMeta,
+        scope.isAcceptableOrUnknown(data['scope']!, _scopeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_scopeMeta);
+    }
+    if (data.containsKey('target_id')) {
+      context.handle(
+        _targetIdMeta,
+        targetId.isAcceptableOrUnknown(data['target_id']!, _targetIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_targetIdMeta);
+    }
+    if (data.containsKey('hidden')) {
+      context.handle(
+        _hiddenMeta,
+        hidden.isAcceptableOrUnknown(data['hidden']!, _hiddenMeta),
+      );
+    }
+    if (data.containsKey('custom_name')) {
+      context.handle(
+        _customNameMeta,
+        customName.isAcceptableOrUnknown(data['custom_name']!, _customNameMeta),
+      );
+    }
+    if (data.containsKey('sort_index')) {
+      context.handle(
+        _sortIndexMeta,
+        sortIndex.isAcceptableOrUnknown(data['sort_index']!, _sortIndexMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {accountId, scope, targetId};
+  @override
+  CatalogOverrideRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CatalogOverrideRow(
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      scope: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}scope'],
+      )!,
+      targetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_id'],
+      )!,
+      hidden: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}hidden'],
+      )!,
+      customName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_name'],
+      ),
+      sortIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_index'],
+      ),
+    );
+  }
+
+  @override
+  $CatalogOverridesTableTable createAlias(String alias) {
+    return $CatalogOverridesTableTable(attachedDatabase, alias);
+  }
+}
+
+class CatalogOverrideRow extends DataClass
+    implements Insertable<CatalogOverrideRow> {
+  final String accountId;
+
+  /// [OverrideScope] name — categories and channels have separate id spaces.
+  final String scope;
+  final String targetId;
+  final bool hidden;
+
+  /// Replacement display name; null keeps the panel's own.
+  final String? customName;
+
+  /// Position in the user's ordering; null sorts after everything explicitly
+  /// placed, keeping the panel's order among themselves.
+  final int? sortIndex;
+  const CatalogOverrideRow({
+    required this.accountId,
+    required this.scope,
+    required this.targetId,
+    required this.hidden,
+    this.customName,
+    this.sortIndex,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['account_id'] = Variable<String>(accountId);
+    map['scope'] = Variable<String>(scope);
+    map['target_id'] = Variable<String>(targetId);
+    map['hidden'] = Variable<bool>(hidden);
+    if (!nullToAbsent || customName != null) {
+      map['custom_name'] = Variable<String>(customName);
+    }
+    if (!nullToAbsent || sortIndex != null) {
+      map['sort_index'] = Variable<int>(sortIndex);
+    }
+    return map;
+  }
+
+  CatalogOverridesTableCompanion toCompanion(bool nullToAbsent) {
+    return CatalogOverridesTableCompanion(
+      accountId: Value(accountId),
+      scope: Value(scope),
+      targetId: Value(targetId),
+      hidden: Value(hidden),
+      customName: customName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customName),
+      sortIndex: sortIndex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sortIndex),
+    );
+  }
+
+  factory CatalogOverrideRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CatalogOverrideRow(
+      accountId: serializer.fromJson<String>(json['accountId']),
+      scope: serializer.fromJson<String>(json['scope']),
+      targetId: serializer.fromJson<String>(json['targetId']),
+      hidden: serializer.fromJson<bool>(json['hidden']),
+      customName: serializer.fromJson<String?>(json['customName']),
+      sortIndex: serializer.fromJson<int?>(json['sortIndex']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'accountId': serializer.toJson<String>(accountId),
+      'scope': serializer.toJson<String>(scope),
+      'targetId': serializer.toJson<String>(targetId),
+      'hidden': serializer.toJson<bool>(hidden),
+      'customName': serializer.toJson<String?>(customName),
+      'sortIndex': serializer.toJson<int?>(sortIndex),
+    };
+  }
+
+  CatalogOverrideRow copyWith({
+    String? accountId,
+    String? scope,
+    String? targetId,
+    bool? hidden,
+    Value<String?> customName = const Value.absent(),
+    Value<int?> sortIndex = const Value.absent(),
+  }) => CatalogOverrideRow(
+    accountId: accountId ?? this.accountId,
+    scope: scope ?? this.scope,
+    targetId: targetId ?? this.targetId,
+    hidden: hidden ?? this.hidden,
+    customName: customName.present ? customName.value : this.customName,
+    sortIndex: sortIndex.present ? sortIndex.value : this.sortIndex,
+  );
+  CatalogOverrideRow copyWithCompanion(CatalogOverridesTableCompanion data) {
+    return CatalogOverrideRow(
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      scope: data.scope.present ? data.scope.value : this.scope,
+      targetId: data.targetId.present ? data.targetId.value : this.targetId,
+      hidden: data.hidden.present ? data.hidden.value : this.hidden,
+      customName: data.customName.present
+          ? data.customName.value
+          : this.customName,
+      sortIndex: data.sortIndex.present ? data.sortIndex.value : this.sortIndex,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CatalogOverrideRow(')
+          ..write('accountId: $accountId, ')
+          ..write('scope: $scope, ')
+          ..write('targetId: $targetId, ')
+          ..write('hidden: $hidden, ')
+          ..write('customName: $customName, ')
+          ..write('sortIndex: $sortIndex')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(accountId, scope, targetId, hidden, customName, sortIndex);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CatalogOverrideRow &&
+          other.accountId == this.accountId &&
+          other.scope == this.scope &&
+          other.targetId == this.targetId &&
+          other.hidden == this.hidden &&
+          other.customName == this.customName &&
+          other.sortIndex == this.sortIndex);
+}
+
+class CatalogOverridesTableCompanion
+    extends UpdateCompanion<CatalogOverrideRow> {
+  final Value<String> accountId;
+  final Value<String> scope;
+  final Value<String> targetId;
+  final Value<bool> hidden;
+  final Value<String?> customName;
+  final Value<int?> sortIndex;
+  final Value<int> rowid;
+  const CatalogOverridesTableCompanion({
+    this.accountId = const Value.absent(),
+    this.scope = const Value.absent(),
+    this.targetId = const Value.absent(),
+    this.hidden = const Value.absent(),
+    this.customName = const Value.absent(),
+    this.sortIndex = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CatalogOverridesTableCompanion.insert({
+    required String accountId,
+    required String scope,
+    required String targetId,
+    this.hidden = const Value.absent(),
+    this.customName = const Value.absent(),
+    this.sortIndex = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : accountId = Value(accountId),
+       scope = Value(scope),
+       targetId = Value(targetId);
+  static Insertable<CatalogOverrideRow> custom({
+    Expression<String>? accountId,
+    Expression<String>? scope,
+    Expression<String>? targetId,
+    Expression<bool>? hidden,
+    Expression<String>? customName,
+    Expression<int>? sortIndex,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (accountId != null) 'account_id': accountId,
+      if (scope != null) 'scope': scope,
+      if (targetId != null) 'target_id': targetId,
+      if (hidden != null) 'hidden': hidden,
+      if (customName != null) 'custom_name': customName,
+      if (sortIndex != null) 'sort_index': sortIndex,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CatalogOverridesTableCompanion copyWith({
+    Value<String>? accountId,
+    Value<String>? scope,
+    Value<String>? targetId,
+    Value<bool>? hidden,
+    Value<String?>? customName,
+    Value<int?>? sortIndex,
+    Value<int>? rowid,
+  }) {
+    return CatalogOverridesTableCompanion(
+      accountId: accountId ?? this.accountId,
+      scope: scope ?? this.scope,
+      targetId: targetId ?? this.targetId,
+      hidden: hidden ?? this.hidden,
+      customName: customName ?? this.customName,
+      sortIndex: sortIndex ?? this.sortIndex,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (scope.present) {
+      map['scope'] = Variable<String>(scope.value);
+    }
+    if (targetId.present) {
+      map['target_id'] = Variable<String>(targetId.value);
+    }
+    if (hidden.present) {
+      map['hidden'] = Variable<bool>(hidden.value);
+    }
+    if (customName.present) {
+      map['custom_name'] = Variable<String>(customName.value);
+    }
+    if (sortIndex.present) {
+      map['sort_index'] = Variable<int>(sortIndex.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CatalogOverridesTableCompanion(')
+          ..write('accountId: $accountId, ')
+          ..write('scope: $scope, ')
+          ..write('targetId: $targetId, ')
+          ..write('hidden: $hidden, ')
+          ..write('customName: $customName, ')
+          ..write('sortIndex: $sortIndex, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $EpgCacheTableTable extends EpgCacheTable
     with TableInfo<$EpgCacheTableTable, EpgRow> {
   @override
@@ -8014,6 +8439,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $FavoritesTableTable favoritesTable = $FavoritesTableTable(this);
+  late final $CatalogOverridesTableTable catalogOverridesTable =
+      $CatalogOverridesTableTable(this);
   late final $EpgCacheTableTable epgCacheTable = $EpgCacheTableTable(this);
   late final $CatalogMetaTableTable catalogMetaTable = $CatalogMetaTableTable(
     this,
@@ -8042,6 +8469,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     watchProgressTable,
     preferencesTable,
     favoritesTable,
+    catalogOverridesTable,
     epgCacheTable,
     catalogMetaTable,
     catalogCategoryMetaTable,
@@ -10621,6 +11049,246 @@ typedef $$FavoritesTableTableProcessedTableManager =
       FavoriteRow,
       PrefetchHooks Function()
     >;
+typedef $$CatalogOverridesTableTableCreateCompanionBuilder =
+    CatalogOverridesTableCompanion Function({
+      required String accountId,
+      required String scope,
+      required String targetId,
+      Value<bool> hidden,
+      Value<String?> customName,
+      Value<int?> sortIndex,
+      Value<int> rowid,
+    });
+typedef $$CatalogOverridesTableTableUpdateCompanionBuilder =
+    CatalogOverridesTableCompanion Function({
+      Value<String> accountId,
+      Value<String> scope,
+      Value<String> targetId,
+      Value<bool> hidden,
+      Value<String?> customName,
+      Value<int?> sortIndex,
+      Value<int> rowid,
+    });
+
+class $$CatalogOverridesTableTableFilterComposer
+    extends Composer<_$AppDatabase, $CatalogOverridesTableTable> {
+  $$CatalogOverridesTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetId => $composableBuilder(
+    column: $table.targetId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hidden => $composableBuilder(
+    column: $table.hidden,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customName => $composableBuilder(
+    column: $table.customName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortIndex => $composableBuilder(
+    column: $table.sortIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CatalogOverridesTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $CatalogOverridesTableTable> {
+  $$CatalogOverridesTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scope => $composableBuilder(
+    column: $table.scope,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetId => $composableBuilder(
+    column: $table.targetId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hidden => $composableBuilder(
+    column: $table.hidden,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customName => $composableBuilder(
+    column: $table.customName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortIndex => $composableBuilder(
+    column: $table.sortIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CatalogOverridesTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CatalogOverridesTableTable> {
+  $$CatalogOverridesTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get scope =>
+      $composableBuilder(column: $table.scope, builder: (column) => column);
+
+  GeneratedColumn<String> get targetId =>
+      $composableBuilder(column: $table.targetId, builder: (column) => column);
+
+  GeneratedColumn<bool> get hidden =>
+      $composableBuilder(column: $table.hidden, builder: (column) => column);
+
+  GeneratedColumn<String> get customName => $composableBuilder(
+    column: $table.customName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sortIndex =>
+      $composableBuilder(column: $table.sortIndex, builder: (column) => column);
+}
+
+class $$CatalogOverridesTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CatalogOverridesTableTable,
+          CatalogOverrideRow,
+          $$CatalogOverridesTableTableFilterComposer,
+          $$CatalogOverridesTableTableOrderingComposer,
+          $$CatalogOverridesTableTableAnnotationComposer,
+          $$CatalogOverridesTableTableCreateCompanionBuilder,
+          $$CatalogOverridesTableTableUpdateCompanionBuilder,
+          (
+            CatalogOverrideRow,
+            BaseReferences<
+              _$AppDatabase,
+              $CatalogOverridesTableTable,
+              CatalogOverrideRow
+            >,
+          ),
+          CatalogOverrideRow,
+          PrefetchHooks Function()
+        > {
+  $$CatalogOverridesTableTableTableManager(
+    _$AppDatabase db,
+    $CatalogOverridesTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CatalogOverridesTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CatalogOverridesTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CatalogOverridesTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> accountId = const Value.absent(),
+                Value<String> scope = const Value.absent(),
+                Value<String> targetId = const Value.absent(),
+                Value<bool> hidden = const Value.absent(),
+                Value<String?> customName = const Value.absent(),
+                Value<int?> sortIndex = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CatalogOverridesTableCompanion(
+                accountId: accountId,
+                scope: scope,
+                targetId: targetId,
+                hidden: hidden,
+                customName: customName,
+                sortIndex: sortIndex,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String accountId,
+                required String scope,
+                required String targetId,
+                Value<bool> hidden = const Value.absent(),
+                Value<String?> customName = const Value.absent(),
+                Value<int?> sortIndex = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CatalogOverridesTableCompanion.insert(
+                accountId: accountId,
+                scope: scope,
+                targetId: targetId,
+                hidden: hidden,
+                customName: customName,
+                sortIndex: sortIndex,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CatalogOverridesTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CatalogOverridesTableTable,
+      CatalogOverrideRow,
+      $$CatalogOverridesTableTableFilterComposer,
+      $$CatalogOverridesTableTableOrderingComposer,
+      $$CatalogOverridesTableTableAnnotationComposer,
+      $$CatalogOverridesTableTableCreateCompanionBuilder,
+      $$CatalogOverridesTableTableUpdateCompanionBuilder,
+      (
+        CatalogOverrideRow,
+        BaseReferences<
+          _$AppDatabase,
+          $CatalogOverridesTableTable,
+          CatalogOverrideRow
+        >,
+      ),
+      CatalogOverrideRow,
+      PrefetchHooks Function()
+    >;
 typedef $$EpgCacheTableTableCreateCompanionBuilder =
     EpgCacheTableCompanion Function({
       required String accountId,
@@ -12163,6 +12831,8 @@ class $AppDatabaseManager {
       $$PreferencesTableTableTableManager(_db, _db.preferencesTable);
   $$FavoritesTableTableTableManager get favoritesTable =>
       $$FavoritesTableTableTableManager(_db, _db.favoritesTable);
+  $$CatalogOverridesTableTableTableManager get catalogOverridesTable =>
+      $$CatalogOverridesTableTableTableManager(_db, _db.catalogOverridesTable);
   $$EpgCacheTableTableTableManager get epgCacheTable =>
       $$EpgCacheTableTableTableManager(_db, _db.epgCacheTable);
   $$CatalogMetaTableTableTableManager get catalogMetaTable =>

@@ -15,6 +15,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/focus_highlight.dart';
+import '../../../data/cast/cast_service.dart';
+import '../../../data/cast/cast_url.dart';
 import '../../../data/providers.dart';
 import '../../../data/repositories/watch_progress_repository.dart';
 import '../../../data/sync/playback_activity.dart';
@@ -22,6 +24,7 @@ import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart'
     show Preferences, StreamRef, StreamType, contentKeyFor;
 import '../player_request.dart';
+import 'cast_picker.dart';
 
 /// Android emulators stall on hardware video decode (documented media_kit
 /// quirk): run with `--dart-define=DAWN_SW_DECODE=true` there. Real
@@ -140,6 +143,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// because that node's rect is the whole screen.
   final _playPauseFocus = FocusNode(debugLabel: 'player-playpause');
 
+  // --- Casting ---------------------------------------------------------------
+  //
+  // Casting is not mirroring: the Chromecast fetches the URL and decodes it
+  // itself, so local playback is paused rather than continuing silently, and
+  // watch progress is written from the RECEIVER's position while it runs — the
+  // whole point is that stopping halfway on the TV still shows up in Continue
+  // Watching.
+  StreamSubscription<CastStatus>? _castSub;
+  CastStatus _cast = const CastStatus();
+  bool _castAvailable = false;
+  DateTime _lastCastSave = DateTime.fromMillisecondsSinceEpoch(0);
+
   /// Live zapping state. Starts from the list position the caller handed over
   /// and moves as the user changes channel.
   late ZapContext? _zap = widget.request.zap;
@@ -184,6 +199,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     ref.read(preferencesRepositoryProvider).get().then((prefs) {
       if (mounted) _prefs = prefs;
+    });
+
+    // Cast is Android + Play Services only, and is pointless on a television —
+    // you are already on the big screen — so the button never appears there.
+    final cast = ref.read(castServiceProvider);
+    Future(() async {
+      final onTv = await ref.read(isTelevisionProvider.future);
+      final available = await cast.isAvailable();
+      if (!mounted || onTv || !available) return;
+      setState(() => _castAvailable = true);
+      _castSub = cast.status.listen(_onCastStatus);
     });
 
     // Fullscreen + landscape lock is a mobile concern; on desktop these calls
@@ -276,6 +302,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   void dispose() {
+    _castSub?.cancel();
     ref.read(playbackActivityProvider).leave();
     WidgetsBinding.instance.removeObserver(this);
     // Save on exit (PRD §8.9) before the player goes away.
@@ -632,10 +659,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (_controlsVisible) _scheduleHide();
   }
 
-  void _hint(String text) {
+  /// Gesture feedback is glanceable and gone; an explanation ("a Chromecast
+  /// can't play .mkv") has to stay up long enough to read.
+  void _hint(String text,
+      {Duration duration = const Duration(milliseconds: 900)}) {
     _hintTimer?.cancel();
     setState(() => _gestureHint = text);
-    _hintTimer = Timer(const Duration(milliseconds: 900), () {
+    _hintTimer = Timer(duration, () {
       if (mounted) setState(() => _gestureHint = null);
     });
   }
@@ -853,6 +883,107 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     return KeyEventResult.ignored;
   }
 
+  // --- Casting ---------------------------------------------------------------
+
+  void _onCastStatus(CastStatus status) {
+    if (!mounted) return;
+    final wasCasting = _cast.isCasting;
+    setState(() => _cast = status);
+
+    // The receiver is authoritative while it plays, so progress comes from it.
+    // Live has no meaningful position, and a zero duration means it has not
+    // reported yet.
+    if (status.isCasting &&
+        !_current.isLive &&
+        status.durationSeconds > 0 &&
+        status.positionSeconds > 0) {
+      final now = DateTime.now();
+      if (now.difference(_lastCastSave) >= const Duration(seconds: 10)) {
+        _lastCastSave = now;
+        _progressRepo.savePosition(
+          contentKey: _current.contentKey,
+          positionSeconds: status.positionSeconds,
+          durationSeconds: status.durationSeconds,
+        );
+      }
+    }
+
+    // The session ended on the device (someone stopped it from another app, or
+    // the TV was switched off). Pick playback back up here at wherever it got
+    // to, which is what the user expects to see when the TV goes away.
+    if (wasCasting && !status.isCasting) {
+      final resumeAt = _cast.positionSeconds;
+      if (!_current.isLive && resumeAt > 0) {
+        _player.seek(Duration(seconds: resumeAt));
+      }
+      _player.play();
+    }
+  }
+
+  /// Hand the current stream to a Chromecast.
+  Future<void> _startCasting() async {
+    final account = await ref.read(activeAccountProvider.future);
+    if (!mounted || account == null) return;
+
+    final String url;
+    try {
+      url = await ref
+          .read(sourceFactoryProvider)(account)
+          .buildStreamUrl(_current.streamRef);
+    } on Object catch (e) {
+      if (mounted) _toast('$e');
+      return;
+    }
+    if (!mounted) return;
+
+    // Decided in one place, because "can this be cast?" is entirely a question
+    // about the container — see castTargetFor.
+    final target = castTargetFor(_current.streamRef, url);
+    if (!target.canCast) {
+      _toast(target.refusal!);
+      return;
+    }
+
+    // Save where we are before handing over, so nothing is lost if the cast
+    // fails, and pause here — two copies playing at once is the classic bug.
+    _saveProgress();
+    await _player.pause();
+    if (!mounted) return;
+
+    final picked = await showCastPicker(context);
+    if (!mounted) return;
+    if (picked != true) {
+      // Backed out — carry on watching here.
+      if (!_cast.isCasting) await _player.play();
+      return;
+    }
+
+    try {
+      await ref.read(castServiceProvider).load(
+            url: target.url!,
+            contentType: target.contentType!,
+            isLive: target.isLive,
+            title: _current.title,
+            subtitle: _current.subtitle,
+            positionSeconds: _current.isLive ? 0 : _position.inSeconds,
+          );
+    } on PlatformException catch (e) {
+      if (mounted) {
+        _toast(e.message ?? 'That device would not accept the stream.');
+        await _player.play();
+      }
+    }
+  }
+
+  Future<void> _stopCasting() async {
+    await ref.read(castServiceProvider).disconnect();
+  }
+
+  /// Message that needs reading, not glancing at.
+  void _toast(String message) {
+    _hint(message, duration: const Duration(seconds: 4));
+  }
+
   void _seekRelative(int seconds) {
     final target = _position + Duration(seconds: seconds);
     final clamped = target < Duration.zero
@@ -1056,6 +1187,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             if (_buffering && _error == null && !_reconnecting)
               const Center(
                   child: CircularProgressIndicator(color: AppColors.accent)),
+            // Covers the (paused) video while the TV has it, so there is never
+            // any doubt about which screen is playing.
+            if (_cast.isCasting) _castingView(),
             if (_reconnecting) _reconnectingView(),
             if (_error != null) _errorView(),
             if (_gestureHint != null)
@@ -1102,6 +1236,102 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// Shown while a dropped stream is being reopened. Deliberately quiet: this
   /// is the state that used to be a full error screen, and most of the time it
   /// resolves itself within a couple of seconds.
+  /// Shown while a Chromecast has the stream: this device becomes the remote.
+  Widget _castingView() {
+    return ColoredBox(
+      color: AppColors.background,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cast_connected,
+                  size: 56, color: AppColors.accent),
+              const SizedBox(height: 20),
+              Text(
+                _cast.deviceName == null
+                    ? 'Casting'
+                    : 'Casting to ${_cast.deviceName}',
+                textAlign: TextAlign.center,
+                style: AppTypography.title,
+              ),
+              const SizedBox(height: 6),
+              Text(_current.title,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: AppColors.textSecondary)),
+              if (!_current.isLive && _cast.durationSeconds > 0) ...[
+                const SizedBox(height: 14),
+                Text(
+                  '${formatSeconds(_cast.positionSeconds)} / '
+                  '${formatSeconds(_cast.durationSeconds)}',
+                  style: AppTypography.label,
+                ),
+              ],
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (!_current.isLive)
+                    FocusHighlight(
+                      borderRadius: 24,
+                      child: IconButton(
+                        iconSize: 32,
+                        tooltip: 'Back 10 seconds',
+                        onPressed: () => ref
+                            .read(castServiceProvider)
+                            .seek((_cast.positionSeconds - 10)
+                                .clamp(0, 1 << 30)),
+                        icon: const Icon(Icons.replay_10),
+                      ),
+                    ),
+                  FocusHighlight(
+                    borderRadius: 32,
+                    child: IconButton(
+                      autofocus: true,
+                      iconSize: 46,
+                      tooltip: _cast.isPlaying ? 'Pause' : 'Play',
+                      onPressed: () {
+                        final cast = ref.read(castServiceProvider);
+                        _cast.isPlaying ? cast.pause() : cast.play();
+                      },
+                      icon: Icon(_cast.isPlaying
+                          ? Icons.pause_circle_filled
+                          : Icons.play_circle_filled),
+                    ),
+                  ),
+                  if (!_current.isLive)
+                    FocusHighlight(
+                      borderRadius: 24,
+                      child: IconButton(
+                        iconSize: 32,
+                        tooltip: 'Forward 10 seconds',
+                        onPressed: () => ref
+                            .read(castServiceProvider)
+                            .seek(_cast.positionSeconds + 10),
+                        icon: const Icon(Icons.forward_10),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              FocusHighlight(
+                borderRadius: 20,
+                child: FilledButton.tonalIcon(
+                  onPressed: _stopCasting,
+                  icon: const Icon(Icons.stop, size: 18),
+                  label: const Text('Stop casting'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _reconnectingView() {
     return Center(
       child: Column(
@@ -1502,6 +1732,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               icon: const Icon(Icons.skip_next),
                             ),
                           const Spacer(),
+                          // On a television you are already on the big screen,
+                          // so casting is only offered when this build is NOT
+                          // the TV one (see _castAvailable, which is false
+                          // there) — this branch keeps the row consistent if
+                          // that ever changes.
+                          if (_castAvailable)
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 26,
+                              tooltip: 'Cast to a TV',
+                              onPressed: _startCasting,
+                              icon: const Icon(Icons.cast),
+                            ),
                           IconButton(
                             style: _tvTransportStyle,
                             iconSize: 26,
@@ -1672,6 +1915,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         ],
                       ),
                     ),
+                    if (_castAvailable)
+                      IconButton(
+                        tooltip: 'Cast to a TV',
+                        onPressed: _startCasting,
+                        icon: const Icon(Icons.cast),
+                      ),
                     IconButton(
                       tooltip: 'Audio',
                       onPressed: _showAudioSheet,

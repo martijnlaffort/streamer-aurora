@@ -8,6 +8,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var cast: CastBridge? = null
+
     /**
      * Reports whether we are running on a television, so the Flutter layer can
      * switch to the D-pad / 10-foot UI (PRD Phase 3).
@@ -28,6 +30,13 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+        cast = CastBridge(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
+    }
+
+    override fun onDestroy() {
+        cast?.dispose()
+        cast = null
+        super.onDestroy()
     }
 
     private fun isTelevision(): Boolean {

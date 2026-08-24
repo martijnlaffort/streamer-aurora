@@ -72,3 +72,11 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Chromecast. The framework brings androidx.mediarouter with it, which is
+    // what discovery uses. Absent Play Services (emulators, stripped Android TV
+    // images) CastContext.getSharedInstance throws — CastBridge treats that as
+    // "cast unavailable" and the UI hides the button.
+    implementation("com.google.android.gms:play-services-cast-framework:22.0.0")
+}

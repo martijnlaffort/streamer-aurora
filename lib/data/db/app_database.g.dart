@@ -4390,6 +4390,28 @@ class $PreferencesTableTable extends PreferencesTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _themeModeMeta = const VerificationMeta(
+    'themeMode',
+  );
+  @override
+  late final GeneratedColumn<String> themeMode = GeneratedColumn<String>(
+    'theme_mode',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _uiScaleMeta = const VerificationMeta(
+    'uiScale',
+  );
+  @override
+  late final GeneratedColumn<double> uiScale = GeneratedColumn<double>(
+    'ui_scale',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _activeAccountIdMeta = const VerificationMeta(
     'activeAccountId',
   );
@@ -4411,6 +4433,8 @@ class $PreferencesTableTable extends PreferencesTable
     contentLanguages,
     tmdbApiKey,
     discoveryRegion,
+    themeMode,
+    uiScale,
     activeAccountId,
   ];
   @override
@@ -4491,6 +4515,18 @@ class $PreferencesTableTable extends PreferencesTable
         ),
       );
     }
+    if (data.containsKey('theme_mode')) {
+      context.handle(
+        _themeModeMeta,
+        themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta),
+      );
+    }
+    if (data.containsKey('ui_scale')) {
+      context.handle(
+        _uiScaleMeta,
+        uiScale.isAcceptableOrUnknown(data['ui_scale']!, _uiScaleMeta),
+      );
+    }
     if (data.containsKey('active_account_id')) {
       context.handle(
         _activeAccountIdMeta,
@@ -4541,6 +4577,14 @@ class $PreferencesTableTable extends PreferencesTable
         DriftSqlType.string,
         data['${effectivePrefix}discovery_region'],
       ),
+      themeMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}theme_mode'],
+      ),
+      uiScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}ui_scale'],
+      ),
       activeAccountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}active_account_id'],
@@ -4579,6 +4623,14 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
   /// Null → derived from the device locale (added in schema v6).
   final String? discoveryRegion;
 
+  /// [AppThemeMode] name, or null for the dark default (added in schema v12).
+  final String? themeMode;
+
+  /// Text/poster size multiplier, 1.0 = as designed (added in schema v12).
+  /// Device-local: it is not part of the sync payload, so sizing a phone does
+  /// not resize the television.
+  final double? uiScale;
+
   /// App state, not a user preference — which account the UI is showing.
   final String? activeAccountId;
   const PreferencesRow({
@@ -4590,6 +4642,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     this.contentLanguages,
     this.tmdbApiKey,
     this.discoveryRegion,
+    this.themeMode,
+    this.uiScale,
     this.activeAccountId,
   });
   @override
@@ -4612,6 +4666,12 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     }
     if (!nullToAbsent || discoveryRegion != null) {
       map['discovery_region'] = Variable<String>(discoveryRegion);
+    }
+    if (!nullToAbsent || themeMode != null) {
+      map['theme_mode'] = Variable<String>(themeMode);
+    }
+    if (!nullToAbsent || uiScale != null) {
+      map['ui_scale'] = Variable<double>(uiScale);
     }
     if (!nullToAbsent || activeAccountId != null) {
       map['active_account_id'] = Variable<String>(activeAccountId);
@@ -4639,6 +4699,12 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       discoveryRegion: discoveryRegion == null && nullToAbsent
           ? const Value.absent()
           : Value(discoveryRegion),
+      themeMode: themeMode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(themeMode),
+      uiScale: uiScale == null && nullToAbsent
+          ? const Value.absent()
+          : Value(uiScale),
       activeAccountId: activeAccountId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeAccountId),
@@ -4663,6 +4729,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       contentLanguages: serializer.fromJson<String?>(json['contentLanguages']),
       tmdbApiKey: serializer.fromJson<String?>(json['tmdbApiKey']),
       discoveryRegion: serializer.fromJson<String?>(json['discoveryRegion']),
+      themeMode: serializer.fromJson<String?>(json['themeMode']),
+      uiScale: serializer.fromJson<double?>(json['uiScale']),
       activeAccountId: serializer.fromJson<String?>(json['activeAccountId']),
     );
   }
@@ -4680,6 +4748,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       'contentLanguages': serializer.toJson<String?>(contentLanguages),
       'tmdbApiKey': serializer.toJson<String?>(tmdbApiKey),
       'discoveryRegion': serializer.toJson<String?>(discoveryRegion),
+      'themeMode': serializer.toJson<String?>(themeMode),
+      'uiScale': serializer.toJson<double?>(uiScale),
       'activeAccountId': serializer.toJson<String?>(activeAccountId),
     };
   }
@@ -4693,6 +4763,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     Value<String?> contentLanguages = const Value.absent(),
     Value<String?> tmdbApiKey = const Value.absent(),
     Value<String?> discoveryRegion = const Value.absent(),
+    Value<String?> themeMode = const Value.absent(),
+    Value<double?> uiScale = const Value.absent(),
     Value<String?> activeAccountId = const Value.absent(),
   }) => PreferencesRow(
     id: id ?? this.id,
@@ -4711,6 +4783,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     discoveryRegion: discoveryRegion.present
         ? discoveryRegion.value
         : this.discoveryRegion,
+    themeMode: themeMode.present ? themeMode.value : this.themeMode,
+    uiScale: uiScale.present ? uiScale.value : this.uiScale,
     activeAccountId: activeAccountId.present
         ? activeAccountId.value
         : this.activeAccountId,
@@ -4739,6 +4813,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       discoveryRegion: data.discoveryRegion.present
           ? data.discoveryRegion.value
           : this.discoveryRegion,
+      themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
+      uiScale: data.uiScale.present ? data.uiScale.value : this.uiScale,
       activeAccountId: data.activeAccountId.present
           ? data.activeAccountId.value
           : this.activeAccountId,
@@ -4756,6 +4832,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           ..write('contentLanguages: $contentLanguages, ')
           ..write('tmdbApiKey: $tmdbApiKey, ')
           ..write('discoveryRegion: $discoveryRegion, ')
+          ..write('themeMode: $themeMode, ')
+          ..write('uiScale: $uiScale, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -4771,6 +4849,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     contentLanguages,
     tmdbApiKey,
     discoveryRegion,
+    themeMode,
+    uiScale,
     activeAccountId,
   );
   @override
@@ -4785,6 +4865,8 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           other.contentLanguages == this.contentLanguages &&
           other.tmdbApiKey == this.tmdbApiKey &&
           other.discoveryRegion == this.discoveryRegion &&
+          other.themeMode == this.themeMode &&
+          other.uiScale == this.uiScale &&
           other.activeAccountId == this.activeAccountId);
 }
 
@@ -4797,6 +4879,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
   final Value<String?> contentLanguages;
   final Value<String?> tmdbApiKey;
   final Value<String?> discoveryRegion;
+  final Value<String?> themeMode;
+  final Value<double?> uiScale;
   final Value<String?> activeAccountId;
   const PreferencesTableCompanion({
     this.id = const Value.absent(),
@@ -4807,6 +4891,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.contentLanguages = const Value.absent(),
     this.tmdbApiKey = const Value.absent(),
     this.discoveryRegion = const Value.absent(),
+    this.themeMode = const Value.absent(),
+    this.uiScale = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   PreferencesTableCompanion.insert({
@@ -4818,6 +4904,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.contentLanguages = const Value.absent(),
     this.tmdbApiKey = const Value.absent(),
     this.discoveryRegion = const Value.absent(),
+    this.themeMode = const Value.absent(),
+    this.uiScale = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   static Insertable<PreferencesRow> custom({
@@ -4829,6 +4917,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Expression<String>? contentLanguages,
     Expression<String>? tmdbApiKey,
     Expression<String>? discoveryRegion,
+    Expression<String>? themeMode,
+    Expression<double>? uiScale,
     Expression<String>? activeAccountId,
   }) {
     return RawValuesInsertable({
@@ -4842,6 +4932,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       if (contentLanguages != null) 'content_languages': contentLanguages,
       if (tmdbApiKey != null) 'tmdb_api_key': tmdbApiKey,
       if (discoveryRegion != null) 'discovery_region': discoveryRegion,
+      if (themeMode != null) 'theme_mode': themeMode,
+      if (uiScale != null) 'ui_scale': uiScale,
       if (activeAccountId != null) 'active_account_id': activeAccountId,
     });
   }
@@ -4855,6 +4947,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Value<String?>? contentLanguages,
     Value<String?>? tmdbApiKey,
     Value<String?>? discoveryRegion,
+    Value<String?>? themeMode,
+    Value<double?>? uiScale,
     Value<String?>? activeAccountId,
   }) {
     return PreferencesTableCompanion(
@@ -4867,6 +4961,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       contentLanguages: contentLanguages ?? this.contentLanguages,
       tmdbApiKey: tmdbApiKey ?? this.tmdbApiKey,
       discoveryRegion: discoveryRegion ?? this.discoveryRegion,
+      themeMode: themeMode ?? this.themeMode,
+      uiScale: uiScale ?? this.uiScale,
       activeAccountId: activeAccountId ?? this.activeAccountId,
     );
   }
@@ -4900,6 +4996,12 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     if (discoveryRegion.present) {
       map['discovery_region'] = Variable<String>(discoveryRegion.value);
     }
+    if (themeMode.present) {
+      map['theme_mode'] = Variable<String>(themeMode.value);
+    }
+    if (uiScale.present) {
+      map['ui_scale'] = Variable<double>(uiScale.value);
+    }
     if (activeAccountId.present) {
       map['active_account_id'] = Variable<String>(activeAccountId.value);
     }
@@ -4917,6 +5019,8 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
           ..write('contentLanguages: $contentLanguages, ')
           ..write('tmdbApiKey: $tmdbApiKey, ')
           ..write('discoveryRegion: $discoveryRegion, ')
+          ..write('themeMode: $themeMode, ')
+          ..write('uiScale: $uiScale, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -10578,6 +10682,8 @@ typedef $$PreferencesTableTableCreateCompanionBuilder =
       Value<String?> contentLanguages,
       Value<String?> tmdbApiKey,
       Value<String?> discoveryRegion,
+      Value<String?> themeMode,
+      Value<double?> uiScale,
       Value<String?> activeAccountId,
     });
 typedef $$PreferencesTableTableUpdateCompanionBuilder =
@@ -10590,6 +10696,8 @@ typedef $$PreferencesTableTableUpdateCompanionBuilder =
       Value<String?> contentLanguages,
       Value<String?> tmdbApiKey,
       Value<String?> discoveryRegion,
+      Value<String?> themeMode,
+      Value<double?> uiScale,
       Value<String?> activeAccountId,
     });
 
@@ -10639,6 +10747,16 @@ class $$PreferencesTableTableFilterComposer
 
   ColumnFilters<String> get discoveryRegion => $composableBuilder(
     column: $table.discoveryRegion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get themeMode => $composableBuilder(
+    column: $table.themeMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get uiScale => $composableBuilder(
+    column: $table.uiScale,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10697,6 +10815,16 @@ class $$PreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get themeMode => $composableBuilder(
+    column: $table.themeMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get uiScale => $composableBuilder(
+    column: $table.uiScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get activeAccountId => $composableBuilder(
     column: $table.activeAccountId,
     builder: (column) => ColumnOrderings(column),
@@ -10750,6 +10878,12 @@ class $$PreferencesTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get themeMode =>
+      $composableBuilder(column: $table.themeMode, builder: (column) => column);
+
+  GeneratedColumn<double> get uiScale =>
+      $composableBuilder(column: $table.uiScale, builder: (column) => column);
+
   GeneratedColumn<String> get activeAccountId => $composableBuilder(
     column: $table.activeAccountId,
     builder: (column) => column,
@@ -10801,6 +10935,8 @@ class $$PreferencesTableTableTableManager
                 Value<String?> contentLanguages = const Value.absent(),
                 Value<String?> tmdbApiKey = const Value.absent(),
                 Value<String?> discoveryRegion = const Value.absent(),
+                Value<String?> themeMode = const Value.absent(),
+                Value<double?> uiScale = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion(
                 id: id,
@@ -10811,6 +10947,8 @@ class $$PreferencesTableTableTableManager
                 contentLanguages: contentLanguages,
                 tmdbApiKey: tmdbApiKey,
                 discoveryRegion: discoveryRegion,
+                themeMode: themeMode,
+                uiScale: uiScale,
                 activeAccountId: activeAccountId,
               ),
           createCompanionCallback:
@@ -10823,6 +10961,8 @@ class $$PreferencesTableTableTableManager
                 Value<String?> contentLanguages = const Value.absent(),
                 Value<String?> tmdbApiKey = const Value.absent(),
                 Value<String?> discoveryRegion = const Value.absent(),
+                Value<String?> themeMode = const Value.absent(),
+                Value<double?> uiScale = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion.insert(
                 id: id,
@@ -10833,6 +10973,8 @@ class $$PreferencesTableTableTableManager
                 contentLanguages: contentLanguages,
                 tmdbApiKey: tmdbApiKey,
                 discoveryRegion: discoveryRegion,
+                themeMode: themeMode,
+                uiScale: uiScale,
                 activeAccountId: activeAccountId,
               ),
           withReferenceMapper: (p0) => p0

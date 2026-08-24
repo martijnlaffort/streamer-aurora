@@ -36,7 +36,7 @@ class HiddenChannelsScreen extends ConsumerWidget {
             error: e, onRetry: () => ref.invalidate(_hiddenChannelsProvider)),
         data: (channels) {
           if (channels.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
@@ -55,7 +55,7 @@ class HiddenChannelsScreen extends ConsumerWidget {
               final entry = channels[i];
               return ListTile(
                 autofocus: i == 0,
-                leading: const Icon(Icons.visibility_off_outlined,
+                leading: Icon(Icons.visibility_off_outlined,
                     color: AppColors.textSecondary),
                 title: Text(entry.name),
                 trailing: TextButton(

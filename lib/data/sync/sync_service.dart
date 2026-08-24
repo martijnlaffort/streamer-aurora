@@ -202,15 +202,19 @@ class SyncService {
           winner.prefs.autoplayNext == local.autoplayNext &&
           winner.prefs.backgroundPlayback == local.backgroundPlayback;
       if (same) return false;
-      // The TMDB key, discovery region and content-language filter are all
-      // device-local and NOT part of the sync payload, so carry the local
-      // values across — saving the remote winner verbatim would clear them on
-      // every sync. (contentLanguages was previously missed here, so the
-      // language filter silently reset to "show all" after each sync.)
+      // Every device-local field has to be carried across explicitly: the sync
+      // payload only carries the four playback settings, so saving the remote
+      // winner verbatim resets everything else to its default on every sync.
+      // contentLanguages was missed here once already and the language filter
+      // silently reset to "show all" after each sync — themeMode and uiScale
+      // would do exactly the same, and a television is not the place to be told
+      // your theme keeps changing back.
       await _preferencesRepo.save(winner.prefs.copyWith(
         tmdbApiKey: local.tmdbApiKey,
         discoveryRegion: local.discoveryRegion,
         contentLanguages: local.contentLanguages,
+        themeMode: local.themeMode,
+        uiScale: local.uiScale,
       ));
       await _configStore.setPreferencesChangedAt(winner.updatedAt);
       return true;

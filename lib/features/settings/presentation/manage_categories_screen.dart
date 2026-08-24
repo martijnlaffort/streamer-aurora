@@ -54,7 +54,7 @@ class ManageCategoriesScreen extends ConsumerWidget {
             onRetry: () => ref.invalidate(_allCategoriesProvider(type))),
         data: (list) {
           if (list.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text('This playlist has no groups yet.',
@@ -76,7 +76,7 @@ class ManageCategoriesScreen extends ConsumerWidget {
 
           return Column(
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
                 child: Text(
                   'Drag to reorder. Hidden groups disappear from browsing, '
@@ -125,7 +125,7 @@ class ManageCategoriesScreen extends ConsumerWidget {
                           : Text(category.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   color: AppColors.textSecondary,
                                   fontSize: 12)),
                       trailing: IconButton(

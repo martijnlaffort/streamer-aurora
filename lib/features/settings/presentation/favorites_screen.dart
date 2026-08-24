@@ -132,13 +132,13 @@ class _UnresolvedNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline,
+          Icon(Icons.info_outline,
               size: 18, color: AppColors.textSecondary),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               lines.join('\n\n'),
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.textSecondary, fontSize: 12, height: 1.4),
             ),
           ),
@@ -236,7 +236,7 @@ class FavoritesScreen extends ConsumerWidget {
                     leading: _ChannelLogo(url: channel.logoUrl),
                     title: Text(channel.name,
                         maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: const Icon(Icons.play_circle_outline,
+                    trailing: Icon(Icons.play_circle_outline,
                         color: AppColors.textSecondary),
                     onTap: () => _playChannel(context, channel),
                   ),
@@ -311,9 +311,9 @@ class _ChannelLogo extends StatelessWidget {
               fit: BoxFit.contain,
               memCacheWidth: 200,
               errorWidget: (context, u, e) =>
-                  const Icon(Icons.live_tv, color: AppColors.textSecondary),
+                  Icon(Icons.live_tv, color: AppColors.textSecondary),
             )
-          : const Icon(Icons.live_tv, color: AppColors.textSecondary),
+          : Icon(Icons.live_tv, color: AppColors.textSecondary),
     );
   }
 }

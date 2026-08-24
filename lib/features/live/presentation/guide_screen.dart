@@ -129,7 +129,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
               const SizedBox(height: 4),
               Text(
                 '${_hhmm(e.start)} – ${_hhmm(e.stop)}  ·  ${channel.name}',
-                style: const TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: AppColors.textSecondary),
               ),
               if (e.description != null) ...[
                 const SizedBox(height: 12),
@@ -185,7 +185,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                   padding: const EdgeInsets.only(left: 16, bottom: 6),
                   child: Text(
                     'Showing the first $guideChannelLimit channels with a guide',
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppColors.textSecondary, fontSize: 11),
                   ),
                 ),
@@ -200,7 +200,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(guideProvider)),
         data: (data) {
           if (data == null || data.channels.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
                 padding: EdgeInsets.all(32),
                 child: Column(
@@ -285,7 +285,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                               height: _rowHeight,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 8),
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 border: Border(
                                   bottom: BorderSide(color: AppColors.surface),
                                   right: BorderSide(color: AppColors.surface),
@@ -376,7 +376,7 @@ class _TimeAxis extends StatelessWidget {
         child: Text(
           '${t.hour.toString().padLeft(2, '0')}:'
           '${t.minute.toString().padLeft(2, '0')}',
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
         ),
       ));
     }

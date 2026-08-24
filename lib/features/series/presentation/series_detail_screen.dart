@@ -85,13 +85,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             fit: BoxFit.cover,
             memCacheWidth: 1080,
             placeholder: (context, url) =>
-                const ColoredBox(color: AppColors.surfaceElevated),
+                ColoredBox(color: AppColors.surfaceElevated),
             errorWidget: (context, url, error) =>
-                const ColoredBox(color: AppColors.surfaceElevated),
+                ColoredBox(color: AppColors.surfaceElevated),
           )
         else
-          const ColoredBox(color: AppColors.surfaceElevated),
-        const DecoratedBox(decoration: BoxDecoration(gradient: AppColors.scrim)),
+          ColoredBox(color: AppColors.surfaceElevated),
+        DecoratedBox(decoration: BoxDecoration(gradient: AppColors.scrim)),
       ],
     );
   }
@@ -193,7 +193,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                         style: AppTypography.display.copyWith(fontSize: 25)),
                     const SizedBox(height: 10),
                     Text(meta,
-                        style: const TextStyle(color: AppColors.textSecondary)),
+                        style: TextStyle(color: AppColors.textSecondary)),
                     if (series.plot != null) ...[
                       const SizedBox(height: 16),
                       Text(series.plot!,
@@ -283,7 +283,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               if (!hasEpisodes)
                 Padding(
                   padding: EdgeInsets.fromLTRB(sidePad, 8, sidePad, 0),
-                  child: const Text(
+                  child: Text(
                       'No episodes available for this series yet.',
                       style: TextStyle(color: AppColors.textSecondary)),
                 ),
@@ -371,12 +371,12 @@ class _EpisodeTile extends StatelessWidget {
                     fit: BoxFit.cover,
                     memCacheWidth: 720,
                     placeholder: (context, url) =>
-                        const ColoredBox(color: AppColors.surfaceElevated),
+                        ColoredBox(color: AppColors.surfaceElevated),
                     errorWidget: (context, url, error) =>
-                        const ColoredBox(color: AppColors.surfaceElevated),
+                        ColoredBox(color: AppColors.surfaceElevated),
                   )
                 else
-                  const ColoredBox(color: AppColors.surfaceElevated),
+                  ColoredBox(color: AppColors.surfaceElevated),
                 if (fraction > 0 && !(progress?.completed ?? false))
                   Align(
                     alignment: Alignment.bottomCenter,
@@ -401,11 +401,11 @@ class _EpisodeTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis),
       subtitle: episode.durationSeconds != null
           ? Text('${(episode.durationSeconds! / 60).ceil()} min',
-              style: const TextStyle(color: AppColors.textSecondary))
+              style: TextStyle(color: AppColors.textSecondary))
           : null,
       trailing: (progress?.completed ?? false)
-          ? const Icon(Icons.check_circle, color: AppColors.accentAlt, size: 20)
-          : const Icon(Icons.play_circle_outline,
+          ? Icon(Icons.check_circle, color: AppColors.accentAlt, size: 20)
+          : Icon(Icons.play_circle_outline,
               color: AppColors.textSecondary, size: 20),
         ),
       ),

@@ -234,6 +234,13 @@ extension PreferencesRowMapper on PreferencesRow {
             : contentLanguages!.split(','),
         tmdbApiKey: tmdbApiKey,
         discoveryRegion: discoveryRegion,
+        // Unknown or absent falls back to the dark default rather than throwing:
+        // an unreadable preference should not stop the app opening.
+        themeMode: AppThemeMode.values.firstWhere(
+          (m) => m.name == themeMode,
+          orElse: () => AppThemeMode.dark,
+        ),
+        uiScale: uiScale ?? 1.0,
       );
 }
 

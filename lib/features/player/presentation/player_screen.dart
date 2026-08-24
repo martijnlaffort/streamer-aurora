@@ -1311,7 +1311,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               onHorizontalDragEnd: _onHorizontalDragEnd,
             ),
             if (_buffering && _error == null && !_reconnecting)
-              const Center(
+              Center(
                   child: CircularProgressIndicator(color: AppColors.accent)),
             // Covers the (paused) video while the TV has it, so there is never
             // any doubt about which screen is playing.
@@ -1372,7 +1372,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.cast_connected,
+              Icon(Icons.cast_connected,
                   size: 56, color: AppColors.accent),
               const SizedBox(height: 20),
               Text(
@@ -1387,7 +1387,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.textSecondary)),
+                  style: TextStyle(color: AppColors.textSecondary)),
               if (!_current.isLive && _cast.durationSeconds > 0) ...[
                 const SizedBox(height: 14),
                 Text(
@@ -1463,7 +1463,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(
+          SizedBox(
             width: 28,
             height: 28,
             child: CircularProgressIndicator(
@@ -1477,7 +1477,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           const SizedBox(height: 4),
           Text(
             'Attempt $_reconnectAttempt of $_maxReconnectAttempts',
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textSecondary, fontSize: 12),
           ),
         ],
@@ -1547,7 +1547,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, color: AppColors.error, size: 40),
+            Icon(Icons.error_outline, color: AppColors.error, size: 40),
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -1560,7 +1560,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 48),
                 child: Text(friendly.hint!,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: AppColors.textSecondary)),
+                    style: TextStyle(color: AppColors.textSecondary)),
               ),
             ],
             const SizedBox(height: 16),
@@ -1590,7 +1590,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   child: SingleChildScrollView(
                     child: SelectableText(
                       [?_error, ..._diagLog].join('\n'),
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontFamily: 'monospace',
                           fontSize: 11,
                           color: AppColors.textSecondary),

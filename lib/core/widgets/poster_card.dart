@@ -9,7 +9,7 @@ import '../theme/app_typography.dart';
 /// 2:3 poster tile used by rails and (from Task 1.2) grids. Focus-aware from
 /// the start (PRD §10): hover/D-pad focus scales the card slightly, so the
 /// Android TV layer can reuse it unchanged.
-class PosterCard extends StatefulWidget {
+class PosterCard extends ConsumerStatefulWidget {
   const PosterCard({
     super.key,
     required this.title,
@@ -52,10 +52,10 @@ class PosterCard extends StatefulWidget {
   final double? rating;
 
   @override
-  State<PosterCard> createState() => _PosterCardState();
+  ConsumerState<PosterCard> createState() => _PosterCardState();
 }
 
-class _PosterCardState extends State<PosterCard> {
+class _PosterCardState extends ConsumerState<PosterCard> {
   bool _engaged = false;
 
   Widget _maybeHero(Widget child) =>
@@ -67,8 +67,11 @@ class _PosterCardState extends State<PosterCard> {
     // decodes at full source resolution (a 1000×1500 poster ≈ 6 MB of RAM),
     // and a few rails' worth is enough to trip iOS's per-app memory limit and
     // kill the app while scrolling.
+    // Cards are laid out in logical pixels, so the size preference applies here
+    // rather than through the text scaler.
+    final width = widget.width * ref.watch(uiScaleProvider);
     final decodeWidth =
-        (widget.width * MediaQuery.devicePixelRatioOf(context)).round();
+        (width * MediaQuery.devicePixelRatioOf(context)).round();
     // The card is a picture plus a caption; without this a screen reader reads
     // the caption with no indication it is a button, and the rating/rank
     // badges are announced as loose numbers.
@@ -82,7 +85,7 @@ class _PosterCardState extends State<PosterCard> {
       ].join(', '),
       excludeSemantics: true,
       child: SizedBox(
-      width: widget.width,
+      width: width,
       child: MouseRegion(
         onEnter: (_) => setState(() => _engaged = true),
         onExit: (_) => setState(() => _engaged = false),
@@ -165,7 +168,7 @@ class _PosterCardState extends State<PosterCard> {
                           child: _maybeHero(ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: DecoratedBox(
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 color: AppColors.surfaceElevated,
                               ),
                               child: widget.imageUrl != null
@@ -176,10 +179,10 @@ class _PosterCardState extends State<PosterCard> {
                                       fadeInDuration:
                                           const Duration(milliseconds: 180),
                                       placeholder: (context, url) =>
-                                          const ColoredBox(
+                                          ColoredBox(
                                               color: AppColors.surfaceElevated),
                                       errorWidget: (context, url, error) =>
-                                          const Center(
+                                          Center(
                                         child: Icon(Icons.broken_image_outlined,
                                             color: AppColors.textSecondary),
                                       ),
@@ -271,7 +274,7 @@ class _NoArtwork extends ConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.movie_outlined,
+          Icon(Icons.movie_outlined,
               size: 22, color: AppColors.textSecondary),
           const SizedBox(height: 8),
           Text(
@@ -279,7 +282,7 @@ class _NoArtwork extends ConsumerWidget {
             maxLines: 4,
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 12,
                 height: 1.25,
@@ -316,7 +319,7 @@ class _RankNumeral extends StatelessWidget {
                 ..color = Colors.black.withValues(alpha: 0.85),
             )),
         Text(text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 56,
               height: 1.0,
               fontWeight: FontWeight.w800,
@@ -344,11 +347,11 @@ class _RatingBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.star_rounded, size: 13, color: AppColors.accentAlt),
+          Icon(Icons.star_rounded, size: 13, color: AppColors.accentAlt),
           const SizedBox(width: 2),
           Text(
             rating.toStringAsFixed(1),
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 11,
               fontWeight: FontWeight.w600,

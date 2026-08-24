@@ -200,6 +200,14 @@ class PreferencesTable extends Table {
   /// Null → derived from the device locale (added in schema v6).
   TextColumn get discoveryRegion => text().nullable()();
 
+  /// [AppThemeMode] name, or null for the dark default (added in schema v12).
+  TextColumn get themeMode => text().nullable()();
+
+  /// Text/poster size multiplier, 1.0 = as designed (added in schema v12).
+  /// Device-local: it is not part of the sync payload, so sizing a phone does
+  /// not resize the television.
+  RealColumn get uiScale => real().nullable()();
+
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
 
@@ -445,7 +453,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -506,6 +514,12 @@ class AppDatabase extends _$AppDatabase {
           // refresh replaces catalogue rows wholesale.
           if (from < 11) {
             await m.createTable(catalogOverridesTable);
+          }
+          // v12: theme choice and UI scale. Both nullable, so existing installs
+          // keep the dark theme at its designed size without a backfill.
+          if (from < 12) {
+            await m.addColumn(preferencesTable, preferencesTable.themeMode);
+            await m.addColumn(preferencesTable, preferencesTable.uiScale);
           }
         },
         beforeOpen: (details) async {

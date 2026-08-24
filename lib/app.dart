@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'data/providers.dart';
 import 'data/sync/sync_providers.dart';
+import 'domain/models/models.dart' show AppThemeMode, Preferences;
 import 'data/sync/sync_trigger.dart';
 import 'features/home/home_providers.dart';
 import 'features/live/live_providers.dart' show favoriteChannelsProvider;
@@ -114,13 +118,55 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
     // live set is small; the eviction cost far outweighed what it freed.
   }
 
+  /// The system palette changed under a `system` theme setting.
+  @override
+  void didChangePlatformBrightness() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
+    final prefs =
+        ref.watch(preferencesProvider).value ?? const Preferences.defaults();
+
+    // Read from the dispatcher rather than MediaQuery: this widget sits ABOVE
+    // MaterialApp, so there is no MediaQuery ancestor to ask. Changes arrive
+    // through didChangePlatformBrightness above.
+    final systemDark = PlatformDispatcher.instance.platformBrightness ==
+        Brightness.dark;
+    final dark = switch (prefs.themeMode) {
+      AppThemeMode.dark => true,
+      AppThemeMode.light => false,
+      AppThemeMode.system => systemDark,
+    };
+    // The ~250 colour references in the app read this rather than a
+    // ThemeExtension, so it has to be set before the tree below builds. Doing it
+    // here is exactly that: a parent builds before its descendants.
+    AppColors.palette = dark ? DawnPalette.dark : DawnPalette.light;
+
     return MaterialApp.router(
       title: 'Dawn Player',
-      theme: AppTheme.dark,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: switch (prefs.themeMode) {
+        AppThemeMode.dark => ThemeMode.dark,
+        AppThemeMode.light => ThemeMode.light,
+        AppThemeMode.system => ThemeMode.system,
+      },
       routerConfig: ref.watch(appRouterProvider),
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        // Composed with the device's own text scale rather than replacing it:
+        // someone who has made system text larger for a reason should not have
+        // that undone by choosing a size here.
+        final system = MediaQuery.textScalerOf(context).scale(1);
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(system * prefs.uiScale),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

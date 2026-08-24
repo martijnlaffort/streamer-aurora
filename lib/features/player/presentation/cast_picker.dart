@@ -50,7 +50,7 @@ class _CastPicker extends ConsumerWidget {
           ),
         ),
         devices.when(
-          loading: () => const Padding(
+          loading: () => Padding(
             padding: EdgeInsets.all(28),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -68,11 +68,11 @@ class _CastPicker extends ConsumerWidget {
           error: (e, _) => Padding(
             padding: const EdgeInsets.all(24),
             child: Text('$e',
-                style: const TextStyle(color: AppColors.error)),
+                style: TextStyle(color: AppColors.error)),
           ),
           data: (list) {
             if (list.isEmpty) {
-              return const Padding(
+              return Padding(
                 padding: EdgeInsets.fromLTRB(24, 12, 24, 28),
                 child: Text(
                   'No devices found. A Chromecast has to be on the same '

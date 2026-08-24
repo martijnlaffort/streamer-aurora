@@ -152,7 +152,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               data.channels.isEmpty) {
             return Center(
               child: Text('Nothing found for “${_query.trim()}”.',
-                  style: const TextStyle(color: AppColors.textSecondary)),
+                  style: TextStyle(color: AppColors.textSecondary)),
             );
           }
           return ListView(
@@ -228,7 +228,7 @@ class _RecentSearches extends ConsumerWidget {
       orElse: () => const SizedBox.shrink(),
       data: (queries) {
         if (queries.isEmpty) {
-          return const Center(
+          return Center(
             child: Text('Search movies, series, and channels.',
                 style: TextStyle(color: AppColors.textSecondary)),
           );
@@ -247,7 +247,7 @@ class _RecentSearches extends ConsumerWidget {
             ),
             for (final q in queries)
               ListTile(
-                leading: const Icon(Icons.history, color: AppColors.textSecondary),
+                leading: Icon(Icons.history, color: AppColors.textSecondary),
                 title: Text(q),
                 trailing: IconButton(
                   icon: const Icon(Icons.close, size: 18),
@@ -313,9 +313,9 @@ class _ResultTile extends StatelessWidget {
                       imageUrl: imageUrl!,
                       fit: BoxFit.contain,
                       memCacheWidth: 120,
-                      errorWidget: (context, url, error) => const Icon(
+                      errorWidget: (context, url, error) => Icon(
                           Icons.live_tv, color: AppColors.textSecondary))
-                  : const Icon(Icons.live_tv, color: AppColors.textSecondary),
+                  : Icon(Icons.live_tv, color: AppColors.textSecondary),
             )
           : SizedBox(
               width: 40,
@@ -332,16 +332,16 @@ class _ResultTile extends StatelessWidget {
                           fit: BoxFit.cover,
                           memCacheWidth: 120,
                           errorWidget: (context, url, error) =>
-                              const ColoredBox(
+                              ColoredBox(
                                   color: AppColors.surfaceElevated))
-                      : const ColoredBox(color: AppColors.surfaceElevated),
+                      : ColoredBox(color: AppColors.surfaceElevated),
                 ),
               ),
             ),
       title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: subtitle != null && subtitle!.isNotEmpty
           ? Text(subtitle!,
-              style: const TextStyle(color: AppColors.textSecondary))
+              style: TextStyle(color: AppColors.textSecondary))
           : null,
     );
   }

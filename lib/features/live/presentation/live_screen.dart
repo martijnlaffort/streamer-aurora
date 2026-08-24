@@ -325,7 +325,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   /// under you rather than leaving a stale row behind.
   Widget _favoritesList(List<Channel> favorites) {
     if (favorites.isEmpty) {
-      return const Center(
+      return Center(
         child: Text('No favourite channels yet.',
             style: TextStyle(color: AppColors.textSecondary)),
       );
@@ -349,9 +349,9 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       if (_error != null) {
         return Center(
             child: Text('$_error',
-                style: const TextStyle(color: AppColors.error)));
+                style: TextStyle(color: AppColors.error)));
       }
-      return const Center(
+      return Center(
         child: Text('No channels in this playlist.',
             style: TextStyle(color: AppColors.textSecondary)),
       );
@@ -446,7 +446,7 @@ class _ChannelTile extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.visibility_off_outlined),
               title: const Text('Hide channel'),
-              subtitle: const Text('Undo in Settings → Hidden channels',
+              subtitle: Text('Undo in Settings → Hidden channels',
                   style: TextStyle(color: AppColors.textSecondary)),
               onTap: () async {
                 Navigator.pop(sheetContext);
@@ -564,14 +564,14 @@ class _ChannelTile extends ConsumerWidget {
                               Text('Now: ${now.title}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       color: AppColors.accentAlt,
                                       fontSize: 13)),
                               if (next != null)
                                 Text('Next: ${next.title}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 13)),
                               const SizedBox(height: 4),
@@ -581,7 +581,7 @@ class _ChannelTile extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.play_circle_outline,
+                      Icon(Icons.play_circle_outline,
                           color: AppColors.textSecondary, size: 22),
                     ],
                   ),
@@ -613,7 +613,7 @@ class _ChannelTile extends ConsumerWidget {
             scale: 1.0,
             child: IconButton(
               tooltip: 'More',
-              icon: const Icon(Icons.more_vert,
+              icon: Icon(Icons.more_vert,
                   size: 22, color: AppColors.textSecondary),
               onPressed: () =>
                   _showChannelMenu(context, ref, displayName, overrides),
@@ -646,10 +646,10 @@ class _Logo extends StatelessWidget {
               imageUrl: url!,
               fit: BoxFit.contain,
               memCacheWidth: 200,
-              errorWidget: (context, u, e) => const Icon(Icons.live_tv,
+              errorWidget: (context, u, e) => Icon(Icons.live_tv,
                   color: AppColors.textSecondary),
             )
-          : const Icon(Icons.live_tv, color: AppColors.textSecondary),
+          : Icon(Icons.live_tv, color: AppColors.textSecondary),
     );
   }
 }

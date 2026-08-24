@@ -27,11 +27,11 @@ class AccountsScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Text('Could not load accounts: $e',
-              style: const TextStyle(color: AppColors.error)),
+              style: TextStyle(color: AppColors.error)),
         ),
         data: (list) {
           if (list.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -65,19 +65,19 @@ class AccountsScreen extends ConsumerWidget {
                   title: Text(account.name),
                   subtitle: Text(
                     '${account.type.name} · ${_hostOf(account.serverUrl)}',
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: TextStyle(color: AppColors.textSecondary),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (isActive)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(right: 4),
                           child: Icon(Icons.check_circle,
                               color: AppColors.accent, size: 20),
                         ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline,
+                        icon: Icon(Icons.delete_outline,
                             color: AppColors.textSecondary),
                         onPressed: () => _confirmDelete(context, ref, account),
                       ),

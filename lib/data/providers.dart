@@ -166,6 +166,11 @@ final favoritesRepositoryProvider = Provider<FavoritesRepository>(
           onChanged: () => ref.read(syncTriggerProvider).ping(),
         ));
 
+/// The user's size multiplier. Text scales through MediaQuery in [DawnPlayerApp];
+/// posters and rails are laid out in logical pixels, so they read this instead.
+final uiScaleProvider = Provider<double>(
+    (ref) => ref.watch(preferencesProvider).value?.uiScale ?? 1.0);
+
 final catalogOverridesRepositoryProvider =
     Provider<CatalogOverridesRepository>((ref) =>
         CatalogOverridesRepository(db: ref.watch(appDatabaseProvider)));

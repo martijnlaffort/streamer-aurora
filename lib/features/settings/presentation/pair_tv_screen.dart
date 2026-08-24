@@ -94,7 +94,7 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_outline,
+                  Icon(Icons.check_circle_outline,
                       color: AppColors.accentAlt),
                   const SizedBox(width: 12),
                   Expanded(
@@ -103,7 +103,7 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
                       children: [
                         Text(_done!, style: AppTypography.body),
                         const SizedBox(height: 4),
-                        const Text('Your TV should be ready now.',
+                        Text('Your TV should be ready now.',
                             style: TextStyle(
                                 color: AppColors.textSecondary, fontSize: 12)),
                       ],
@@ -114,7 +114,7 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
             ),
             const SizedBox(height: 20),
           ],
-          const Text(
+          Text(
             'On your TV, open Dawn Player and go to Settings → Pair with your '
             'phone. Enter the code it shows here.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.4),
@@ -145,7 +145,7 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: AppColors.error)),
+            Text(_error!, style: TextStyle(color: AppColors.error)),
           ],
           const SizedBox(height: 20),
           FilledButton.icon(
@@ -159,7 +159,7 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
             label: Text(_sending ? 'Sending…' : 'Send to TV'),
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'This sends your playlists — including their passwords — and your '
             'sync token, so nothing has to be typed on the TV. They pass '
             'through your own sync server and are deleted the moment the TV '

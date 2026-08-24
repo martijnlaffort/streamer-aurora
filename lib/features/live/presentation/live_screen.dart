@@ -14,6 +14,7 @@ import '../../../domain/models/models.dart';
 import '../../movies/movies_providers.dart' show isFavoriteProvider;
 import '../../player/player_request.dart';
 import '../live_providers.dart';
+import 'multi_view_screen.dart';
 
 /// Live TV (PRD §8.5): channel list with category filter and favorites,
 /// now/next where the source provides EPG, tap to play.
@@ -441,6 +442,18 @@ class _ChannelTile extends ConsumerWidget {
               onTap: () {
                 Navigator.pop(sheetContext);
                 _renameChannel(context, ref, custom);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.splitscreen_outlined),
+              title: const Text('Watch alongside…'),
+              subtitle: Text('Two channels side by side',
+                  style: TextStyle(color: AppColors.textSecondary)),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                final other = await pickCompanionChannel(context, channel);
+                if (other == null || !context.mounted) return;
+                context.push('/multiview', extra: <Channel>[channel, other]);
               },
             ),
             ListTile(

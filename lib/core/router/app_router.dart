@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/live/presentation/guide_screen.dart';
 import '../../features/live/presentation/live_screen.dart';
+import '../../features/live/presentation/multi_view_screen.dart';
 import '../../features/movies/presentation/movie_category_screen.dart';
 import '../../features/movies/presentation/movie_detail_screen.dart';
 import '../../features/movies/presentation/movies_screen.dart';
@@ -25,7 +26,7 @@ import '../../features/settings/presentation/favorites_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/source_probe_screen.dart';
 import '../../features/settings/presentation/sync_settings_screen.dart';
-import '../../domain/models/models.dart' show CategoryType;
+import '../../domain/models/models.dart' show CategoryType, Channel;
 import 'app_shell.dart';
 
 /// Provider-wrapped so later tasks can add guards that watch app state.
@@ -132,6 +133,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/guide',
         name: 'guide',
         builder: (context, state) => const GuideScreen(),
+      ),
+      GoRoute(
+        path: '/multiview',
+        name: 'multiview',
+        // Needs its channels handed over in `extra`; without them there is
+        // nothing to show, so send the user back to Live rather than crash.
+        redirect: (context, state) =>
+            state.extra is List<Channel> ? null : '/live',
+        builder: (context, state) =>
+            MultiViewScreen(channels: state.extra! as List<Channel>),
       ),
       GoRoute(
         path: '/favorites',

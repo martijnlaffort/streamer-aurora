@@ -19,6 +19,11 @@ class AccountsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Accounts')),
       floatingActionButton: FloatingActionButton.extended(
+        // Without this the screen is a dead end on a remote: when there are no
+        // accounts yet nothing else on it can take focus, so the D-pad has
+        // nowhere to go and the only way out is Back — which is exactly the
+        // screen a new TV user lands on from "Or add a playlist manually".
+        autofocus: true,
         onPressed: () => context.push('/accounts/add'),
         icon: const Icon(Icons.add),
         label: const Text('Add account'),

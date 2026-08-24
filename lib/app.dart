@@ -4,6 +4,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/platform/television.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
@@ -128,6 +129,24 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
   Widget build(BuildContext context) {
     final prefs =
         ref.watch(preferencesProvider).value ?? const Preferences.defaults();
+
+    // Material draws a widget's focus highlight only while the focus manager
+    // is in `traditional` mode, and on Android it starts in `touch` mode and
+    // only leaves it when a key event arrives from a real input device. A
+    // television has no touch screen, so `touch` is never the right mode there
+    // — and until the first qualifying key press every stock ListTile, button
+    // and text field is focusable but shows nothing, which is exactly the "I
+    // can't tell where my cursor is" complaint. Pinning the strategy drops the
+    // dependency on what the last interaction happened to be.
+    //
+    // It also makes the Android TV emulator faithful: `adb shell input
+    // keyevent` injects with deviceId -1 (the virtual keyboard), which Flutter
+    // deliberately ignores for this purpose, so focus moved invisibly there and
+    // every scripted D-pad test looked broken when it was not.
+    if (isTelevisionOf(ref)) {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+    }
 
     // Read from the dispatcher rather than MediaQuery: this widget sits ABOVE
     // MaterialApp, so there is no MediaQuery ancestor to ask. Changes arrive

@@ -101,8 +101,17 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
   /// difference between a brief stutter and the app disappearing.
   @override
   void didHaveMemoryPressure() {
+    // Release the decoded images we are NOT showing. That is where the bulk of
+    // reclaimable memory sits after scrolling a large catalogue, and dropping it
+    // is invisible to the user.
     PaintingBinding.instance.imageCache.clear();
-    PaintingBinding.instance.imageCache.clearLiveImages();
+    // Deliberately NOT clearLiveImages(). That evicts the images currently on
+    // screen, so every visible poster and backdrop had to re-decode and each one
+    // flashed back through its placeholder — which read as the whole app
+    // reloading itself, and fired exactly when the user was scrolling or opening
+    // a detail page (peak decode) but never while watching a video (no posters
+    // being decoded). Posters are decode-capped at their on-screen size, so the
+    // live set is small; the eviction cost far outweighed what it freed.
   }
 
   @override

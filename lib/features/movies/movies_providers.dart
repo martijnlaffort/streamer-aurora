@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/language/content_language.dart';
@@ -31,7 +32,7 @@ final vodCategoriesProvider = FutureProvider<List<Category>>((ref) async {
 });
 
 /// Page size for the browse grid. Small enough that the grid never holds the
-/// whole catalog in memory — a large catalog would otherwise blow the app's
+/// whole catalog in memory â€” a large catalog would otherwise blow the app's
 /// memory budget and get it killed by the OS. Pagination lives in
 /// [PagedPosterGrid], which fetches one page at a time via the repository.
 const moviesPageSize = 90;
@@ -39,7 +40,7 @@ const moviesPageSize = 90;
 /// How many posters one category rail shows before "See all".
 const categoryRailLength = 15;
 
-/// Route sentinel for "no category filter" — the unscoped grid reachable from
+/// Route sentinel for "no category filter" â€” the unscoped grid reachable from
 /// the Movies/Series app bar. Not a real category id, so it cannot collide with
 /// one from a panel.
 const allCategoryId = '__all__';
@@ -48,7 +49,7 @@ const allCategoryId = '__all__';
 ///
 /// The Movies tab is one rail per category, and a line can have hundreds. Since
 /// the panel offers no per-category limit, warming a category downloads the
-/// whole category — so a fling from top to bottom must not queue a fetch per
+/// whole category â€” so a fling from top to bottom must not queue a fetch per
 /// rail. Rails that scroll past within this window are disposed before they ask
 /// for anything, which makes fast scrolling free.
 const _railDwell = Duration(milliseconds: 350);
@@ -65,6 +66,19 @@ final movieCategoryRailProvider =
   ref.onDispose(() => gone = true);
   await Future<void>.delayed(_railDwell);
   if (gone) return const [];
+
+  // Past the dwell, this is a rail the user actually stopped on — so keep the
+  // result for a few minutes instead of letting autoDispose drop it the moment
+  // it scrolls out of view.
+  //
+  // Without this, every scroll past a rail disposed it, and scrolling back re-ran
+  // the dwell, re-showed a placeholder and re-decided the row's height. Dozens
+  // of rails doing that is what made the tab look like it was reloading itself,
+  // and when enough of them collapsed at once the list became shorter than the
+  // scroll offset and threw you back to the top. A fast flick still costs
+  // nothing — those disposals happen during the dwell above.
+  final keepAlive = ref.keepAlive();
+  Timer(const Duration(minutes: 5), keepAlive.close);
 
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return const [];
@@ -95,7 +109,7 @@ final movieCategoryRailProvider =
     return cached;
   }
   if (gone) return const [];
-  // Nothing cached — this is the one case worth waiting for, and it is a single
+  // Nothing cached â€” this is the one case worth waiting for, and it is a single
   // category, not a sweep.
   await catalog.warmCategory(account, CatalogKind.vod, categoryId);
   final warmed = await fromCache(page: page);

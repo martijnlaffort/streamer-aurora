@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/category_chips.dart';
 import '../../../core/widgets/focus_highlight.dart';
+import '../../../data/db/app_database.dart' show OverrideScope;
 import '../../../data/providers.dart';
+import '../../../data/repositories/catalog_overrides_repository.dart';
 import '../../../domain/models/models.dart';
 import '../../movies/movies_providers.dart' show isFavoriteProvider;
 import '../../player/player_request.dart';
@@ -29,6 +32,19 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   /// Set once the user picks a chip themselves, so the favourites default is
   /// only ever applied on arrival and never fights an explicit choice.
   bool _pickedCategory = false;
+
+  /// Sort alphabetically instead of in the playlist's own order. Playlist order
+  /// is the default, because that is the numbering people know their channels
+  /// by; the letter index below only means anything once sorted A–Z.
+  bool _byName = false;
+
+  /// Selected letter from the A–Z index, or null for all.
+  ///
+  /// Deliberately a FILTER rather than a scroll-to-offset. On a 25k-channel line
+  /// "jump to S" and "show me the S channels" are the same intent, and a filter
+  /// composes correctly with paging — a real offset jump would need the list to
+  /// hold thousands of rows it never loaded.
+  String? _letter;
 
   /// The content-language filter in force for the current listing, captured so
   /// the player can zap through the same set the user is browsing.
@@ -123,6 +139,8 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
             categoryId: _categoryId,
             categoryIds: allowed,
             excludeIds: overrides.hiddenChannels,
+            byName: _byName,
+            namePrefix: _letter,
             limit: channelsPageSize,
             offset: _items.length,
           );
@@ -179,6 +197,18 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       appBar: AppBar(
         title: const Text('Live TV'),
         actions: [
+          IconButton(
+            icon: Icon(_byName ? Icons.sort_by_alpha : Icons.format_list_numbered),
+            tooltip: _byName ? 'Sorted A–Z' : 'Playlist order',
+            onPressed: () {
+              setState(() {
+                _byName = !_byName;
+                // The letter index only means anything alphabetically.
+                if (!_byName) _letter = null;
+              });
+              _reload();
+            },
+          ),
           if (hasEpg)
             IconButton(
               icon: const Icon(Icons.calendar_month_outlined),
@@ -213,12 +243,79 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
             loading: () => const SizedBox(height: 44),
             error: (e, _) => const SizedBox(height: 44),
           ),
+          // The A–Z index, only while sorted alphabetically — in playlist order
+          // a letter would pick out channels scattered through the whole list.
+          if (_byName && _categoryId != favoritesCategoryId) _letterStrip(),
           Expanded(
             child: _categoryId == favoritesCategoryId
                 ? _favoritesList(favorites)
                 : _list(),
           ),
         ],
+      ),
+    );
+  }
+
+  /// A–Z index. Tapping a letter narrows the list to it; tapping it again, or
+  /// "All", clears it.
+  Widget _letterStrip() {
+    const letters = [
+      'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+      'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+    ];
+    // (id, label) so "All" can sit at the front without a special case below.
+    final entries = <({String? value, String label})>[
+      (value: null, label: 'All'),
+      for (final l in letters) (value: l, label: l),
+    ];
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: entries.length,
+        separatorBuilder: (context, i) => const SizedBox(width: 6),
+        itemBuilder: (context, i) {
+          final entry = entries[i];
+          final selected = _letter == entry.value;
+          return FocusHighlight(
+            borderRadius: 16,
+            scale: 1.0,
+            ensureVisible: true,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              focusColor: Colors.transparent,
+              onTap: () {
+                setState(() => _letter = selected ? null : entry.value);
+                _reload();
+              },
+              child: Container(
+                alignment: Alignment.center,
+                constraints: const BoxConstraints(minWidth: 34),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.accent.withValues(alpha: 0.28)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                      color: selected
+                          ? AppColors.accent
+                          : AppColors.surfaceElevated),
+                ),
+                child: Text(
+                  entry.label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: selected
+                        ? AppColors.textPrimary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -311,12 +408,121 @@ class _ChannelTile extends ConsumerWidget {
     );
   }
 
+  /// Rename / hide, in a sheet rather than a popup menu so it is operable with a
+  /// remote (the first row takes focus).
+  Future<void> _showChannelMenu(BuildContext context, WidgetRef ref,
+      String displayName, CatalogOverrides overrides) async {
+    final custom = overrides.channelNames[channel.id];
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.title),
+              ),
+            ),
+            ListTile(
+              autofocus: true,
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Rename channel'),
+              subtitle: custom == null
+                  ? null
+                  : Text('Playlist name: ${channel.name}',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _renameChannel(context, ref, custom);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.visibility_off_outlined),
+              title: const Text('Hide channel'),
+              subtitle: const Text('Undo in Settings → Hidden channels',
+                  style: TextStyle(color: AppColors.textSecondary)),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                final account = await ref.read(activeAccountProvider.future);
+                if (account == null) return;
+                await ref.read(catalogOverridesRepositoryProvider).setHidden(
+                      accountId: account.id,
+                      scope: OverrideScope.channel,
+                      targetId: channel.id,
+                      hidden: true,
+                    );
+                ref.invalidate(catalogOverridesProvider);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _renameChannel(
+      BuildContext context, WidgetRef ref, String? current) async {
+    final controller = TextEditingController(text: current ?? '');
+    final name = await showDialog<String?>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename channel'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'Name',
+            hintText: channel.name,
+            border: const OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('Cancel')),
+          // Empty restores the playlist's own name, so there is no separate
+          // "clear" action to hunt for.
+          TextButton(
+              onPressed: () => Navigator.pop(context, ''),
+              child: const Text('Use original')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null) return;
+    final account = await ref.read(activeAccountProvider.future);
+    if (account == null) return;
+    await ref.read(catalogOverridesRepositoryProvider).setName(
+          accountId: account.id,
+          scope: OverrideScope.channel,
+          targetId: channel.id,
+          name: name,
+        );
+    ref.invalidate(catalogOverridesProvider);
+    ref.invalidate(favoriteChannelsProvider);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final nowNext = ref.watch(nowNextProvider(channel)).value ?? const [];
     final now = nowNext.isNotEmpty ? nowNext.first : null;
     final next = nowNext.length > 1 ? nowNext[1] : null;
     final favorite = ref.watch(isFavoriteProvider(_contentKey)).value ?? false;
+    final overrides =
+        ref.watch(catalogOverridesProvider).value ?? CatalogOverrides.empty;
+    final displayName = overrides.channelName(channel.id, channel.name);
 
     // The play area and the heart are SIBLINGS, not a ListTile with a trailing
     // button. That is what makes the heart reachable with a remote: a ListTile's
@@ -351,7 +557,7 @@ class _ChannelTile extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(channel.name,
+                            Text(displayName,
                                 maxLines: 1, overflow: TextOverflow.ellipsis),
                             if (now != null) ...[
                               const SizedBox(height: 2),
@@ -398,6 +604,19 @@ class _ChannelTile extends ConsumerWidget {
                 // The Favourites row reads this list, so it has to be told.
                 ref.invalidate(favoriteChannelsProvider);
               },
+            ),
+          ),
+          // A third sibling, for the same reason the heart is one: nested in the
+          // row's own InkWell it would be unreachable with a D-pad.
+          FocusHighlight(
+            borderRadius: 24,
+            scale: 1.0,
+            child: IconButton(
+              tooltip: 'More',
+              icon: const Icon(Icons.more_vert,
+                  size: 22, color: AppColors.textSecondary),
+              onPressed: () =>
+                  _showChannelMenu(context, ref, displayName, overrides),
             ),
           ),
         ],

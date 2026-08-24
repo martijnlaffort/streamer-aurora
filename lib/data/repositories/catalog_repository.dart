@@ -623,6 +623,13 @@ class CatalogRepository {
     String? categoryId,
     Set<String>? categoryIds,
     Set<String>? excludeIds,
+    /// Order alphabetically instead of by the panel's own `sortOrder`. Needed
+    /// for the A–Z index: jumping to a letter is meaningless in panel order.
+    bool byName = false,
+
+    /// Only channels whose name starts with this (case-insensitive) — the A–Z
+    /// index. Applied in SQL so pages stay full.
+    String? namePrefix,
     int? limit,
     int offset = 0,
   }) async {
@@ -635,8 +642,19 @@ class CatalogRepository {
       await _ensureSliceBootstrapped(account, CatalogKind.live);
     }
     final query = _db.channelsTable.select()
-      ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]);
+      ..orderBy([
+        if (byName)
+          (t) => OrderingTerm.asc(t.name)
+        else
+          (t) => OrderingTerm.asc(t.sortOrder),
+      ]);
     _scopeChannels(query, account, categoryId, categoryIds, excludeIds);
+    if (namePrefix != null && namePrefix.isNotEmpty) {
+      // The A–Z index passes a single letter, never user-typed text, so there
+      // is nothing here for LIKE's `%`/`_` wildcards to misread. (SQLite's LIKE
+      // is ASCII case-insensitive, which is what makes `b%` find `BBC`.)
+      query.where((t) => t.name.like('$namePrefix%'));
+    }
     if (limit != null) query.limit(limit, offset: offset);
     return (await query.get()).map((r) => r.toModel()).toList();
   }

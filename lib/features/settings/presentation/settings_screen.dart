@@ -332,6 +332,16 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/groups/series'),
           ),
+          // The way back from hiding a channel, which happens from a menu on
+          // the channel itself — without this the action would be one-way.
+          ListTile(
+            leading: const Icon(Icons.visibility_off_outlined),
+            title: const Text('Hidden channels'),
+            subtitle: const Text('Bring individual channels back',
+                style: TextStyle(color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/hidden-channels'),
+          ),
           ListTile(
             leading: const Icon(Icons.local_fire_department_outlined),
             title: const Text('Discovery rails'),

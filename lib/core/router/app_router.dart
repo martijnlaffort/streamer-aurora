@@ -17,6 +17,7 @@ import '../../features/settings/presentation/about_screen.dart';
 import '../../features/settings/presentation/accounts_screen.dart';
 import '../../features/settings/presentation/add_account_screen.dart';
 import '../../features/settings/presentation/content_languages_screen.dart';
+import '../../features/settings/presentation/hidden_channels_screen.dart';
 import '../../features/settings/presentation/manage_categories_screen.dart';
 import '../../features/settings/presentation/pair_device_screen.dart';
 import '../../features/settings/presentation/pair_tv_screen.dart';
@@ -166,6 +167,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             orElse: () => CategoryType.live,
           ),
         ),
+      ),
+      GoRoute(
+        path: '/settings/hidden-channels',
+        name: 'hiddenChannels',
+        builder: (context, state) => const HiddenChannelsScreen(),
       ),
       GoRoute(
         path: '/settings/languages',

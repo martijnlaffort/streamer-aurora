@@ -1,0 +1,113 @@
+/* ---------------------------------------------------------------------------
+   Dawn Player — document pages (privacy, support)
+   ---------------------------------------------------------------------------
+   styles.css is a landing page: every class in it is a composition, and none
+   of it is prose. These are the prose styles, kept separate so the marketing
+   page and the store-required documents can't break each other.
+
+   Loaded after tokens.css + styles.css, so the nav, footer and .wrap grid all
+   still apply.
+--------------------------------------------------------------------------- */
+
+/* The page's own header — quieter than the landing hero: these pages are read,
+   not scrolled past. */
+.doc-head { padding: clamp(48px, 7vw, 88px) 0 clamp(20px, 3vw, 32px); }
+.doc-head .h1 { max-width: 24ch; font-size: clamp(34px, 4.4vw, 52px); }
+.doc-head .lead { margin-top: 6px; }
+.doc-meta { margin: 22px 0 0; font-size: 12.5px; color: var(--dim); }
+.doc-meta b { color: var(--muted); font-weight: 500; }
+
+/* One measure for the whole document. 68ch on a 14.5px body lands near the
+   66-character line the rest of the site reads at. */
+.doc {
+  max-width: 68ch;
+  padding-bottom: clamp(48px, 6vw, 80px);
+}
+.doc h2 {
+  font-family: var(--display); font-size: 23px; font-weight: 600;
+  letter-spacing: -.3px; line-height: 1.25;
+  margin: 46px 0 14px; padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.doc h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.doc h3 {
+  font-family: var(--display); font-size: 16.5px; font-weight: 600;
+  letter-spacing: -.1px; margin: 28px 0 8px; color: var(--text);
+}
+.doc p, .doc li { font-size: 15px; line-height: 1.65; color: var(--muted); }
+.doc p { margin: 0 0 14px; }
+.doc strong { color: var(--text); font-weight: 600; }
+.doc a { color: var(--teal); text-decoration: none; border-bottom: 1px solid rgba(79, 209, 197, .3); }
+.doc a:hover { border-bottom-color: var(--teal); }
+.doc code {
+  font-family: ui-monospace, 'Cascadia Code', Menlo, monospace; font-size: .89em;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 5px; padding: 1px 5px; color: var(--text);
+}
+
+.doc ul { margin: 0 0 16px; padding-left: 0; list-style: none; }
+.doc ul li { position: relative; padding-left: 20px; margin-bottom: 9px; }
+.doc ul li::before {
+  content: ""; position: absolute; left: 4px; top: .62em;
+  width: 5px; height: 5px; border-radius: var(--r-pill); background: var(--violet);
+}
+
+/* The claim the whole document rests on, and the one a store reviewer is
+   looking for. Stated once, loudly, at the top. */
+.doc-callout {
+  border: 1px solid rgba(124, 92, 255, .28); border-radius: var(--r-lg);
+  background: linear-gradient(180deg, rgba(124, 92, 255, .09), rgba(124, 92, 255, .02));
+  padding: 20px 22px; margin: 0 0 34px;
+}
+.doc-callout p { margin: 0; color: var(--text); font-size: 15px; }
+.doc-callout p + p { margin-top: 10px; color: var(--muted); }
+
+/* Data table: what leaves the device, where to, and why. A table because the
+   three columns are the whole answer — prose would bury it. */
+.doc-table { width: 100%; border-collapse: collapse; margin: 4px 0 20px; display: block; overflow-x: auto; }
+.doc-table thead th {
+  text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .5px;
+  text-transform: uppercase; color: var(--dim);
+  padding: 0 14px 9px 0; border-bottom: 1px solid var(--line-strong); white-space: nowrap;
+}
+.doc-table td {
+  font-size: 14px; line-height: 1.55; color: var(--muted);
+  padding: 13px 14px 13px 0; border-bottom: 1px solid var(--line); vertical-align: top;
+}
+.doc-table td:first-child { color: var(--text); font-weight: 500; white-space: nowrap; }
+.doc-table tbody tr:last-child td { border-bottom: 0; }
+
+/* Support: the question/answer stack. */
+.faq { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; margin: 0 0 14px; }
+.faq summary {
+  cursor: pointer; list-style: none; padding: 16px 20px;
+  font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: -.1px;
+  color: var(--text); display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: "+"; font-family: var(--ui); font-size: 19px; font-weight: 400;
+  color: var(--muted); flex: none; line-height: 1;
+}
+.faq[open] summary::after { content: "\2212"; }
+.faq[open] summary { border-bottom: 1px solid var(--line); }
+.faq summary:hover { color: var(--teal); }
+.faq__body { padding: 16px 20px 4px; }
+.faq__body p:last-child { margin-bottom: 16px; }
+
+/* Contact card. */
+.contact {
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2);
+  padding: 22px; margin: 8px 0 20px;
+}
+.contact p { margin: 0 0 6px; }
+.contact .mail {
+  font-family: var(--display); font-size: 19px; font-weight: 600;
+  color: var(--text); border-bottom: 1px solid rgba(255, 255, 255, .2);
+}
+.contact .mail:hover { color: var(--teal); border-bottom-color: var(--teal); }
+
+@media (max-width: 640px) {
+  .doc h2 { font-size: 21px; }
+  .doc p, .doc li { font-size: 14.5px; }
+}

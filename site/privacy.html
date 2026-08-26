@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Indexable on purpose, unlike index.html: App Store Connect and the Play
+     Console both fetch this URL automatically to verify the policy exists, and
+     Play's checker honours robots.txt. site/robots.txt allows this path. -->
+<title>Privacy Policy — Dawn Player</title>
+<meta name="description" content="Dawn Player's privacy policy. No accounts, no analytics, no ads: playlists, credentials and watch history stay on your device.">
+<meta name="theme-color" content="#171C25">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+<header class="nav" data-nav>
+  <div class="wrap nav__in">
+    <a class="lockup" href="index.html">
+      <svg width="28" height="28" viewBox="0 0 64 64" aria-label="Dawn Player">
+        <defs>
+          <linearGradient id="dn" x1="32" y1="28" x2="32" y2="43" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#8B6BFF"/><stop offset=".48" stop-color="#FF7A9C"/><stop offset="1" stop-color="#FFC46B"/>
+          </linearGradient>
+          <linearGradient id="dnh" x1="11" y1="0" x2="53" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#FFC46B" stop-opacity="0"/><stop offset=".5" stop-color="#FFC46B" stop-opacity=".9"/><stop offset="1" stop-color="#FFC46B" stop-opacity="0"/>
+          </linearGradient>
+          <clipPath id="dnc"><rect x="0" y="0" width="64" height="42"/></clipPath>
+        </defs>
+        <rect width="64" height="64" rx="15" fill="#151A24"/>
+        <g transform="translate(32 36) scale(1.18) translate(-32 -36)">
+          <g clip-path="url(#dnc)"><circle cx="32" cy="47" r="19" fill="url(#dn)"/></g>
+          <path d="M27.5 30.8 38.5 36.2 27.5 41.6z" fill="#151A24"/>
+          <path d="M11 42h42" stroke="url(#dnh)" stroke-width="1.9" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <span>Dawn Player</span>
+    </a>
+    <nav class="navlinks" data-navlinks>
+      <a href="index.html#fixes">What it fixes</a>
+      <a href="index.html#tv">Television</a>
+      <a href="support.html">Support</a>
+      <a class="nav-cta" href="index.html#how">Get set up</a>
+    </nav>
+  </div>
+</header>
+
+<section class="wrap doc-head">
+  <p class="eyebrow">Legal</p>
+  <h1 class="h1">Privacy <em>Policy</em></h1>
+  <p class="lead">The short version: Dawn Player is a player, not a service. There is nothing to
+    sign up for, and no server of ours for your data to sit on.</p>
+  <p class="doc-meta"><b>Last updated:</b> 24 August 2026 &nbsp;·&nbsp; <b>Applies to:</b> Dawn Player for Android, Android TV, iOS and Windows</p>
+</section>
+
+<div class="wrap doc">
+
+  <div class="doc-callout">
+    <p><strong>Dawn Player collects no personal data.</strong> No user accounts, no analytics, no
+      advertising, no crash reporting, no tracking of any kind. The developer receives nothing about
+      you or your viewing, because there is no server of ours in the data path.</p>
+    <p>Your playlists, provider credentials, watch history and settings are stored on your own
+      device. Video streams travel directly from your provider to your device.</p>
+  </div>
+
+  <h2>Who this policy is from</h2>
+  <p>Dawn Player is an independent, personally developed application. In this policy, &ldquo;the
+    app&rdquo; means Dawn Player and &ldquo;we&rdquo; means its developer. Contact details are at
+    the bottom of this page.</p>
+
+  <h2>What Dawn Player is, and what that means for your data</h2>
+  <p>Dawn Player does not provide, host, resell or aggregate any television channels, films or
+    series. It is an empty player until you point it at an <strong>Xtream Codes</strong> or
+    <strong>M3U</strong> playlist you already hold from a provider of your own choosing.</p>
+  <p>That shapes the whole privacy picture, because it determines who sees what. Your provider sees
+    your viewing, because your device requests streams directly from your provider's servers —
+    exactly as it would with any other player. We are not in the middle of that connection and
+    could not observe it if we wanted to.</p>
+
+  <h2>Data stored on your device</h2>
+  <p>All of the following stays on the device and is never transmitted to us:</p>
+  <ul>
+    <li><strong>Provider credentials.</strong> Your Xtream Codes username and password, or your M3U
+      playlist URL, held in the operating system's secure credential store — the iOS Keychain, or
+      Android's Keystore-backed encrypted storage. They are never written to ordinary app storage
+      or to logs.</li>
+    <li><strong>Your catalogue.</strong> Channels, films and series read from your playlist, plus
+      any EPG (programme guide) data, cached in a local database so the app opens instantly and
+      keeps working while offline.</li>
+    <li><strong>Watch history and resume positions</strong> — what you watched and how far in you got.</li>
+    <li><strong>Preferences</strong> — favourites, hidden and renamed channels and groups, preferred
+      audio and subtitle languages, and player settings.</li>
+    <li><strong>Cached artwork</strong> — poster and backdrop images, stored so they are not
+      re-fetched on every scroll.</li>
+  </ul>
+  <p>Uninstalling the app deletes all of it. You can also clear parts of it from inside the app:
+    removing an account removes its credentials and its catalogue with it.</p>
+
+  <h2 id="network-connections">Network connections the app makes</h2>
+  <p>Dawn Player makes no network request you have not caused. There is no background reporting, no
+    heartbeat, no telemetry. Every destination below is either a server you configured or one you
+    asked the app to reach; two of the five are off unless you turn them on. In full:</p>
+
+  <table class="doc-table">
+    <thead>
+      <tr><th>Destination</th><th>When</th><th>What is sent</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Your IPTV provider</td>
+        <td>When you refresh your catalogue or play something</td>
+        <td>Your credentials, to authenticate as the provider requires; the stream you asked for;
+          and your device's IP address. Governed by your provider's privacy policy, not this one.</td>
+      </tr>
+      <tr>
+        <td>Your EPG source</td>
+        <td>When the programme guide refreshes</td>
+        <td>A request for the XMLTV guide file, to whatever URL your playlist or your settings
+          specify — usually the same provider as above.</td>
+      </tr>
+      <tr>
+        <td>The Movie Database<br><code>api.themoviedb.org</code></td>
+        <td>Only if you enter your own TMDB API key in Settings. Off by default.</td>
+        <td>The title and year being looked up, so a film or series can be matched to artwork and a
+          synopsis. No identifier of you, your device or your provider is included. Subject to
+          <a href="https://www.themoviedb.org/privacy-policy" rel="noopener">TMDB's privacy policy</a>.</td>
+      </tr>
+      <tr>
+        <td>A sync server you choose</td>
+        <td>Only if you turn sync on and supply a server address and token. Off by default.</td>
+        <td>Your watch history and preferences, so they follow you between your own devices. This
+          goes to <em>your</em> server at <em>your</em> address, not to us. Leave sync off, as it
+          ships, and nothing ever leaves the device this way.</td>
+      </tr>
+      <tr>
+        <td>Chromecast devices<br>(Android only)</td>
+        <td>While the cast picker is open, or while casting</td>
+        <td>Device discovery on your local network, and the stream address handed to the Chromecast
+          you pick. Uses Google's Cast SDK; subject to
+          <a href="https://policies.google.com/privacy" rel="noopener">Google's privacy policy</a>.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>Notably absent, deliberately: no advertising network, no analytics or attribution SDK, no crash
+    or performance reporting, no social login, and no server operated by us. The app's typefaces are
+    bundled inside it rather than fetched from a font CDN, so even rendering its own interface
+    involves no third party.</p>
+
+  <h2 id="data-we-collect">Data we collect</h2>
+  <p>None. We operate no servers that receive data from the app, so there is nothing for us to
+    collect, store, share, sell or lose. Because we hold no data about you, a request to access,
+    correct, export or delete &ldquo;your data&rdquo; has no subject — but the next section covers
+    how to erase everything the app holds locally.</p>
+
+  <h2 id="deleting-your-data">Deleting your data</h2>
+  <ul>
+    <li><strong>Everything at once:</strong> uninstall Dawn Player. The operating system removes all
+      local storage, including the credential store and the cached catalogue.</li>
+    <li><strong>One provider:</strong> Settings &rarr; Accounts &rarr; remove the account. Its
+      credentials, catalogue and cached artwork go with it.</li>
+    <li><strong>Sync data:</strong> the sync server is one you supply, so deleting data there is
+      done on that server. We have no access to it.</li>
+  </ul>
+
+  <h2>Children</h2>
+  <p>Dawn Player is not directed at children and is not designed for use by them. It collects no
+    data from anyone, children included. Because the app plays whatever your provider's playlist
+    contains, and we neither select nor filter that content, it is intended for adults who are
+    responsible for the source they connect.</p>
+
+  <h2>Security</h2>
+  <p>Credentials are held in the platform's own secure credential store rather than in application
+    storage. Where your provider offers HTTPS, connections use it. Many IPTV providers still serve
+    over plain HTTP; the app permits that, because otherwise it could not play those streams at all.
+    It does mean the connection between your device and your provider may be unencrypted. That is a
+    property of your provider rather than of the app, and it is worth asking them about.</p>
+
+  <h2>Third-party content and attribution</h2>
+  <p>Dawn Player ships no channels, films or series, and is not affiliated with, endorsed by or
+    connected to any content provider. Some artwork and metadata come from TMDB, only when you
+    supply your own API key: this product uses the TMDB API but is not endorsed or certified by
+    TMDB. The bundled list of award-winning titles derives from Wikidata (CC0) and Wikipedia
+    (CC BY-SA 4.0), and is used only to recognise titles that already exist in your own playlist.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If the app's behaviour changes, this page changes with it and the date at the top is updated.
+    Because the app has no accounts, we have no way to notify you directly; material changes are
+    noted in the app's release notes.</p>
+
+  <h2>Contact</h2>
+  <div class="contact">
+    <p>Questions about this policy, or about privacy in the app:</p>
+    <p><a class="mail" href="mailto:support@dawnplayer.com">support@dawnplayer.com</a></p>
+  </div>
+  <p>See also the <a href="support.html">support page</a> for help with setup and playback.</p>
+
+</div>
+
+<footer class="site-footer">
+  <div class="site-footer__glow" aria-hidden="true"></div>
+  <div class="wrap site-footer__in">
+    <div class="site-footer__top">
+      <div>
+        <div class="footmark">
+          <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+            <defs>
+              <linearGradient id="dnf" x1="32" y1="28" x2="32" y2="43" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#8B6BFF"/><stop offset=".48" stop-color="#FF7A9C"/><stop offset="1" stop-color="#FFC46B"/>
+              </linearGradient>
+              <linearGradient id="dnfh" x1="11" y1="0" x2="53" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#FFC46B" stop-opacity="0"/><stop offset=".5" stop-color="#FFC46B" stop-opacity=".9"/><stop offset="1" stop-color="#FFC46B" stop-opacity="0"/>
+              </linearGradient>
+              <clipPath id="dnfc"><rect x="0" y="0" width="64" height="42"/></clipPath>
+            </defs>
+            <rect width="64" height="64" rx="15" fill="#151A24"/>
+            <g transform="translate(32 36) scale(1.18) translate(-32 -36)">
+              <g clip-path="url(#dnfc)"><circle cx="32" cy="47" r="19" fill="url(#dnf)"/></g>
+              <path d="M27.5 30.8 38.5 36.2 27.5 41.6z" fill="#151A24"/>
+              <path d="M11 42h42" stroke="url(#dnfh)" stroke-width="1.9" stroke-linecap="round"/>
+            </g>
+          </svg>
+          <span>Dawn Player</span>
+        </div>
+        <p class="byline">A personal project. Built because the alternatives were annoying.</p>
+      </div>
+      <div class="footlinks">
+        <a href="index.html#fixes">What it fixes</a>
+        <a href="index.html#features">Features</a>
+        <a href="support.html">Support</a>
+        <a href="privacy.html">Privacy</a>
+      </div>
+    </div>
+    <div class="rule"></div>
+    <div class="fine">
+      <p class="fine__note"><b>Dawn Player ships no content.</b> No channels, no films, no provider — it plays the
+        Xtream Codes or M3U line you already subscribe to, and it is not affiliated with any provider.</p>
+      <p class="tmdb"><i></i>Some artwork and metadata from TMDB. Not endorsed or certified by TMDB.</p>
+      <p>© 2026</p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

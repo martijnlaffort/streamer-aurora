@@ -1,10 +1,19 @@
 # Dawn Player is an unlisted personal showcase: shareable by link, not via search.
 #
-# NOTE: crawlers only read robots.txt from a DOMAIN ROOT. On the current GitHub
-# Pages project URL this file is served at /streamer-aurora/robots.txt, which is
-# NOT the root, so it is inert there — the <meta name="robots" content="noindex">
+# NOTE: crawlers only read robots.txt from a DOMAIN ROOT. On a GitHub Pages
+# project URL this file is served at /streamer-aurora/robots.txt, which is NOT
+# the root, so it is inert there — the <meta name="robots" content="noindex">
 # in index.html is what actually keeps the page out of search results.
-# This file becomes the effective control the moment a custom domain is attached.
+# This file becomes the effective control the moment the custom domain in CNAME
+# (dawnplayer.com) is attached.
+#
+# The two Allow lines are load-bearing, not tidiness: the App Store and Play
+# Console fetch the privacy policy and support URLs automatically to verify they
+# resolve, and Play's checker honours robots.txt. Under a bare "Disallow: /"
+# those fetches fail and the listing is rejected for a missing privacy policy.
+# Allow is more specific than Disallow here, so it wins.
 
 User-agent: *
+Allow: /privacy.html
+Allow: /support.html
 Disallow: /

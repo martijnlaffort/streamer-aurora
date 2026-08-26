@@ -67,6 +67,28 @@ class $AccountsTableTable extends AccountsTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _userAgentMeta = const VerificationMeta(
+    'userAgent',
+  );
+  @override
+  late final GeneratedColumn<String> userAgent = GeneratedColumn<String>(
+    'user_agent',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _altHostsMeta = const VerificationMeta(
+    'altHosts',
+  );
+  @override
+  late final GeneratedColumn<String> altHosts = GeneratedColumn<String>(
+    'alt_hosts',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMillisUtcMeta =
       const VerificationMeta('createdAtMillisUtc');
   @override
@@ -85,6 +107,8 @@ class $AccountsTableTable extends AccountsTable
     serverUrl,
     username,
     epgUrl,
+    userAgent,
+    altHosts,
     createdAtMillisUtc,
   ];
   @override
@@ -134,6 +158,18 @@ class $AccountsTableTable extends AccountsTable
         epgUrl.isAcceptableOrUnknown(data['epg_url']!, _epgUrlMeta),
       );
     }
+    if (data.containsKey('user_agent')) {
+      context.handle(
+        _userAgentMeta,
+        userAgent.isAcceptableOrUnknown(data['user_agent']!, _userAgentMeta),
+      );
+    }
+    if (data.containsKey('alt_hosts')) {
+      context.handle(
+        _altHostsMeta,
+        altHosts.isAcceptableOrUnknown(data['alt_hosts']!, _altHostsMeta),
+      );
+    }
     if (data.containsKey('created_at_millis_utc')) {
       context.handle(
         _createdAtMillisUtcMeta,
@@ -180,6 +216,14 @@ class $AccountsTableTable extends AccountsTable
         DriftSqlType.string,
         data['${effectivePrefix}epg_url'],
       ),
+      userAgent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_agent'],
+      ),
+      altHosts: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}alt_hosts'],
+      ),
       createdAtMillisUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}created_at_millis_utc'],
@@ -205,6 +249,11 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
 
   /// Optional XMLTV EPG url for M3U accounts.
   final String? epgUrl;
+
+  /// Per-playlist `User-Agent` for streams, and the other hostnames this
+  /// provider answers on (newline-separated) — both schema v15.
+  final String? userAgent;
+  final String? altHosts;
   final int createdAtMillisUtc;
   const AccountRow({
     required this.id,
@@ -213,6 +262,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     required this.serverUrl,
     required this.username,
     this.epgUrl,
+    this.userAgent,
+    this.altHosts,
     required this.createdAtMillisUtc,
   });
   @override
@@ -230,6 +281,12 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     if (!nullToAbsent || epgUrl != null) {
       map['epg_url'] = Variable<String>(epgUrl);
     }
+    if (!nullToAbsent || userAgent != null) {
+      map['user_agent'] = Variable<String>(userAgent);
+    }
+    if (!nullToAbsent || altHosts != null) {
+      map['alt_hosts'] = Variable<String>(altHosts);
+    }
     map['created_at_millis_utc'] = Variable<int>(createdAtMillisUtc);
     return map;
   }
@@ -244,6 +301,12 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       epgUrl: epgUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(epgUrl),
+      userAgent: userAgent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userAgent),
+      altHosts: altHosts == null && nullToAbsent
+          ? const Value.absent()
+          : Value(altHosts),
       createdAtMillisUtc: Value(createdAtMillisUtc),
     );
   }
@@ -262,6 +325,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       serverUrl: serializer.fromJson<String>(json['serverUrl']),
       username: serializer.fromJson<String>(json['username']),
       epgUrl: serializer.fromJson<String?>(json['epgUrl']),
+      userAgent: serializer.fromJson<String?>(json['userAgent']),
+      altHosts: serializer.fromJson<String?>(json['altHosts']),
       createdAtMillisUtc: serializer.fromJson<int>(json['createdAtMillisUtc']),
     );
   }
@@ -277,6 +342,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       'serverUrl': serializer.toJson<String>(serverUrl),
       'username': serializer.toJson<String>(username),
       'epgUrl': serializer.toJson<String?>(epgUrl),
+      'userAgent': serializer.toJson<String?>(userAgent),
+      'altHosts': serializer.toJson<String?>(altHosts),
       'createdAtMillisUtc': serializer.toJson<int>(createdAtMillisUtc),
     };
   }
@@ -288,6 +355,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     String? serverUrl,
     String? username,
     Value<String?> epgUrl = const Value.absent(),
+    Value<String?> userAgent = const Value.absent(),
+    Value<String?> altHosts = const Value.absent(),
     int? createdAtMillisUtc,
   }) => AccountRow(
     id: id ?? this.id,
@@ -296,6 +365,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     serverUrl: serverUrl ?? this.serverUrl,
     username: username ?? this.username,
     epgUrl: epgUrl.present ? epgUrl.value : this.epgUrl,
+    userAgent: userAgent.present ? userAgent.value : this.userAgent,
+    altHosts: altHosts.present ? altHosts.value : this.altHosts,
     createdAtMillisUtc: createdAtMillisUtc ?? this.createdAtMillisUtc,
   );
   AccountRow copyWithCompanion(AccountsTableCompanion data) {
@@ -306,6 +377,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       serverUrl: data.serverUrl.present ? data.serverUrl.value : this.serverUrl,
       username: data.username.present ? data.username.value : this.username,
       epgUrl: data.epgUrl.present ? data.epgUrl.value : this.epgUrl,
+      userAgent: data.userAgent.present ? data.userAgent.value : this.userAgent,
+      altHosts: data.altHosts.present ? data.altHosts.value : this.altHosts,
       createdAtMillisUtc: data.createdAtMillisUtc.present
           ? data.createdAtMillisUtc.value
           : this.createdAtMillisUtc,
@@ -321,6 +394,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           ..write('serverUrl: $serverUrl, ')
           ..write('username: $username, ')
           ..write('epgUrl: $epgUrl, ')
+          ..write('userAgent: $userAgent, ')
+          ..write('altHosts: $altHosts, ')
           ..write('createdAtMillisUtc: $createdAtMillisUtc')
           ..write(')'))
         .toString();
@@ -334,6 +409,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     serverUrl,
     username,
     epgUrl,
+    userAgent,
+    altHosts,
     createdAtMillisUtc,
   );
   @override
@@ -346,6 +423,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           other.serverUrl == this.serverUrl &&
           other.username == this.username &&
           other.epgUrl == this.epgUrl &&
+          other.userAgent == this.userAgent &&
+          other.altHosts == this.altHosts &&
           other.createdAtMillisUtc == this.createdAtMillisUtc);
 }
 
@@ -356,6 +435,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
   final Value<String> serverUrl;
   final Value<String> username;
   final Value<String?> epgUrl;
+  final Value<String?> userAgent;
+  final Value<String?> altHosts;
   final Value<int> createdAtMillisUtc;
   final Value<int> rowid;
   const AccountsTableCompanion({
@@ -365,6 +446,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
     this.serverUrl = const Value.absent(),
     this.username = const Value.absent(),
     this.epgUrl = const Value.absent(),
+    this.userAgent = const Value.absent(),
+    this.altHosts = const Value.absent(),
     this.createdAtMillisUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -375,6 +458,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
     required String serverUrl,
     required String username,
     this.epgUrl = const Value.absent(),
+    this.userAgent = const Value.absent(),
+    this.altHosts = const Value.absent(),
     required int createdAtMillisUtc,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -390,6 +475,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
     Expression<String>? serverUrl,
     Expression<String>? username,
     Expression<String>? epgUrl,
+    Expression<String>? userAgent,
+    Expression<String>? altHosts,
     Expression<int>? createdAtMillisUtc,
     Expression<int>? rowid,
   }) {
@@ -400,6 +487,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
       if (serverUrl != null) 'server_url': serverUrl,
       if (username != null) 'username': username,
       if (epgUrl != null) 'epg_url': epgUrl,
+      if (userAgent != null) 'user_agent': userAgent,
+      if (altHosts != null) 'alt_hosts': altHosts,
       if (createdAtMillisUtc != null)
         'created_at_millis_utc': createdAtMillisUtc,
       if (rowid != null) 'rowid': rowid,
@@ -413,6 +502,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
     Value<String>? serverUrl,
     Value<String>? username,
     Value<String?>? epgUrl,
+    Value<String?>? userAgent,
+    Value<String?>? altHosts,
     Value<int>? createdAtMillisUtc,
     Value<int>? rowid,
   }) {
@@ -423,6 +514,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
       serverUrl: serverUrl ?? this.serverUrl,
       username: username ?? this.username,
       epgUrl: epgUrl ?? this.epgUrl,
+      userAgent: userAgent ?? this.userAgent,
+      altHosts: altHosts ?? this.altHosts,
       createdAtMillisUtc: createdAtMillisUtc ?? this.createdAtMillisUtc,
       rowid: rowid ?? this.rowid,
     );
@@ -451,6 +544,12 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
     if (epgUrl.present) {
       map['epg_url'] = Variable<String>(epgUrl.value);
     }
+    if (userAgent.present) {
+      map['user_agent'] = Variable<String>(userAgent.value);
+    }
+    if (altHosts.present) {
+      map['alt_hosts'] = Variable<String>(altHosts.value);
+    }
     if (createdAtMillisUtc.present) {
       map['created_at_millis_utc'] = Variable<int>(createdAtMillisUtc.value);
     }
@@ -469,6 +568,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
           ..write('serverUrl: $serverUrl, ')
           ..write('username: $username, ')
           ..write('epgUrl: $epgUrl, ')
+          ..write('userAgent: $userAgent, ')
+          ..write('altHosts: $altHosts, ')
           ..write('createdAtMillisUtc: $createdAtMillisUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -9350,6 +9451,8 @@ typedef $$AccountsTableTableCreateCompanionBuilder =
       required String serverUrl,
       required String username,
       Value<String?> epgUrl,
+      Value<String?> userAgent,
+      Value<String?> altHosts,
       required int createdAtMillisUtc,
       Value<int> rowid,
     });
@@ -9361,6 +9464,8 @@ typedef $$AccountsTableTableUpdateCompanionBuilder =
       Value<String> serverUrl,
       Value<String> username,
       Value<String?> epgUrl,
+      Value<String?> userAgent,
+      Value<String?> altHosts,
       Value<int> createdAtMillisUtc,
       Value<int> rowid,
     });
@@ -9402,6 +9507,16 @@ class $$AccountsTableTableFilterComposer
 
   ColumnFilters<String> get epgUrl => $composableBuilder(
     column: $table.epgUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userAgent => $composableBuilder(
+    column: $table.userAgent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get altHosts => $composableBuilder(
+    column: $table.altHosts,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9450,6 +9565,16 @@ class $$AccountsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userAgent => $composableBuilder(
+    column: $table.userAgent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get altHosts => $composableBuilder(
+    column: $table.altHosts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get createdAtMillisUtc => $composableBuilder(
     column: $table.createdAtMillisUtc,
     builder: (column) => ColumnOrderings(column),
@@ -9482,6 +9607,12 @@ class $$AccountsTableTableAnnotationComposer
 
   GeneratedColumn<String> get epgUrl =>
       $composableBuilder(column: $table.epgUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get userAgent =>
+      $composableBuilder(column: $table.userAgent, builder: (column) => column);
+
+  GeneratedColumn<String> get altHosts =>
+      $composableBuilder(column: $table.altHosts, builder: (column) => column);
 
   GeneratedColumn<int> get createdAtMillisUtc => $composableBuilder(
     column: $table.createdAtMillisUtc,
@@ -9526,6 +9657,8 @@ class $$AccountsTableTableTableManager
                 Value<String> serverUrl = const Value.absent(),
                 Value<String> username = const Value.absent(),
                 Value<String?> epgUrl = const Value.absent(),
+                Value<String?> userAgent = const Value.absent(),
+                Value<String?> altHosts = const Value.absent(),
                 Value<int> createdAtMillisUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AccountsTableCompanion(
@@ -9535,6 +9668,8 @@ class $$AccountsTableTableTableManager
                 serverUrl: serverUrl,
                 username: username,
                 epgUrl: epgUrl,
+                userAgent: userAgent,
+                altHosts: altHosts,
                 createdAtMillisUtc: createdAtMillisUtc,
                 rowid: rowid,
               ),
@@ -9546,6 +9681,8 @@ class $$AccountsTableTableTableManager
                 required String serverUrl,
                 required String username,
                 Value<String?> epgUrl = const Value.absent(),
+                Value<String?> userAgent = const Value.absent(),
+                Value<String?> altHosts = const Value.absent(),
                 required int createdAtMillisUtc,
                 Value<int> rowid = const Value.absent(),
               }) => AccountsTableCompanion.insert(
@@ -9555,6 +9692,8 @@ class $$AccountsTableTableTableManager
                 serverUrl: serverUrl,
                 username: username,
                 epgUrl: epgUrl,
+                userAgent: userAgent,
+                altHosts: altHosts,
                 createdAtMillisUtc: createdAtMillisUtc,
                 rowid: rowid,
               ),

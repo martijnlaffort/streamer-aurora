@@ -275,7 +275,8 @@ class _MultiPaneState extends ConsumerState<_MultiPane> {
       if (!mounted) return;
       final platform = _player.platform;
       if (platform is NativePlayer) {
-        await platform.setProperty('user-agent', kStreamUserAgent);
+        await platform.setProperty(
+            'user-agent', account.userAgent ?? kStreamUserAgent);
         // No timeshift buffer here: two disk-backed caches is a lot of writing
         // for panes nobody rewinds, and the point of this screen is watching
         // both edges live.

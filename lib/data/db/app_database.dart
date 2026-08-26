@@ -25,6 +25,11 @@ class AccountsTable extends Table {
 
   /// Optional XMLTV EPG url for M3U accounts.
   TextColumn get epgUrl => text().nullable()();
+
+  /// Per-playlist `User-Agent` for streams, and the other hostnames this
+  /// provider answers on (newline-separated) — both schema v15.
+  TextColumn get userAgent => text().nullable()();
+  TextColumn get altHosts => text().nullable()();
   IntColumn get createdAtMillisUtc => integer()();
 
   // Deliberately NO password column: credentials live in secure storage,
@@ -488,7 +493,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -575,6 +580,13 @@ class AppDatabase extends _$AppDatabase {
           // by "remind me".
           if (from < 14) {
             await m.createTable(remindersTable);
+          }
+          // v15: per-playlist User-Agent and fallback hosts. Both nullable —
+          // an existing account keeps the app's default UA and no fallbacks
+          // until the user fills them in.
+          if (from < 15) {
+            await m.addColumn(accountsTable, accountsTable.userAgent);
+            await m.addColumn(accountsTable, accountsTable.altHosts);
           }
         },
         beforeOpen: (details) async {

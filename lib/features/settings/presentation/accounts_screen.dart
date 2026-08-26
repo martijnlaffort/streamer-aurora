@@ -82,6 +82,14 @@ class AccountsScreen extends ConsumerWidget {
                               color: AppColors.accent, size: 20),
                         ),
                       IconButton(
+                        tooltip: 'Streaming & hosts',
+                        icon: Icon(Icons.tune,
+                            color: AppColors.textSecondary),
+                        onPressed: () => context.push(
+                            '/accounts/${Uri.encodeComponent(account.id)}/network'),
+                      ),
+                      IconButton(
+                        tooltip: 'Delete',
                         icon: Icon(Icons.delete_outline,
                             color: AppColors.textSecondary),
                         onPressed: () => _confirmDelete(context, ref, account),

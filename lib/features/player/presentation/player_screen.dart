@@ -23,7 +23,7 @@ import '../../../data/repositories/watch_progress_repository.dart';
 import '../../../data/sync/playback_activity.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart'
-    show Preferences, StreamRef, StreamType, contentKeyFor;
+    show Account, Preferences, StreamRef, StreamType, contentKeyFor;
 import '../player_request.dart';
 import 'cast_picker.dart';
 
@@ -132,6 +132,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// makes a later failure a *drop* (worth retrying silently) rather than a
   /// stream that never opened at all.
   bool _everPlayed = false;
+
+  /// Which of the account's hosts is being tried: 0 is the account's own
+  /// `serverUrl`, 1..n index into its fallbacks.
+  int _hostAttempt = 0;
+
+  /// How many fallbacks the active account has, cached from the last open so
+  /// the error path can decide without another async read.
+  int _altHostCount = 0;
 
   /// Focus node for remote/keyboard input. The player is the one screen where
   /// the entire UI is a video surface, so it owns key handling directly rather
@@ -513,6 +521,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _reconnectAttempt = 0;
         _reconnecting = false;
         _everPlayed = false;
+        // A different item starts from the provider's primary host again: the
+        // fallback that rescued the last channel says nothing about this one.
+        _hostAttempt = 0;
       }
     });
     _upNextTimer?.cancel();
@@ -537,16 +548,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         }
       }
       _pendingResumeSeconds = resumeFrom;
-      final url = await ref
-          .read(sourceFactoryProvider)(account)
-          .buildStreamUrl(_current.streamRef);
+      _altHostCount = account.altHosts.length;
+      final url = _withAltHost(
+        await ref
+            .read(sourceFactoryProvider)(account)
+            .buildStreamUrl(_current.streamRef),
+        account,
+        _hostAttempt,
+      );
       if (!mounted) return;
-      // Present a player User-Agent panels accept (see kStreamUserAgent).
+      // Present a player User-Agent panels accept. Per account, because which
+      // string a panel accepts is a property of the provider — see
+      // Account.userAgent; kStreamUserAgent is the fallback.
       // Set on the native mpv handle directly — the dedicated `user-agent`
       // property overrides libmpv's default and avoids duplicate headers.
       final platform = _player.platform;
       if (platform is NativePlayer) {
-        await platform.setProperty('user-agent', kStreamUserAgent);
+        await platform.setProperty(
+            'user-agent', account.userAgent ?? kStreamUserAgent);
         await _configureCache(platform, live: _current.isLive);
       }
       await _player.open(Media(url));
@@ -561,6 +580,38 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // Same path as a playback failure: building the URL can fail for
       // transient reasons too, and a reconnect in progress should keep trying.
       _onStreamError('$e');
+    }
+  }
+
+  /// Points [url] at the account's [attempt]-th fallback host.
+  ///
+  /// Only the origin is swapped — the path and query carry the credentials and
+  /// the stream id, and those are the same wherever the provider answers.
+  ///
+  /// An entry may be written with or without a scheme (`other.host:8080` or
+  /// `http://other.host:8080`); without one the original's is kept, so pasting
+  /// what the provider emailed you works either way.
+  static String _withAltHost(String url, Account account, int attempt) {
+    if (attempt <= 0 || attempt > account.altHosts.length) return url;
+    final alt = account.altHosts[attempt - 1].trim();
+    try {
+      final original = Uri.parse(url);
+      final replacement =
+          Uri.parse(alt.contains('://') ? alt : '${original.scheme}://$alt');
+      if (replacement.host.isEmpty) return url;
+      return Uri(
+        scheme: replacement.scheme,
+        userInfo: original.userInfo,
+        host: replacement.host,
+        // Null means "the scheme's default", which is what a host written
+        // without a port should get.
+        port: replacement.hasPort ? replacement.port : null,
+        path: original.path,
+        query: original.hasQuery ? original.query : null,
+        fragment: original.hasFragment ? original.fragment : null,
+      ).toString();
+    } on FormatException {
+      return url; // Unparseable entry: leave the original alone.
     }
   }
 
@@ -642,6 +693,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// see [_maxReconnectAttempts].
   void _onStreamError(String message) {
     if (!mounted) return;
+    // A stream that never opened may be nothing worse than this hostname.
+    // Providers hand out several and they are not interchangeable in practice:
+    // one can be blocked or badly routed from the current exit IP while the
+    // next answers immediately. Walk them before reporting a failure — trying
+    // them by hand is exactly the debugging session this is meant to end.
+    if (!_everPlayed && _hostAttempt < _altHostCount) {
+      setState(() {
+        _hostAttempt++;
+        _reconnecting = true;
+        _error = null;
+      });
+      _openCurrent(isRetry: true);
+      return;
+    }
     // A stream that never opened is usually a real problem (wrong URL, denied,
     // offline) and retrying it just delays a useful message. A stream that was
     // playing and stopped is a drop, and is worth reopening.

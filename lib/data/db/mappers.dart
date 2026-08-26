@@ -31,6 +31,8 @@ extension AccountRowMapper on AccountRow {
         password: password,
         createdAt: fromUtcMillis(createdAtMillisUtc),
         epgUrl: epgUrl,
+        userAgent: userAgent,
+        altHosts: splitAltHosts(altHosts),
       );
 }
 
@@ -42,9 +44,18 @@ extension AccountMapper on Account {
         serverUrl: serverUrl,
         username: username,
         epgUrl: Value(epgUrl),
+        userAgent: Value(userAgent),
+        altHosts: Value(altHosts.isEmpty ? null : altHosts.join('\n')),
         createdAtMillisUtc: utcMillis(createdAt),
       );
 }
+
+/// Newline-separated in one column rather than a table of its own: it is a
+/// short user-typed list that is only ever read with its account.
+List<String> splitAltHosts(String? stored) => [
+      for (final line in (stored ?? '').split('\n'))
+        if (line.trim().isNotEmpty) line.trim(),
+    ];
 
 // --- Catalog -----------------------------------------------------------------
 

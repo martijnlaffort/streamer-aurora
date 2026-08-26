@@ -15,6 +15,7 @@ import '../../features/series/presentation/series_category_screen.dart';
 import '../../features/series/presentation/series_detail_screen.dart';
 import '../../features/series/presentation/series_screen.dart';
 import '../../features/settings/presentation/about_screen.dart';
+import '../../features/settings/presentation/account_network_screen.dart';
 import '../../features/settings/presentation/accounts_screen.dart';
 import '../../features/settings/presentation/add_account_screen.dart';
 import '../../features/settings/presentation/content_languages_screen.dart';
@@ -204,6 +205,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/accounts/add',
         name: 'addAccount',
         builder: (context, state) => const AddAccountScreen(),
+      ),
+      GoRoute(
+        path: '/accounts/:id/network',
+        name: 'accountNetwork',
+        builder: (context, state) => AccountNetworkScreen(
+          accountId: Uri.decodeComponent(state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/dev/source-probe',

@@ -55,6 +55,12 @@
 
 	<!-- App Transport Security: most IPTV panels serve plain HTTP, which iOS
 	     blocks by default. Without this the stream fails silently. -->
+	<!-- Export compliance: Dawn Player adds no encryption of its own; it
+	     only uses HTTPS/TLS from the OS. Declaring this here answers the
+	     export-compliance question once, instead of on every upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

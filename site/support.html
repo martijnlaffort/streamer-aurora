@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Indexable on purpose, unlike index.html: this is the support URL both store
+     listings point at, and reviewers open it. site/robots.txt allows this path. -->
+<title>Support — Dawn Player</title>
+<meta name="description" content="Help with Dawn Player: connecting an Xtream Codes or M3U playlist, playback and buffering, the programme guide, casting, and how to get in touch.">
+<meta name="theme-color" content="#171C25">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+<header class="nav" data-nav>
+  <div class="wrap nav__in">
+    <a class="lockup" href="index.html">
+      <svg width="28" height="28" viewBox="0 0 64 64" aria-label="Dawn Player">
+        <defs>
+          <linearGradient id="dn" x1="32" y1="28" x2="32" y2="43" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#8B6BFF"/><stop offset=".48" stop-color="#FF7A9C"/><stop offset="1" stop-color="#FFC46B"/>
+          </linearGradient>
+          <linearGradient id="dnh" x1="11" y1="0" x2="53" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#FFC46B" stop-opacity="0"/><stop offset=".5" stop-color="#FFC46B" stop-opacity=".9"/><stop offset="1" stop-color="#FFC46B" stop-opacity="0"/>
+          </linearGradient>
+          <clipPath id="dnc"><rect x="0" y="0" width="64" height="42"/></clipPath>
+        </defs>
+        <rect width="64" height="64" rx="15" fill="#151A24"/>
+        <g transform="translate(32 36) scale(1.18) translate(-32 -36)">
+          <g clip-path="url(#dnc)"><circle cx="32" cy="47" r="19" fill="url(#dn)"/></g>
+          <path d="M27.5 30.8 38.5 36.2 27.5 41.6z" fill="#151A24"/>
+          <path d="M11 42h42" stroke="url(#dnh)" stroke-width="1.9" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <span>Dawn Player</span>
+    </a>
+    <nav class="navlinks" data-navlinks>
+      <a href="index.html#fixes">What it fixes</a>
+      <a href="index.html#tv">Television</a>
+      <a href="privacy.html">Privacy</a>
+      <a class="nav-cta" href="index.html#how">Get set up</a>
+    </nav>
+  </div>
+</header>
+
+<section class="wrap doc-head">
+  <p class="eyebrow">Help</p>
+  <h1 class="h1">Support</h1>
+  <p class="lead">Most problems with an IPTV player are really problems with the line behind it.
+    Here is how to tell which one you have.</p>
+  <p class="doc-meta"><b>Last updated:</b> 24 August 2026</p>
+</section>
+
+<div class="wrap doc">
+
+  <div class="doc-callout">
+    <p><strong>Dawn Player does not sell or supply television.</strong> It ships with no channels,
+      no films and no provider. To use it you need your own Xtream Codes login or M3U playlist URL
+      from a service you already subscribe to. We cannot provide one, recommend one, or help with
+      an account you hold with a provider.</p>
+  </div>
+
+  <h2>Getting in touch</h2>
+  <div class="contact">
+    <p>One person answers this address, usually within a few days:</p>
+    <p><a class="mail" href="mailto:support@dawnplayer.com">support@dawnplayer.com</a></p>
+  </div>
+  <p>To get a useful answer first time, please include: your device and OS version, the app version
+    and build (Settings &rarr; About &amp; credits), whether your source is Xtream Codes or M3U, and
+    what exactly you saw — the wording of any error, and whether it affects one channel or all of
+    them. Please don't send your provider password.</p>
+
+  <h2>Setting up</h2>
+
+  <details class="faq">
+    <summary>How do I add my playlist?</summary>
+    <div class="faq__body">
+      <p>Settings &rarr; Accounts &rarr; add an account, then pick the kind you have:</p>
+      <ul>
+        <li><strong>Xtream Codes</strong> — the server address, your username and your password.
+          Your provider gives you all three. Enter the server exactly as they wrote it, including
+          <code>http://</code> or <code>https://</code> and the port number if there is one.</li>
+        <li><strong>M3U</strong> — the full playlist URL, or a playlist file on the device.</li>
+      </ul>
+      <p>The first load reads your whole catalogue and can take a minute or two on a large line.
+        After that it opens from the local copy and refreshes in the background.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>&ldquo;Could not connect&rdquo; when I add an account</summary>
+    <div class="faq__body">
+      <p>Almost always one of four things:</p>
+      <ul>
+        <li>A typo in the server address, or a missing port number.</li>
+        <li><code>http://</code> where the provider wants <code>https://</code>, or the reverse.</li>
+        <li>Credentials that have expired, or a subscription that has lapsed — try them in your
+          provider's own web portal to check.</li>
+        <li>Your provider limits how many devices or connections can be active at once, and another
+          device is holding the slot.</li>
+      </ul>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>Where do I get a playlist or an Xtream login?</summary>
+    <div class="faq__body">
+      <p>From a provider of your own choosing — we are not one and cannot point you at one. Dawn
+        Player is a player, in the same sense that a web browser is not a website.</p>
+    </div>
+  </details>
+
+  <h2>Playback</h2>
+
+  <details class="faq">
+    <summary>A channel buffers, stutters or won't start</summary>
+    <div class="faq__body">
+      <p>First, work out whether it is the app or the line. If <em>one</em> channel misbehaves while
+        the rest are fine, the problem is that stream at your provider, and nothing in the app will
+        fix it. If <em>everything</em> stutters, suspect the connection between you and them.</p>
+      <p>Worth trying, in order: a wired connection or 5 GHz Wi-Fi instead of 2.4 GHz; pausing other
+        large downloads; and asking your provider whether they offer a nearer server or a lower
+        bitrate of the same channel. Live IPTV has no buffer to fall back on the way an on-demand
+        service does, so a brief network dip is immediately visible.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>There's sound but no picture, or the wrong audio track</summary>
+    <div class="faq__body">
+      <p>Open the track menu in the player and choose explicitly — Dawn Player remembers the audio
+        and subtitle language you pick and applies it to everything you open afterwards, so you only
+        need to do this once per language.</p>
+      <p>A stream with no picture at all usually carries a video codec the device cannot decode.
+        Playback uses libmpv, which handles far more formats than the system player, but a hardware
+        decoder it cannot fall back from will still fail. Report it with the channel name and we can
+        look at the stream's format.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>Resume forgot where I was</summary>
+    <div class="faq__body">
+      <p>Resume positions are recorded per title, on the device. They are not shared between devices
+        unless you have turned on sync and pointed it at a server of your own. If a title's identity
+        changed at your provider — a renamed entry, or a different stream id after a catalogue
+        rebuild — the app can no longer match it to the old position.</p>
+    </div>
+  </details>
+
+  <h2>Guide, catalogue and artwork</h2>
+
+  <details class="faq">
+    <summary>The programme guide is empty or wrong</summary>
+    <div class="faq__body">
+      <p>The guide comes from your provider's XMLTV data, not from us. If it is empty, they may not
+        publish one, or the URL in your playlist may be stale. If times are consistently offset,
+        their guide is published in a different timezone than it claims; if titles are missing for
+        some channels only, their guide simply does not cover those channels.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>Films and series have no posters</summary>
+    <div class="faq__body">
+      <p>Many playlists carry no artwork at all. Dawn Player can fill the gaps from TMDB, but only
+        with an API key you supply: Settings &rarr; add your own TMDB key. Keys are free for personal
+        use from themoviedb.org. Without one the app still works and falls back to clean typographic
+        cards, and makes no request to TMDB.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>Hiding, renaming and reordering</summary>
+    <div class="faq__body">
+      <p>Playlists arrive with groups and names chosen by the provider, and those are frequently
+        neither. Long-press or open the menu on any group or channel to hide it, rename it, or move
+        it. Changes are yours and local, and survive a catalogue refresh.</p>
+    </div>
+  </details>
+
+  <h2>Television and casting</h2>
+
+  <details class="faq">
+    <summary>Using Dawn Player on Android TV or Google TV</summary>
+    <div class="faq__body">
+      <p>The same app runs on television, and appears on the Android TV home screen with its own
+        banner. Navigate with the remote's direction pad; <em>Back</em> steps up one level and then
+        out of the player.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>Casting to a Chromecast</summary>
+    <div class="faq__body">
+      <p>On Android, the cast button appears in the player when a Chromecast is on the same network.
+        If it never appears: the device and the Chromecast must be on the same subnet — guest
+        networks and some mesh setups separate them — and casting needs Google Play services, which
+        some Android TV images ship without. Where casting is unavailable, the button is hidden
+        rather than shown broken.</p>
+    </div>
+  </details>
+
+  <h2>Privacy and data</h2>
+
+  <details class="faq">
+    <summary>What does the app send, and to whom?</summary>
+    <div class="faq__body">
+      <p>Nothing to us — there is no account and no server of ours. Your credentials go only to your
+        provider, to authenticate. The <a href="privacy.html">privacy policy</a> lists every
+        connection the app makes and what travels over it.</p>
+    </div>
+  </details>
+
+  <details class="faq">
+    <summary>How do I delete everything?</summary>
+    <div class="faq__body">
+      <p>Uninstalling removes all local data, credentials included. To remove one provider without
+        losing the rest, delete that account in Settings &rarr; Accounts; its catalogue and cached
+        artwork go with it.</p>
+    </div>
+  </details>
+
+</div>
+
+<footer class="site-footer">
+  <div class="site-footer__glow" aria-hidden="true"></div>
+  <div class="wrap site-footer__in">
+    <div class="site-footer__top">
+      <div>
+        <div class="footmark">
+          <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden="true">
+            <defs>
+              <linearGradient id="dnf" x1="32" y1="28" x2="32" y2="43" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#8B6BFF"/><stop offset=".48" stop-color="#FF7A9C"/><stop offset="1" stop-color="#FFC46B"/>
+              </linearGradient>
+              <linearGradient id="dnfh" x1="11" y1="0" x2="53" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="#FFC46B" stop-opacity="0"/><stop offset=".5" stop-color="#FFC46B" stop-opacity=".9"/><stop offset="1" stop-color="#FFC46B" stop-opacity="0"/>
+              </linearGradient>
+              <clipPath id="dnfc"><rect x="0" y="0" width="64" height="42"/></clipPath>
+            </defs>
+            <rect width="64" height="64" rx="15" fill="#151A24"/>
+            <g transform="translate(32 36) scale(1.18) translate(-32 -36)">
+              <g clip-path="url(#dnfc)"><circle cx="32" cy="47" r="19" fill="url(#dnf)"/></g>
+              <path d="M27.5 30.8 38.5 36.2 27.5 41.6z" fill="#151A24"/>
+              <path d="M11 42h42" stroke="url(#dnfh)" stroke-width="1.9" stroke-linecap="round"/>
+            </g>
+          </svg>
+          <span>Dawn Player</span>
+        </div>
+        <p class="byline">A personal project. Built because the alternatives were annoying.</p>
+      </div>
+      <div class="footlinks">
+        <a href="index.html#fixes">What it fixes</a>
+        <a href="index.html#features">Features</a>
+        <a href="support.html">Support</a>
+        <a href="privacy.html">Privacy</a>
+      </div>
+    </div>
+    <div class="rule"></div>
+    <div class="fine">
+      <p class="fine__note"><b>Dawn Player ships no content.</b> No channels, no films, no provider — it plays the
+        Xtream Codes or M3U line you already subscribe to, and it is not affiliated with any provider.</p>
+      <p class="tmdb"><i></i>Some artwork and metadata from TMDB. Not endorsed or certified by TMDB.</p>
+      <p>© 2026</p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

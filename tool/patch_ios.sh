@@ -3,11 +3,15 @@
 #
 # `flutter create --platforms=ios .` regenerates the iOS scaffold and MAY
 # overwrite our committed ios/Runner/Info.plist and ios/Podfile with defaults.
-# This script re-asserts the three iOS settings the smoke test needs so the
-# build is correct regardless of what the scaffold generator produced:
+# This script re-asserts the iOS settings the build and the App Store listing
+# depend on, so both are correct regardless of what the scaffold produced:
 #   1. App Transport Security -> NSAllowsArbitraryLoads (plain-HTTP IPTV).
 #   2. Podfile platform + per-pod deployment target -> 13.0.
 #   3. Xcode project IPHONEOS_DEPLOYMENT_TARGET -> 13.0.
+#   4. PRODUCT_BUNDLE_IDENTIFIER -> com.dawnplayer.app (the App Store identity;
+#      the scaffold default is com.example.<name>, which cannot be uploaded).
+#   5. ITSAppUsesNonExemptEncryption -> false (export compliance).
+#   6. TARGETED_DEVICE_FAMILY -> 1 (iPhone only; see the note at that step).
 #
 # Safe to run repeatedly and safe to run before or after `flutter create`.
 set -euo pipefail
@@ -62,4 +66,30 @@ else
   exit 1
 fi
 
-echo "==> iOS config patched: ATS=on, deployment target=13.0"
+echo "==> Asserting bundle identifier: $PBXPROJ"
+# The App Store identity. Must match Android's applicationId and the app
+# registered in App Store Connect; RunnerTests keeps the .RunnerTests suffix.
+sed -i.bak -E "s/PRODUCT_BUNDLE_IDENTIFIER = com\.example\.[A-Za-z0-9_]+/PRODUCT_BUNDLE_IDENTIFIER = com.dawnplayer.app/g" "$PBXPROJ"
+rm -f "$PBXPROJ.bak"
+
+echo "==> Asserting iPhone-only device family: $PBXPROJ"
+# v1 is iPhone-only. Declaring iPad ("1,2") makes a 13-inch iPad screenshot set
+# mandatory in App Store Connect and puts a phone-first layout (bottom nav bar,
+# phone-width grids) in front of design review. Revisit when there is a real
+# iPad layout to show.
+sed -i.bak -E 's/TARGETED_DEVICE_FAMILY = "1,2";/TARGETED_DEVICE_FAMILY = "1";/g' "$PBXPROJ"
+rm -f "$PBXPROJ.bak"
+
+echo "==> Asserting export compliance: $PLIST"
+if [ -x /usr/libexec/PlistBuddy ]; then
+  # Set, or add if absent. Without it every upload stops to ask.
+  /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST" 2>/dev/null ||
+    /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
+elif grep -q "ITSAppUsesNonExemptEncryption" "$PLIST"; then
+  echo "    PlistBuddy unavailable; key already present, skipping."
+else
+  echo "!! PlistBuddy unavailable and $PLIST has no ITSAppUsesNonExemptEncryption" >&2
+  exit 1
+fi
+
+echo "==> iOS config patched: ATS=on, target=13.0, id=com.dawnplayer.app"

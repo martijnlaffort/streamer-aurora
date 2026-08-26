@@ -1,7 +1,7 @@
 name: dawnplayer
 description: Dawn Player — a cinematic IPTV player for Xtream and M3U sources.
 publish_to: 'none'
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
   sdk: ^3.12.0
@@ -33,7 +33,6 @@ dependencies:
   cached_network_image: ^3.4.1
   screen_brightness: ^2.1.11 # player brightness gesture
   linked_scroll_controller: ^0.2.0 # synced horizontal scroll in the EPG grid
-  google_fonts: ^8.2.0 # display + UI typefaces (PRD §10)
 
   # Models
   crypto: ^3.0.6 # stable account ids (sha256 of the playlist identity)
@@ -70,3 +69,37 @@ flutter:
   assets:
     # Award canon for the offline discovery rails (see canon_source.dart).
     - assets/canon/canon.json
+    # OFL 1.1 requires the licence to travel with the fonts below. Registered
+    # with LicenseRegistry in main.dart so it shows in the licence page.
+    - assets/licenses/OFL-Inter.txt
+    - assets/licenses/OFL-Outfit.txt
+
+  # Typefaces are BUNDLED, not fetched. The google_fonts package downloads from
+  # fonts.gstatic.com on first launch, which meant the app made a third-party
+  # network call it did not need, had to disclose it in the privacy policy, and
+  # rendered a fallback face on a cold start with no connection.
+  #
+  # These are the static instances Google serves for each weight — real
+  # per-weight files, not a variable font, because Flutter maps fontWeight to a
+  # declared `weight:` and does NOT interpolate a variable axis from it.
+  #
+  # Only the weights actually asked for are here (see AppTypography). Anything
+  # else — the w800 on the ranked-poster numerals, for instance — snaps to the
+  # nearest of these and is synthetically emboldened, exactly as it was before.
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+    - family: Outfit
+      fonts:
+        - asset: assets/fonts/Outfit-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Outfit-Bold.ttf
+          weight: 700

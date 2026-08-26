@@ -47,6 +47,12 @@ class AboutScreen extends StatelessWidget {
             body: 'Playback is handled by libmpv, the same engine behind mpv.',
           ),
           const _Credit(
+            name: 'Typefaces',
+            body: 'Set in Outfit and Inter, both bundled with the app under '
+                'the SIL Open Font License 1.1. The full licence text is in '
+                'the licence page.',
+          ),
+          const _Credit(
             name: 'Award data',
             body: 'The award rails are built from a bundled list of Academy '
                 'Award Best Picture and Primetime Emmy winners.',

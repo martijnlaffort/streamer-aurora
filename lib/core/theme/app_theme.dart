@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 import 'app_typography.dart';
@@ -23,7 +22,11 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: AppColors.background,
     );
 
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
+    // Inter across the whole Material text theme, then the display face where
+    // the tokens call for it. `apply` keeps every one of Material's own sizes
+    // and weights and swaps only the family.
+    final textTheme =
+        base.textTheme.apply(fontFamily: AppTypography.uiFamily).copyWith(
       displayLarge: AppTypography.display,
       headlineMedium: AppTypography.display.copyWith(fontSize: 28),
       titleLarge: AppTypography.title,
@@ -67,7 +70,9 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+              fontFamily: AppTypography.uiFamily,
+              fontWeight: FontWeight.w600),
         ),
       ),
       snackBarTheme: const SnackBarThemeData(

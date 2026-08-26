@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App privacy manifest (Apple, required for App Store submission).
+	     Mirrors the App Privacy answers in App Store Connect and the Play
+	     Data safety form — if one changes, change all three.
+
+	     Dawn Player is a player, not a service: playlists, credentials and
+	     watch history stay on the device. The optional sync feature (PRD
+	     §8.12/§9) posts to a server URL the *user* supplies, so nothing is
+	     transmitted to us and nothing is declared as collected below. -->
+
+	<!-- No ads, no analytics, no attribution SDKs. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<!-- Empty array = an explicit "collects nothing", not an omission. -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+
+	<!-- Required-reason APIs. Every entry is app-container only; none of
+	     these reasons involve device fingerprinting.
+
+	     If an upload report (ITMS-91053) flags a category missing here, add
+	     it — and if a build stops using one, drop it. Over-declaring is
+	     accepted by App Review; under-declaring blocks the upload. -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<!-- drift's sqlite file, path_provider, and the artwork disk
+			     cache all stat files inside our own container. -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- Plugin-side settings storage (package_info_plus and friends)
+			     reads its own app's defaults. -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- The artwork cache checks free space before writing. -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>85F4.1</string>
+			</array>
+		</dict>
+		<dict>
+			<!-- libmpv measures elapsed time for playback timing. -->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

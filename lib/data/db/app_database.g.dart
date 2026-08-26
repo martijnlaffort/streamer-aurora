@@ -6019,6 +6019,534 @@ class CatalogOverridesTableCompanion
   }
 }
 
+class $RemindersTableTable extends RemindersTable
+    with TableInfo<$RemindersTableTable, ReminderRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RemindersTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _channelIdMeta = const VerificationMeta(
+    'channelId',
+  );
+  @override
+  late final GeneratedColumn<String> channelId = GeneratedColumn<String>(
+    'channel_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _channelNameMeta = const VerificationMeta(
+    'channelName',
+  );
+  @override
+  late final GeneratedColumn<String> channelName = GeneratedColumn<String>(
+    'channel_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startsAtMillisUtcMeta = const VerificationMeta(
+    'startsAtMillisUtc',
+  );
+  @override
+  late final GeneratedColumn<int> startsAtMillisUtc = GeneratedColumn<int>(
+    'starts_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _leadMinutesMeta = const VerificationMeta(
+    'leadMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> leadMinutes = GeneratedColumn<int>(
+    'lead_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(3),
+  );
+  static const VerificationMeta _notificationIdMeta = const VerificationMeta(
+    'notificationId',
+  );
+  @override
+  late final GeneratedColumn<int> notificationId = GeneratedColumn<int>(
+    'notification_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    accountId,
+    channelId,
+    channelName,
+    title,
+    startsAtMillisUtc,
+    leadMinutes,
+    notificationId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reminders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReminderRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('channel_id')) {
+      context.handle(
+        _channelIdMeta,
+        channelId.isAcceptableOrUnknown(data['channel_id']!, _channelIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_channelIdMeta);
+    }
+    if (data.containsKey('channel_name')) {
+      context.handle(
+        _channelNameMeta,
+        channelName.isAcceptableOrUnknown(
+          data['channel_name']!,
+          _channelNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_channelNameMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('starts_at_millis_utc')) {
+      context.handle(
+        _startsAtMillisUtcMeta,
+        startsAtMillisUtc.isAcceptableOrUnknown(
+          data['starts_at_millis_utc']!,
+          _startsAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_startsAtMillisUtcMeta);
+    }
+    if (data.containsKey('lead_minutes')) {
+      context.handle(
+        _leadMinutesMeta,
+        leadMinutes.isAcceptableOrUnknown(
+          data['lead_minutes']!,
+          _leadMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notification_id')) {
+      context.handle(
+        _notificationIdMeta,
+        notificationId.isAcceptableOrUnknown(
+          data['notification_id']!,
+          _notificationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_notificationIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReminderRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReminderRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      channelId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}channel_id'],
+      )!,
+      channelName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}channel_name'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      startsAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}starts_at_millis_utc'],
+      )!,
+      leadMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lead_minutes'],
+      )!,
+      notificationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}notification_id'],
+      )!,
+    );
+  }
+
+  @override
+  $RemindersTableTable createAlias(String alias) {
+    return $RemindersTableTable(attachedDatabase, alias);
+  }
+}
+
+class ReminderRow extends DataClass implements Insertable<ReminderRow> {
+  final String id;
+  final String accountId;
+  final String channelId;
+  final String channelName;
+  final String title;
+  final int startsAtMillisUtc;
+  final int leadMinutes;
+  final int notificationId;
+  const ReminderRow({
+    required this.id,
+    required this.accountId,
+    required this.channelId,
+    required this.channelName,
+    required this.title,
+    required this.startsAtMillisUtc,
+    required this.leadMinutes,
+    required this.notificationId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['account_id'] = Variable<String>(accountId);
+    map['channel_id'] = Variable<String>(channelId);
+    map['channel_name'] = Variable<String>(channelName);
+    map['title'] = Variable<String>(title);
+    map['starts_at_millis_utc'] = Variable<int>(startsAtMillisUtc);
+    map['lead_minutes'] = Variable<int>(leadMinutes);
+    map['notification_id'] = Variable<int>(notificationId);
+    return map;
+  }
+
+  RemindersTableCompanion toCompanion(bool nullToAbsent) {
+    return RemindersTableCompanion(
+      id: Value(id),
+      accountId: Value(accountId),
+      channelId: Value(channelId),
+      channelName: Value(channelName),
+      title: Value(title),
+      startsAtMillisUtc: Value(startsAtMillisUtc),
+      leadMinutes: Value(leadMinutes),
+      notificationId: Value(notificationId),
+    );
+  }
+
+  factory ReminderRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReminderRow(
+      id: serializer.fromJson<String>(json['id']),
+      accountId: serializer.fromJson<String>(json['accountId']),
+      channelId: serializer.fromJson<String>(json['channelId']),
+      channelName: serializer.fromJson<String>(json['channelName']),
+      title: serializer.fromJson<String>(json['title']),
+      startsAtMillisUtc: serializer.fromJson<int>(json['startsAtMillisUtc']),
+      leadMinutes: serializer.fromJson<int>(json['leadMinutes']),
+      notificationId: serializer.fromJson<int>(json['notificationId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'accountId': serializer.toJson<String>(accountId),
+      'channelId': serializer.toJson<String>(channelId),
+      'channelName': serializer.toJson<String>(channelName),
+      'title': serializer.toJson<String>(title),
+      'startsAtMillisUtc': serializer.toJson<int>(startsAtMillisUtc),
+      'leadMinutes': serializer.toJson<int>(leadMinutes),
+      'notificationId': serializer.toJson<int>(notificationId),
+    };
+  }
+
+  ReminderRow copyWith({
+    String? id,
+    String? accountId,
+    String? channelId,
+    String? channelName,
+    String? title,
+    int? startsAtMillisUtc,
+    int? leadMinutes,
+    int? notificationId,
+  }) => ReminderRow(
+    id: id ?? this.id,
+    accountId: accountId ?? this.accountId,
+    channelId: channelId ?? this.channelId,
+    channelName: channelName ?? this.channelName,
+    title: title ?? this.title,
+    startsAtMillisUtc: startsAtMillisUtc ?? this.startsAtMillisUtc,
+    leadMinutes: leadMinutes ?? this.leadMinutes,
+    notificationId: notificationId ?? this.notificationId,
+  );
+  ReminderRow copyWithCompanion(RemindersTableCompanion data) {
+    return ReminderRow(
+      id: data.id.present ? data.id.value : this.id,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      channelId: data.channelId.present ? data.channelId.value : this.channelId,
+      channelName: data.channelName.present
+          ? data.channelName.value
+          : this.channelName,
+      title: data.title.present ? data.title.value : this.title,
+      startsAtMillisUtc: data.startsAtMillisUtc.present
+          ? data.startsAtMillisUtc.value
+          : this.startsAtMillisUtc,
+      leadMinutes: data.leadMinutes.present
+          ? data.leadMinutes.value
+          : this.leadMinutes,
+      notificationId: data.notificationId.present
+          ? data.notificationId.value
+          : this.notificationId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReminderRow(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('channelId: $channelId, ')
+          ..write('channelName: $channelName, ')
+          ..write('title: $title, ')
+          ..write('startsAtMillisUtc: $startsAtMillisUtc, ')
+          ..write('leadMinutes: $leadMinutes, ')
+          ..write('notificationId: $notificationId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    accountId,
+    channelId,
+    channelName,
+    title,
+    startsAtMillisUtc,
+    leadMinutes,
+    notificationId,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReminderRow &&
+          other.id == this.id &&
+          other.accountId == this.accountId &&
+          other.channelId == this.channelId &&
+          other.channelName == this.channelName &&
+          other.title == this.title &&
+          other.startsAtMillisUtc == this.startsAtMillisUtc &&
+          other.leadMinutes == this.leadMinutes &&
+          other.notificationId == this.notificationId);
+}
+
+class RemindersTableCompanion extends UpdateCompanion<ReminderRow> {
+  final Value<String> id;
+  final Value<String> accountId;
+  final Value<String> channelId;
+  final Value<String> channelName;
+  final Value<String> title;
+  final Value<int> startsAtMillisUtc;
+  final Value<int> leadMinutes;
+  final Value<int> notificationId;
+  final Value<int> rowid;
+  const RemindersTableCompanion({
+    this.id = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.channelId = const Value.absent(),
+    this.channelName = const Value.absent(),
+    this.title = const Value.absent(),
+    this.startsAtMillisUtc = const Value.absent(),
+    this.leadMinutes = const Value.absent(),
+    this.notificationId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RemindersTableCompanion.insert({
+    required String id,
+    required String accountId,
+    required String channelId,
+    required String channelName,
+    required String title,
+    required int startsAtMillisUtc,
+    this.leadMinutes = const Value.absent(),
+    required int notificationId,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       accountId = Value(accountId),
+       channelId = Value(channelId),
+       channelName = Value(channelName),
+       title = Value(title),
+       startsAtMillisUtc = Value(startsAtMillisUtc),
+       notificationId = Value(notificationId);
+  static Insertable<ReminderRow> custom({
+    Expression<String>? id,
+    Expression<String>? accountId,
+    Expression<String>? channelId,
+    Expression<String>? channelName,
+    Expression<String>? title,
+    Expression<int>? startsAtMillisUtc,
+    Expression<int>? leadMinutes,
+    Expression<int>? notificationId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (accountId != null) 'account_id': accountId,
+      if (channelId != null) 'channel_id': channelId,
+      if (channelName != null) 'channel_name': channelName,
+      if (title != null) 'title': title,
+      if (startsAtMillisUtc != null) 'starts_at_millis_utc': startsAtMillisUtc,
+      if (leadMinutes != null) 'lead_minutes': leadMinutes,
+      if (notificationId != null) 'notification_id': notificationId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RemindersTableCompanion copyWith({
+    Value<String>? id,
+    Value<String>? accountId,
+    Value<String>? channelId,
+    Value<String>? channelName,
+    Value<String>? title,
+    Value<int>? startsAtMillisUtc,
+    Value<int>? leadMinutes,
+    Value<int>? notificationId,
+    Value<int>? rowid,
+  }) {
+    return RemindersTableCompanion(
+      id: id ?? this.id,
+      accountId: accountId ?? this.accountId,
+      channelId: channelId ?? this.channelId,
+      channelName: channelName ?? this.channelName,
+      title: title ?? this.title,
+      startsAtMillisUtc: startsAtMillisUtc ?? this.startsAtMillisUtc,
+      leadMinutes: leadMinutes ?? this.leadMinutes,
+      notificationId: notificationId ?? this.notificationId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (channelId.present) {
+      map['channel_id'] = Variable<String>(channelId.value);
+    }
+    if (channelName.present) {
+      map['channel_name'] = Variable<String>(channelName.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (startsAtMillisUtc.present) {
+      map['starts_at_millis_utc'] = Variable<int>(startsAtMillisUtc.value);
+    }
+    if (leadMinutes.present) {
+      map['lead_minutes'] = Variable<int>(leadMinutes.value);
+    }
+    if (notificationId.present) {
+      map['notification_id'] = Variable<int>(notificationId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RemindersTableCompanion(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('channelId: $channelId, ')
+          ..write('channelName: $channelName, ')
+          ..write('title: $title, ')
+          ..write('startsAtMillisUtc: $startsAtMillisUtc, ')
+          ..write('leadMinutes: $leadMinutes, ')
+          ..write('notificationId: $notificationId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $EpgCacheTableTable extends EpgCacheTable
     with TableInfo<$EpgCacheTableTable, EpgRow> {
   @override
@@ -8773,6 +9301,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FavoritesTableTable favoritesTable = $FavoritesTableTable(this);
   late final $CatalogOverridesTableTable catalogOverridesTable =
       $CatalogOverridesTableTable(this);
+  late final $RemindersTableTable remindersTable = $RemindersTableTable(this);
   late final $EpgCacheTableTable epgCacheTable = $EpgCacheTableTable(this);
   late final $CatalogMetaTableTable catalogMetaTable = $CatalogMetaTableTable(
     this,
@@ -8802,6 +9331,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     preferencesTable,
     favoritesTable,
     catalogOverridesTable,
+    remindersTable,
     epgCacheTable,
     catalogMetaTable,
     catalogCategoryMetaTable,
@@ -11741,6 +12271,273 @@ typedef $$CatalogOverridesTableTableProcessedTableManager =
       CatalogOverrideRow,
       PrefetchHooks Function()
     >;
+typedef $$RemindersTableTableCreateCompanionBuilder =
+    RemindersTableCompanion Function({
+      required String id,
+      required String accountId,
+      required String channelId,
+      required String channelName,
+      required String title,
+      required int startsAtMillisUtc,
+      Value<int> leadMinutes,
+      required int notificationId,
+      Value<int> rowid,
+    });
+typedef $$RemindersTableTableUpdateCompanionBuilder =
+    RemindersTableCompanion Function({
+      Value<String> id,
+      Value<String> accountId,
+      Value<String> channelId,
+      Value<String> channelName,
+      Value<String> title,
+      Value<int> startsAtMillisUtc,
+      Value<int> leadMinutes,
+      Value<int> notificationId,
+      Value<int> rowid,
+    });
+
+class $$RemindersTableTableFilterComposer
+    extends Composer<_$AppDatabase, $RemindersTableTable> {
+  $$RemindersTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get channelId => $composableBuilder(
+    column: $table.channelId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get channelName => $composableBuilder(
+    column: $table.channelName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startsAtMillisUtc => $composableBuilder(
+    column: $table.startsAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get leadMinutes => $composableBuilder(
+    column: $table.leadMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get notificationId => $composableBuilder(
+    column: $table.notificationId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RemindersTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $RemindersTableTable> {
+  $$RemindersTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get channelId => $composableBuilder(
+    column: $table.channelId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get channelName => $composableBuilder(
+    column: $table.channelName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startsAtMillisUtc => $composableBuilder(
+    column: $table.startsAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get leadMinutes => $composableBuilder(
+    column: $table.leadMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get notificationId => $composableBuilder(
+    column: $table.notificationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RemindersTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RemindersTableTable> {
+  $$RemindersTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get channelId =>
+      $composableBuilder(column: $table.channelId, builder: (column) => column);
+
+  GeneratedColumn<String> get channelName => $composableBuilder(
+    column: $table.channelName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<int> get startsAtMillisUtc => $composableBuilder(
+    column: $table.startsAtMillisUtc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get leadMinutes => $composableBuilder(
+    column: $table.leadMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get notificationId => $composableBuilder(
+    column: $table.notificationId,
+    builder: (column) => column,
+  );
+}
+
+class $$RemindersTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RemindersTableTable,
+          ReminderRow,
+          $$RemindersTableTableFilterComposer,
+          $$RemindersTableTableOrderingComposer,
+          $$RemindersTableTableAnnotationComposer,
+          $$RemindersTableTableCreateCompanionBuilder,
+          $$RemindersTableTableUpdateCompanionBuilder,
+          (
+            ReminderRow,
+            BaseReferences<_$AppDatabase, $RemindersTableTable, ReminderRow>,
+          ),
+          ReminderRow,
+          PrefetchHooks Function()
+        > {
+  $$RemindersTableTableTableManager(
+    _$AppDatabase db,
+    $RemindersTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RemindersTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RemindersTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RemindersTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> accountId = const Value.absent(),
+                Value<String> channelId = const Value.absent(),
+                Value<String> channelName = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<int> startsAtMillisUtc = const Value.absent(),
+                Value<int> leadMinutes = const Value.absent(),
+                Value<int> notificationId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RemindersTableCompanion(
+                id: id,
+                accountId: accountId,
+                channelId: channelId,
+                channelName: channelName,
+                title: title,
+                startsAtMillisUtc: startsAtMillisUtc,
+                leadMinutes: leadMinutes,
+                notificationId: notificationId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String accountId,
+                required String channelId,
+                required String channelName,
+                required String title,
+                required int startsAtMillisUtc,
+                Value<int> leadMinutes = const Value.absent(),
+                required int notificationId,
+                Value<int> rowid = const Value.absent(),
+              }) => RemindersTableCompanion.insert(
+                id: id,
+                accountId: accountId,
+                channelId: channelId,
+                channelName: channelName,
+                title: title,
+                startsAtMillisUtc: startsAtMillisUtc,
+                leadMinutes: leadMinutes,
+                notificationId: notificationId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RemindersTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RemindersTableTable,
+      ReminderRow,
+      $$RemindersTableTableFilterComposer,
+      $$RemindersTableTableOrderingComposer,
+      $$RemindersTableTableAnnotationComposer,
+      $$RemindersTableTableCreateCompanionBuilder,
+      $$RemindersTableTableUpdateCompanionBuilder,
+      (
+        ReminderRow,
+        BaseReferences<_$AppDatabase, $RemindersTableTable, ReminderRow>,
+      ),
+      ReminderRow,
+      PrefetchHooks Function()
+    >;
 typedef $$EpgCacheTableTableCreateCompanionBuilder =
     EpgCacheTableCompanion Function({
       required String accountId,
@@ -13285,6 +14082,8 @@ class $AppDatabaseManager {
       $$FavoritesTableTableTableManager(_db, _db.favoritesTable);
   $$CatalogOverridesTableTableTableManager get catalogOverridesTable =>
       $$CatalogOverridesTableTableTableManager(_db, _db.catalogOverridesTable);
+  $$RemindersTableTableTableManager get remindersTable =>
+      $$RemindersTableTableTableManager(_db, _db.remindersTable);
   $$EpgCacheTableTableTableManager get epgCacheTable =>
       $$EpgCacheTableTableTableManager(_db, _db.epgCacheTable);
   $$CatalogMetaTableTableTableManager get catalogMetaTable =>

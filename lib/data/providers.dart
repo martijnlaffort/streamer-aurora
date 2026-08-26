@@ -7,6 +7,7 @@ import '../core/language/content_language.dart';
 import '../domain/models/models.dart';
 import 'db/app_database.dart';
 import 'db/credential_store.dart';
+import 'notifications/reminder_service.dart';
 import 'repositories/account_repository.dart';
 import 'repositories/artwork_repository.dart';
 import 'repositories/catalog_overrides_repository.dart';
@@ -15,6 +16,7 @@ import 'repositories/discovery_repository.dart';
 import 'repositories/epg_repository.dart';
 import 'repositories/favorites_repository.dart';
 import 'repositories/preferences_repository.dart';
+import 'repositories/reminders_repository.dart';
 import 'repositories/search_history_repository.dart';
 import 'repositories/watch_progress_repository.dart';
 import 'sources/canon_source.dart';
@@ -178,6 +180,30 @@ final uiScaleProvider = Provider<double>(
 /// steps through rows the user cannot see.
 final groupChannelVariantsProvider = Provider<bool>((ref) =>
     ref.watch(preferencesProvider).value?.groupChannelVariants ?? true);
+
+final remindersRepositoryProvider = Provider<RemindersRepository>(
+    (ref) => RemindersRepository(db: ref.watch(appDatabaseProvider)));
+
+/// Owns the OS alarms behind programme reminders.
+final reminderServiceProvider = Provider<ReminderService>((ref) {
+  final service =
+      ReminderService(repository: ref.watch(remindersRepositoryProvider));
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// Reminders still ahead of now, for the Reminders screen.
+final upcomingRemindersProvider = FutureProvider<List<Reminder>>((ref) =>
+    ref.watch(remindersRepositoryProvider).upcoming(DateTime.now().toUtc()));
+
+/// Whether a specific programme already has a reminder — drives the guide's
+/// set/cancel toggle.
+final hasReminderProvider =
+    FutureProvider.family<bool, String>((ref, id) async {
+  // Depend on the list so setting one updates every open sheet.
+  ref.watch(upcomingRemindersProvider);
+  return ref.watch(remindersRepositoryProvider).exists(id);
+});
 
 final catalogOverridesRepositoryProvider =
     Provider<CatalogOverridesRepository>((ref) =>

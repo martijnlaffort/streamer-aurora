@@ -13,6 +13,7 @@ export 'epg_entry.dart';
 export 'episode.dart';
 export 'movie.dart';
 export 'preferences.dart';
+export 'reminder.dart';
 export 'season.dart';
 export 'series.dart';
 export 'series_detail.dart';

@@ -21,6 +21,7 @@ import '../../features/settings/presentation/content_languages_screen.dart';
 import '../../features/settings/presentation/hidden_channels_screen.dart';
 import '../../features/settings/presentation/manage_categories_screen.dart';
 import '../../features/settings/presentation/pair_device_screen.dart';
+import '../../features/settings/presentation/reminders_screen.dart';
 import '../../features/settings/presentation/pair_tv_screen.dart';
 import '../../features/settings/presentation/favorites_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
@@ -178,6 +179,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             orElse: () => CategoryType.live,
           ),
         ),
+      ),
+      GoRoute(
+        path: '/settings/reminders',
+        name: 'reminders',
+        builder: (context, state) => const RemindersScreen(),
       ),
       GoRoute(
         path: '/settings/hidden-channels',

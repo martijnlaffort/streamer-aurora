@@ -239,6 +239,24 @@ class PreferencesTable extends Table {
 /// names and the order; this table is how the user overrules that without
 /// touching the cached catalogue itself — a refresh replaces catalogue rows
 /// wholesale, so anything editable has to live beside them rather than in them.
+@DataClassName('ReminderRow')
+class RemindersTable extends Table {
+  @override
+  String get tableName => 'reminders';
+
+  TextColumn get id => text()();
+  TextColumn get accountId => text()();
+  TextColumn get channelId => text()();
+  TextColumn get channelName => text()();
+  TextColumn get title => text()();
+  IntColumn get startsAtMillisUtc => integer()();
+  IntColumn get leadMinutes => integer().withDefault(const Constant(3))();
+  IntColumn get notificationId => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('CatalogOverrideRow')
 class CatalogOverridesTable extends Table {
   @override
@@ -450,6 +468,7 @@ class SearchHistoryTable extends Table {
   PreferencesTable,
   FavoritesTable,
   CatalogOverridesTable,
+  RemindersTable,
   EpgCacheTable,
   CatalogMetaTable,
   CatalogCategoryMetaTable,
@@ -469,7 +488,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -549,6 +568,13 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(
                 preferencesTable, preferencesTable.groupChannelVariants);
             await _backfillChannelVariants();
+          }
+          // v14: programme reminders. Kept locally rather than in the sync
+          // payload — an alarm is scheduled against THIS device's clock, and a
+          // phone's reminder firing on the television is not what anyone means
+          // by "remind me".
+          if (from < 14) {
+            await m.createTable(remindersTable);
           }
         },
         beforeOpen: (details) async {

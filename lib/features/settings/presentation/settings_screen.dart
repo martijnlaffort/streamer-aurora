@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/db/app_database.dart' show CatalogKind;
+import '../../../data/notifications/reminder_service.dart';
 import '../../../data/providers.dart';
 import '../../../data/sources/playlist_source.dart' show SourceException;
 import '../../../data/sources/tmdb_source.dart';
@@ -342,6 +343,15 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/hidden-channels'),
           ),
+          if (ReminderService.isSupported)
+            ListTile(
+              leading: const Icon(Icons.notifications_none_outlined),
+              title: const Text('Reminders'),
+              subtitle: Text('Programmes you asked to be told about',
+                  style: TextStyle(color: AppColors.textSecondary)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/reminders'),
+            ),
           SwitchListTile(
             secondary: const Icon(Icons.high_quality_outlined),
             title: const Text('Group channel qualities'),

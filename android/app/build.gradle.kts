@@ -27,6 +27,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Required by flutter_local_notifications: it uses java.time to work out
+        // when a reminder is due, and that needs desugaring to run below API 26.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -79,4 +82,5 @@ dependencies {
     // images) CastContext.getSharedInstance throws — CastBridge treats that as
     // "cast unavailable" and the UI hides the button.
     implementation("com.google.android.gms:play-services-cast-framework:22.0.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }

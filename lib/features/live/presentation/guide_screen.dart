@@ -6,6 +6,8 @@ import 'package:linked_scroll_controller/linked_scroll_controller.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../data/notifications/reminder_service.dart';
+import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
 import '../../player/player_request.dart';
 import '../live_providers.dart';
@@ -156,6 +158,11 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                 icon: const Icon(Icons.play_arrow),
                 label: Text('Watch ${channel.name} live'),
               ),
+              // Only for programmes that have not started: a reminder for
+              // something already on air is just a worse Play button.
+              if (ReminderService.isSupported &&
+                  e.start.isAfter(DateTime.now().toUtc()))
+                _ReminderButton(entry: e, channel: channel),
             ],
           ),
         ),
@@ -348,6 +355,84 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Sets or cancels a reminder for one programme.
+///
+/// A toggle rather than a fire-and-forget button: the guide is the only place
+/// this can be undone from, so a button that could only ever add would leave
+/// the user with no way to take it back.
+class _ReminderButton extends ConsumerWidget {
+  const _ReminderButton({required this.entry, required this.channel});
+
+  final EpgEntry entry;
+  final Channel channel;
+
+  String get _id => Reminder.idFor(
+        accountId: channel.accountId,
+        channelId: channel.id,
+        startsAt: entry.start,
+      );
+
+  Future<void> _toggle(BuildContext context, WidgetRef ref, bool exists) async {
+    final repo = ref.read(remindersRepositoryProvider);
+    final service = ref.read(reminderServiceProvider);
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (exists) {
+      final reminder = _build();
+      await service.cancel(reminder);
+      await repo.remove(_id);
+      ref.invalidate(upcomingRemindersProvider);
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Reminder removed.')));
+      return;
+    }
+
+    // Asked for here, where the prompt has a reason attached, rather than at
+    // launch where it gets refused by reflex.
+    if (!await service.requestPermission()) {
+      messenger.showSnackBar(const SnackBar(
+          content: Text('Allow notifications to be reminded.')));
+      return;
+    }
+    final reminder = _build();
+    if (!await service.schedule(reminder)) {
+      messenger.showSnackBar(
+          const SnackBar(content: Text('That programme starts too soon.')));
+      return;
+    }
+    await repo.save(reminder);
+    ref.invalidate(upcomingRemindersProvider);
+    messenger.showSnackBar(SnackBar(
+        content: Text('Reminder set for ${reminder.leadMinutes} minutes '
+            'before it starts.')));
+  }
+
+  Reminder _build() => Reminder(
+        id: _id,
+        accountId: channel.accountId,
+        channelId: channel.id,
+        channelName: channel.displayName,
+        title: entry.title,
+        startsAt: entry.start,
+        notificationId: Reminder.notificationIdFor(_id),
+      );
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final exists = ref.watch(hasReminderProvider(_id)).value ?? false;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: OutlinedButton.icon(
+        onPressed: () => _toggle(context, ref, exists),
+        icon: Icon(exists
+            ? Icons.notifications_active
+            : Icons.notifications_none_outlined),
+        label: Text(exists ? 'Cancel reminder' : 'Remind me'),
       ),
     );
   }

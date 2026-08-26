@@ -454,9 +454,15 @@ catalogue with legal artwork, and it means no screenshot ever shows a real provi
 
 ## 6. Open items before submission
 
-- [ ] `support@dawnplayer.com` created and receiving mail
-- [ ] `dawnplayer.com` DNS pointed at GitHub Pages so `privacy.html` and `support.html` resolve
-- [ ] `site/` changes merged to `plexus/site` — that is the branch `pages.yml` deploys from
+- [ ] `support@dawnplayer.com` created and receiving mail. The domain is on Cloudflare with **no MX
+      records**, so Cloudflare Email Routing (free) forwards `support@` to a personal mailbox
+      without overwriting anything. Receiving is enough for both stores; sending needs a real mailbox
+- [x] `dawnplayer.com` DNS — already resolving to GitHub Pages (185.199.108-111.153) before any of
+      this work; nothing to configure
+- [x] `site/` merged to `plexus/site` and deployed 2026-08-26 (run 32977270235). Verified live:
+      `/privacy.html` and `/support.html` both 200, and `robots.txt` now serves the Allow rules.
+      Worth noting the blanket `Disallow: /` had been live and effective on the custom domain, so
+      Play's privacy-policy fetch would have failed had this not been caught
 - [ ] Mock panel deployed at `https://demo.dawnplayer.com`
 - [ ] Play developer account registered (start the 12-tester clock early — §3.5)
 - [ ] Apple Developer Program membership active — **the only thing blocking the iOS path**; the

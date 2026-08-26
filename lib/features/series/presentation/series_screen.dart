@@ -67,34 +67,32 @@ class _SeriesCategoryRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rail = ref.watch(seriesCategoryRailProvider(category.id));
-    return rail.when(
-      // Keep the rail painted while it reloads instead of blanking to a placeholder.
-      skipLoadingOnReload: true,
-      loading: () => CategoryRailPlaceholder(title: category.name),
-      error: (e, _) => const SizedBox.shrink(),
-      data: (series) {
-        if (series.isEmpty) return const SizedBox.shrink();
-        return MediaRail(
-          title: prettyCategoryName(category.name),
-          itemCount: series.length,
-          onSeeAll: () => context.push(
-              '/series/category/${Uri.encodeComponent(category.id)}',
-              extra: category.name),
-          itemBuilder: (context, i) {
-            final s = series[i];
-            final tag = 'cat-${category.id}-s-${s.id}';
-            return PosterCard(
-              title: prettyTitle(s.name, year: s.year),
-              imageUrl: s.posterUrl,
-              artwork: ArtworkQuery(
-                  name: prettyTitle(s.name, year: s.year),
-                  year: s.year,
-                  isSeries: true),
-              rating: s.rating,
-              heroTag: tag,
-              onTap: () => context.push('/series/${s.id}', extra: tag),
-            );
-          },
+    // See _MovieCategoryRail: rendered from the retained value so a reload or a
+    // transient error can never collapse a rail that has already loaded.
+    final series = rail.value;
+    if (series == null) {
+      return CategoryRailPlaceholder(title: prettyCategoryName(category.name));
+    }
+    if (series.isEmpty) return const SizedBox.shrink();
+    return MediaRail(
+      title: prettyCategoryName(category.name),
+      itemCount: series.length,
+      onSeeAll: () => context.push(
+          '/series/category/${Uri.encodeComponent(category.id)}',
+          extra: category.name),
+      itemBuilder: (context, i) {
+        final s = series[i];
+        final tag = 'cat-${category.id}-s-${s.id}';
+        return PosterCard(
+          title: prettyTitle(s.name, year: s.year),
+          imageUrl: s.posterUrl,
+          artwork: ArtworkQuery(
+              name: prettyTitle(s.name, year: s.year),
+              year: s.year,
+              isSeries: true),
+          rating: s.rating,
+          heroTag: tag,
+          onTap: () => context.push('/series/${s.id}', extra: tag),
         );
       },
     );

@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../core/matching/channel_variant.dart';
 import '../../domain/models/models.dart';
 import 'app_database.dart';
 
@@ -177,22 +178,34 @@ extension ChannelRowMapper on ChannelRow {
         hasArchive: tvArchive,
         archiveDays: tvArchiveDays,
         cachedAt: fromUtcMillis(cachedAtMillisUtc),
+        variantKey: variantKey,
+        baseName: baseName,
+        qualityRank: qualityRank,
       );
 }
 
 extension ChannelMapper on Channel {
-  ChannelsTableCompanion toCompanion() => ChannelsTableCompanion.insert(
-        id: id,
-        accountId: accountId,
-        categoryId: categoryId,
-        name: name,
-        logoUrl: Value(logoUrl),
-        epgChannelId: Value(epgChannelId),
-        sortOrder: Value(sortOrder),
-        tvArchive: Value(hasArchive),
-        tvArchiveDays: Value(archiveDays),
-        cachedAtMillisUtc: utcMillis(cachedAt),
-      );
+  ChannelsTableCompanion toCompanion() {
+    // Derived on the way in, not on the way out: the grouped read has to
+    // GROUP BY in SQL, so the key must already be a column. This is the single
+    // place channels are written, so every refresh path stays covered.
+    final variant = parseChannelVariant(name);
+    return ChannelsTableCompanion.insert(
+      id: id,
+      accountId: accountId,
+      categoryId: categoryId,
+      name: name,
+      logoUrl: Value(logoUrl),
+      epgChannelId: Value(epgChannelId),
+      sortOrder: Value(sortOrder),
+      tvArchive: Value(hasArchive),
+      tvArchiveDays: Value(archiveDays),
+      cachedAtMillisUtc: utcMillis(cachedAt),
+      variantKey: Value(variant.key),
+      baseName: Value(variant.baseName),
+      qualityRank: Value(variant.qualityRank),
+    );
+  }
 }
 
 // --- Progress / preferences / favorites / EPG --------------------------------
@@ -241,6 +254,7 @@ extension PreferencesRowMapper on PreferencesRow {
           orElse: () => AppThemeMode.dark,
         ),
         uiScale: uiScale ?? 1.0,
+        groupChannelVariants: groupChannelVariants ?? true,
       );
 }
 

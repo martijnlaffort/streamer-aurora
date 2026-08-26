@@ -802,10 +802,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       final account = await ref.read(activeAccountProvider.future);
       if (!mounted || account == null) return;
       final catalog = ref.read(catalogRepositoryProvider);
+      // Grouping has to match the list the index came from, or channel-up steps
+      // through per-quality duplicates the user cannot see on the Live tab.
+      final grouped = ref.read(groupChannelVariantsProvider);
       final total = await catalog.channelCount(
         account,
         categoryId: zap.categoryId,
         categoryIds: zap.categoryIds,
+        groupVariants: grouped,
       );
       if (total <= 1) {
         _showZapToast('No other channels in this list');
@@ -817,6 +821,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         nextIndex,
         categoryId: zap.categoryId,
         categoryIds: zap.categoryIds,
+        groupVariants: grouped,
       );
       if (channel == null || !mounted) return;
       _saveProgress();

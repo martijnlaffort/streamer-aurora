@@ -171,6 +171,14 @@ final favoritesRepositoryProvider = Provider<FavoritesRepository>(
 final uiScaleProvider = Provider<double>(
     (ref) => ref.watch(preferencesProvider).value?.uiScale ?? 1.0);
 
+/// Whether the Live list collapses a line's per-quality duplicates.
+///
+/// Read from one place because the channel list, the channel COUNT and zapping
+/// must all agree: if the list is collapsed and zapping is not, channel-up
+/// steps through rows the user cannot see.
+final groupChannelVariantsProvider = Provider<bool>((ref) =>
+    ref.watch(preferencesProvider).value?.groupChannelVariants ?? true);
+
 final catalogOverridesRepositoryProvider =
     Provider<CatalogOverridesRepository>((ref) =>
         CatalogOverridesRepository(db: ref.watch(appDatabaseProvider)));

@@ -630,6 +630,10 @@ class CatalogRepository {
     /// Only channels whose name starts with this (case-insensitive) — the A–Z
     /// index. Applied in SQL so pages stay full.
     String? namePrefix,
+
+    /// Collapse the rows a line ships for one channel (`NPO 1`, `NPO 1 HD`,
+    /// `NPO 1 FHD`, `NPO 1 4K`) into one entry, keeping the best quality.
+    bool groupVariants = false,
     int? limit,
     int offset = 0,
   }) async {
@@ -640,6 +644,18 @@ class CatalogRepository {
       await _ensureCategoryFresh(account, CatalogKind.live, categoryId);
     } else {
       await _ensureSliceBootstrapped(account, CatalogKind.live);
+    }
+    if (groupVariants) {
+      return _groupedChannels(
+        account,
+        categoryId: categoryId,
+        categoryIds: categoryIds,
+        excludeIds: excludeIds,
+        byName: byName,
+        namePrefix: namePrefix,
+        limit: limit,
+        offset: offset,
+      );
     }
     final query = _db.channelsTable.select()
       ..orderBy([
@@ -657,6 +673,103 @@ class CatalogRepository {
     }
     if (limit != null) query.limit(limit, offset: offset);
     return (await query.get()).map((r) => r.toModel()).toList();
+  }
+
+  /// The WHERE fragment the grouped reads share.
+  ///
+  /// Mirrors [_scopeChannels] deliberately: the list, its count and zapping all
+  /// have to agree about which channels exist, or channel-up walks off the end
+  /// of what the user can actually see.
+  (String, List<Variable<Object>>) _channelScopeSql(
+    Account account,
+    String? categoryId,
+    Set<String>? categoryIds,
+    Set<String>? excludeIds,
+    String? namePrefix,
+  ) {
+    final clauses = <String>['account_id = ?'];
+    final vars = <Variable<Object>>[Variable<String>(account.id)];
+    if (categoryId != null) {
+      clauses.add('category_id = ?');
+      vars.add(Variable<String>(categoryId));
+    } else if (categoryIds != null && categoryIds.isNotEmpty) {
+      clauses
+          .add('category_id IN (${List.filled(categoryIds.length, '?').join(',')})');
+      vars.addAll(categoryIds.map((c) => Variable<String>(c)));
+    }
+    if (excludeIds != null && excludeIds.isNotEmpty) {
+      clauses
+          .add('id NOT IN (${List.filled(excludeIds.length, '?').join(',')})');
+      vars.addAll(excludeIds.map((c) => Variable<String>(c)));
+    }
+    if (namePrefix != null && namePrefix.isNotEmpty) {
+      // Matches the name the collapsed row SHOWS, not the raw one — otherwise
+      // the A–Z index sends you to a letter the list no longer displays.
+      clauses.add('COALESCE(base_name, name) LIKE ?');
+      vars.add(Variable<String>('$namePrefix%'));
+    }
+    return (clauses.join(' AND '), vars);
+  }
+
+  /// `GROUP BY` the variant key, keeping the best-quality row of each group.
+  ///
+  /// The bare columns come from the row that produced `MAX(quality_rank)` —
+  /// SQLite defines that for min/max aggregates specifically, which is what
+  /// lets one statement both collapse the group and pick its winner.
+  ///
+  /// Grouped in SQL, never after paging: collapsing a page in Dart returns
+  /// short pages, which is the bug the language filter was moved into SQL to
+  /// avoid.
+  ///
+  /// `COALESCE(variant_key, id)` is the safety net. A null key would otherwise
+  /// group every row that predates schema v13 into a single entry; falling back
+  /// to the id leaves such a row as its own group.
+  Future<List<Channel>> _groupedChannels(
+    Account account, {
+    String? categoryId,
+    Set<String>? categoryIds,
+    Set<String>? excludeIds,
+    bool byName = false,
+    String? namePrefix,
+    int? limit,
+    int offset = 0,
+  }) async {
+    final (where, vars) = _channelScopeSql(
+        account, categoryId, categoryIds, excludeIds, namePrefix);
+    final order = byName ? 'COALESCE(base_name, name)' : 'sort_order';
+    final page = limit != null ? ' LIMIT ? OFFSET ?' : '';
+    final rows = await _db.customSelect(
+      'SELECT channels.*, MAX(quality_rank) AS best_quality_rank '
+      'FROM channels WHERE $where '
+      'GROUP BY COALESCE(variant_key, id) '
+      'ORDER BY $order ASC$page',
+      variables: [
+        ...vars,
+        if (limit != null) ...[Variable<int>(limit), Variable<int>(offset)],
+      ],
+      readsFrom: {_db.channelsTable},
+    ).get();
+    return [
+      for (final row in rows) _db.channelsTable.map(row.data).toModel(),
+    ];
+  }
+
+  /// Every row a line ships for one channel, best quality first.
+  ///
+  /// Read on demand when the user opens the quality picker rather than carried
+  /// on each list row: on a 25k line that would be a second query per visible
+  /// tile for something almost nobody opens.
+  Future<List<Channel>> channelVariants(
+      Account account, String variantKey) async {
+    final rows = await (_db.channelsTable.select()
+          ..where((t) =>
+              t.accountId.equals(account.id) & t.variantKey.equals(variantKey))
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.qualityRank),
+            (t) => OrderingTerm.asc(t.name),
+          ]))
+        .get();
+    return rows.map((r) => r.toModel()).toList();
   }
 
   Future<List<Movie>> movies(
@@ -1127,10 +1240,22 @@ class CatalogRepository {
     String? categoryId,
     Set<String>? categoryIds,
     Set<String>? excludeIds,
+    bool groupVariants = false,
   }) async {
     if (index < 0) return null;
     if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
       return null;
+    }
+    if (groupVariants) {
+      final page = await _groupedChannels(
+        account,
+        categoryId: categoryId,
+        categoryIds: categoryIds,
+        excludeIds: excludeIds,
+        limit: 1,
+        offset: index,
+      );
+      return page.isEmpty ? null : page.first;
     }
     final query = _db.channelsTable.select()
       ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)])
@@ -1146,9 +1271,22 @@ class CatalogRepository {
     String? categoryId,
     Set<String>? categoryIds,
     Set<String>? excludeIds,
+    bool groupVariants = false,
   }) async {
     if (categoryId == null && categoryIds != null && categoryIds.isEmpty) {
       return 0;
+    }
+    if (groupVariants) {
+      final (where, vars) =
+          _channelScopeSql(account, categoryId, categoryIds, excludeIds, null);
+      final row = await _db.customSelect(
+        'SELECT COUNT(*) AS c FROM '
+        '(SELECT 1 FROM channels WHERE $where '
+        'GROUP BY COALESCE(variant_key, id))',
+        variables: vars,
+        readsFrom: {_db.channelsTable},
+      ).getSingle();
+      return row.read<int>('c');
     }
     final count = _db.channelsTable.id.count();
     final query = _db.selectOnly(_db.channelsTable)..addColumns([count]);

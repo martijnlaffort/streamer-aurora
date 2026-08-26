@@ -13,6 +13,9 @@ class Channel extends Equatable {
     this.sortOrder,
     this.hasArchive = false,
     this.archiveDays,
+    this.variantKey,
+    this.baseName,
+    this.qualityRank,
   });
 
   final String id;
@@ -47,6 +50,21 @@ class Channel extends Equatable {
   /// When this row was cached locally (UTC) — drives the cache TTL.
   final DateTime cachedAt;
 
+  /// What the rows a line ships for one channel share (`NL | NPO 1 HD` and
+  /// `NL | NPO 1 4K` have the same key). Null on rows cached before schema v13
+  /// and not yet refreshed.
+  final String? variantKey;
+
+  /// [name] without its quality tag — what a collapsed row shows.
+  final String? baseName;
+
+  /// Higher is better quality; decides which variant a collapsed group plays.
+  final int? qualityRank;
+
+  /// The name to show, collapsed or not. Falls back to the raw name so a row
+  /// predating variant grouping still renders.
+  String get displayName => baseName ?? name;
+
   @override
   List<Object?> get props => [
         id,
@@ -59,6 +77,9 @@ class Channel extends Equatable {
         hasArchive,
         archiveDays,
         cachedAt,
+        variantKey,
+        baseName,
+        qualityRank,
       ];
 
   @override

@@ -213,6 +213,7 @@ final _companionOptionsProvider = FutureProvider<List<Channel>>((ref) async {
         account,
         excludeIds: overrides.hiddenChannels,
         byName: true,
+        groupVariants: ref.watch(groupChannelVariantsProvider),
         limit: 200,
       );
   final seen = <String>{};

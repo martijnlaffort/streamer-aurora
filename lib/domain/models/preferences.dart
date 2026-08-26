@@ -40,6 +40,7 @@ class Preferences extends Equatable {
     this.discoveryRegion,
     this.themeMode = AppThemeMode.dark,
     this.uiScale = 1.0,
+    this.groupChannelVariants = true,
   });
 
   const Preferences.defaults() : this();
@@ -74,6 +75,16 @@ class Preferences extends Equatable {
   /// the sync payload, so a phone set to Compact does not shrink the TV.
   final double uiScale;
 
+  /// Collapse the rows a line ships for one channel (`NPO 1`, `NPO 1 HD`,
+  /// `NPO 1 FHD`) into a single entry that plays the best of them.
+  ///
+  /// On by default: a real line lists most channels three or four times, and
+  /// the uncollapsed list is the thing that makes 25k channels unbrowsable.
+  ///
+  /// Device-local, like [uiScale]: the sync payload does not carry it, so a
+  /// pull must not be allowed to reset it (see `_reconcilePreferences`).
+  final bool groupChannelVariants;
+
   /// Prefer this over constructing a whole [Preferences] when saving one
   /// setting: a full construction silently drops any field the caller forgot,
   /// which is how a language change would wipe the TMDB key.
@@ -90,6 +101,7 @@ class Preferences extends Equatable {
     String? discoveryRegion,
     AppThemeMode? themeMode,
     double? uiScale,
+    bool? groupChannelVariants,
     bool clearTmdbApiKey = false,
     bool clearContentLanguages = false,
   }) {
@@ -106,6 +118,8 @@ class Preferences extends Equatable {
       discoveryRegion: discoveryRegion ?? this.discoveryRegion,
       themeMode: themeMode ?? this.themeMode,
       uiScale: uiScale ?? this.uiScale,
+      groupChannelVariants:
+          groupChannelVariants ?? this.groupChannelVariants,
     );
   }
 
@@ -120,6 +134,7 @@ class Preferences extends Equatable {
         discoveryRegion,
         themeMode,
         uiScale,
+        groupChannelVariants,
       ];
 
   @override

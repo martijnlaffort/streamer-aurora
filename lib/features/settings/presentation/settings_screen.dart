@@ -342,6 +342,18 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/hidden-channels'),
           ),
+          SwitchListTile(
+            secondary: const Icon(Icons.high_quality_outlined),
+            title: const Text('Group channel qualities'),
+            subtitle: Text(
+                'Show one row per channel and play the best of its '
+                'SD/HD/FHD/4K streams',
+                style: TextStyle(color: AppColors.textSecondary)),
+            value: prefs.groupChannelVariants,
+            activeThumbColor: AppColors.accent,
+            onChanged: (v) =>
+                savePrefs(prefs.copyWith(groupChannelVariants: v)),
+          ),
           ListTile(
             leading: const Icon(Icons.local_fire_department_outlined),
             title: const Text('Discovery rails'),

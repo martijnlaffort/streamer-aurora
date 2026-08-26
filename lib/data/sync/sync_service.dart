@@ -215,6 +215,7 @@ class SyncService {
         contentLanguages: local.contentLanguages,
         themeMode: local.themeMode,
         uiScale: local.uiScale,
+        groupChannelVariants: local.groupChannelVariants,
       ));
       await _configStore.setPreferencesChangedAt(winner.updatedAt);
       return true;

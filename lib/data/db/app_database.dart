@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import '../../core/matching/channel_variant.dart';
 import '../../domain/models/discovery.dart' show DiscoveryKind;
 import '../../domain/models/enums.dart';
 
@@ -24,6 +25,11 @@ class AccountsTable extends Table {
 
   /// Optional XMLTV EPG url for M3U accounts.
   TextColumn get epgUrl => text().nullable()();
+
+  /// Per-playlist `User-Agent` for streams, and the other hostnames this
+  /// provider answers on (newline-separated) — both schema v15.
+  TextColumn get userAgent => text().nullable()();
+  TextColumn get altHosts => text().nullable()();
   IntColumn get createdAtMillisUtc => integer()();
 
   // Deliberately NO password column: credentials live in secure storage,
@@ -138,6 +144,17 @@ class ChannelsTable extends Table {
   IntColumn get tvArchiveDays => integer().nullable()();
   IntColumn get cachedAtMillisUtc => integer()();
 
+  /// Variant grouping (schema v13), all derived from [name] at write time by
+  /// `parseChannelVariant` so the collapse can happen in SQL rather than after
+  /// paging — grouping a page in Dart would hand the caller short pages.
+  ///
+  /// [variantKey] is what the rows a line ships for one channel share;
+  /// [baseName] is the name without its quality tag (what a collapsed row
+  /// shows); [qualityRank] decides which row the group plays.
+  TextColumn get variantKey => text().nullable()();
+  TextColumn get baseName => text().nullable()();
+  IntColumn get qualityRank => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {accountId, id};
 }
@@ -200,6 +217,18 @@ class PreferencesTable extends Table {
   /// Null → derived from the device locale (added in schema v6).
   TextColumn get discoveryRegion => text().nullable()();
 
+  /// [AppThemeMode] name, or null for the dark default (added in schema v12).
+  TextColumn get themeMode => text().nullable()();
+
+  /// Text/poster size multiplier, 1.0 = as designed (added in schema v12).
+  /// Device-local: it is not part of the sync payload, so sizing a phone does
+  /// not resize the television.
+  RealColumn get uiScale => real().nullable()();
+
+  /// Collapse a line's per-quality duplicates into one channel (schema v13).
+  /// Null → the on-by-default in [Preferences].
+  BoolColumn get groupChannelVariants => boolean().nullable()();
+
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
 
@@ -215,6 +244,24 @@ class PreferencesTable extends Table {
 /// names and the order; this table is how the user overrules that without
 /// touching the cached catalogue itself — a refresh replaces catalogue rows
 /// wholesale, so anything editable has to live beside them rather than in them.
+@DataClassName('ReminderRow')
+class RemindersTable extends Table {
+  @override
+  String get tableName => 'reminders';
+
+  TextColumn get id => text()();
+  TextColumn get accountId => text()();
+  TextColumn get channelId => text()();
+  TextColumn get channelName => text()();
+  TextColumn get title => text()();
+  IntColumn get startsAtMillisUtc => integer()();
+  IntColumn get leadMinutes => integer().withDefault(const Constant(3))();
+  IntColumn get notificationId => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('CatalogOverrideRow')
 class CatalogOverridesTable extends Table {
   @override
@@ -426,6 +473,7 @@ class SearchHistoryTable extends Table {
   PreferencesTable,
   FavoritesTable,
   CatalogOverridesTable,
+  RemindersTable,
   EpgCacheTable,
   CatalogMetaTable,
   CatalogCategoryMetaTable,
@@ -445,7 +493,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -507,6 +555,39 @@ class AppDatabase extends _$AppDatabase {
           if (from < 11) {
             await m.createTable(catalogOverridesTable);
           }
+          // v12: theme choice and UI scale. Both nullable, so existing installs
+          // keep the dark theme at its designed size without a backfill.
+          if (from < 12) {
+            await m.addColumn(preferencesTable, preferencesTable.themeMode);
+            await m.addColumn(preferencesTable, preferencesTable.uiScale);
+          }
+          // v13: channel variant grouping. Backfilled here rather than left to
+          // the next catalogue refresh, because the grouped query does
+          // `GROUP BY variant_key` — one null key per un-backfilled row would
+          // collapse the entire channel list into a single entry until that
+          // refresh happened.
+          if (from < 13) {
+            await m.addColumn(channelsTable, channelsTable.variantKey);
+            await m.addColumn(channelsTable, channelsTable.baseName);
+            await m.addColumn(channelsTable, channelsTable.qualityRank);
+            await m.addColumn(
+                preferencesTable, preferencesTable.groupChannelVariants);
+            await _backfillChannelVariants();
+          }
+          // v14: programme reminders. Kept locally rather than in the sync
+          // payload — an alarm is scheduled against THIS device's clock, and a
+          // phone's reminder firing on the television is not what anyone means
+          // by "remind me".
+          if (from < 14) {
+            await m.createTable(remindersTable);
+          }
+          // v15: per-playlist User-Agent and fallback hosts. Both nullable —
+          // an existing account keeps the app's default UA and no fallbacks
+          // until the user fills them in.
+          if (from < 15) {
+            await m.addColumn(accountsTable, accountsTable.userAgent);
+            await m.addColumn(accountsTable, accountsTable.altHosts);
+          }
         },
         beforeOpen: (details) async {
           // Indexes for the hot catalog queries. Without them every Home rail
@@ -540,6 +621,40 @@ class AppDatabase extends _$AppDatabase {
               [ch.accountId.name, ch.sortOrder.name]);
           await ix('idx_ch_acct_cat_sort', ch.actualTableName,
               [ch.accountId.name, ch.categoryId.name, ch.sortOrder.name]);
+          // Variant grouping reads GROUP BY variant_key within an account.
+          await ix('idx_ch_acct_variant', ch.actualTableName,
+              [ch.accountId.name, ch.variantKey.name]);
         },
       );
+
+  /// Fills in the v13 variant columns for channels cached before they existed.
+  ///
+  /// Paged rather than one statement: a large line holds tens of thousands of
+  /// channels, and materialising all of them plus a companion each would spike
+  /// memory during a migration — the one moment the app cannot recover from
+  /// being killed.
+  Future<void> _backfillChannelVariants() async {
+    const pageSize = 2000;
+    for (var offset = 0;; offset += pageSize) {
+      final rows = await (select(channelsTable)..limit(pageSize, offset: offset))
+          .get();
+      if (rows.isEmpty) break;
+      await batch((b) {
+        for (final row in rows) {
+          final variant = parseChannelVariant(row.name);
+          b.update(
+            channelsTable,
+            ChannelsTableCompanion(
+              variantKey: Value(variant.key),
+              baseName: Value(variant.baseName),
+              qualityRank: Value(variant.qualityRank),
+            ),
+            where: (t) =>
+                t.accountId.equals(row.accountId) & t.id.equals(row.id),
+          );
+        }
+      });
+      if (rows.length < pageSize) break;
+    }
+  }
 }

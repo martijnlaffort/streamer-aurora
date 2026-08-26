@@ -53,6 +53,9 @@ class PreferencesRepository {
               ? null
               : preferences.discoveryRegion!.trim().toUpperCase(),
         ),
+        themeMode: Value(preferences.themeMode.name),
+        uiScale: Value(preferences.uiScale),
+        groupChannelVariants: Value(preferences.groupChannelVariants),
       ),
     );
   }

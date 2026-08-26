@@ -7,6 +7,8 @@
 /// the line by the noise in front of it.
 library;
 
+import 'name_tags.dart';
+
 /// Language and packaging tags. A `|`-delimited segment is dropped only when
 /// *every* token in it is one of these — so `MULTI / LINGO` goes and `4K HDR`
 /// stays, because the latter is the only thing distinguishing that category.
@@ -28,7 +30,7 @@ const _acronyms = {
   '3D', 'IMAX', 'UFC', 'NBA', 'NFL', 'MMA', 'WWE', 'BBC', 'HBO', 'DC',
 };
 
-final _separators = RegExp(r'[|•·]+');
+final _separators = kNameSeparators;
 final _whitespace = RegExp(r'\s+');
 
 /// A readable version of [raw] for headings and titles.
@@ -37,7 +39,9 @@ final _whitespace = RegExp(r'\s+');
 /// packaging tags, and title-cases what survives. Returns [raw] trimmed if
 /// nothing survives — better a noisy heading than a blank one.
 String prettyCategoryName(String raw) {
-  final segments = raw
+  // Take the bracketed tag off first, so a provider using a bar we do not
+  // recognise still loses its `| MULTI / LINGO |` prefix.
+  final segments = stripLeadingTag(raw, _isAllNoise)
       .split(_separators)
       .map((s) => s.replaceAll(_whitespace, ' ').trim())
       .where((s) => s.isNotEmpty)

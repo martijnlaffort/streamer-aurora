@@ -78,17 +78,18 @@ class _MovieCategoryRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rail = ref.watch(movieCategoryRailProvider(category.id));
-    return rail.when(
-      // Keep the rail painted while it reloads instead of blanking to a placeholder.
-      skipLoadingOnReload: true,
-      loading: () => CategoryRailPlaceholder(title: category.name),
-      // A rail that cannot load is not worth a row of error text among dozens
-      // of working ones.
-      error: (e, _) => const SizedBox.shrink(),
-      data: (movies) {
-        // Genuinely empty category — hide it rather than leave a bald heading.
-        if (movies.isEmpty) return const SizedBox.shrink();
-        return MediaRail(
+    // Read the VALUE rather than switching on the state. `AsyncValue` keeps the
+    // last data through both a reload and an error, and rendering from it means
+    // a rail that has once loaded can never blank again: an error used to
+    // collapse the row to nothing, so a transient failure across several rails
+    // emptied the screen and then refilled it a moment later.
+    final movies = rail.value;
+    if (movies == null) {
+      return CategoryRailPlaceholder(title: prettyCategoryName(category.name));
+    }
+    // Genuinely empty category — hide it rather than leave a bald heading.
+    if (movies.isEmpty) return const SizedBox.shrink();
+    return MediaRail(
           title: prettyCategoryName(category.name),
           itemCount: movies.length,
           onSeeAll: () => context.push(
@@ -109,8 +110,6 @@ class _MovieCategoryRail extends ConsumerWidget {
               onTap: () => context.push('/movie/${movie.id}', extra: tag),
             );
           },
-        );
-      },
     );
   }
 }

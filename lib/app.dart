@@ -1,11 +1,19 @@
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/platform/television.dart';
 import 'core/router/app_router.dart';
+import 'data/notifications/reminder_service.dart';
+import 'features/player/player_request.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'data/providers.dart';
 import 'data/sync/sync_providers.dart';
+import 'domain/models/models.dart'
+    show AppThemeMode, Preferences, StreamRef, StreamType, contentKeyFor;
 import 'data/sync/sync_trigger.dart';
 import 'features/home/home_providers.dart';
 import 'features/live/live_providers.dart' show favoriteChannelsProvider;
@@ -35,6 +43,7 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
   Timer? _debounce;
   Timer? _periodic;
   bool _syncing = false;
+  StreamSubscription<String>? _reminderTaps;
 
   @override
   void initState() {
@@ -44,13 +53,58 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
       ref.read(syncTriggerProvider).addListener(_onLocalChange);
       _sync();
       _periodic = Timer.periodic(const Duration(minutes: 2), (_) => _sync());
+      unawaited(_startReminders());
     });
+  }
+
+  /// Re-arms pending reminders and listens for taps on the ones that fire.
+  ///
+  /// Restoring at every launch is not belt-and-braces: Android clears scheduled
+  /// alarms on reboot and on some app updates, so the stored rows — not the OS
+  /// — are the source of truth for what is still due.
+  Future<void> _startReminders() async {
+    final service = ref.read(reminderServiceProvider);
+    if (!ReminderService.isSupported) return;
+    await service.restoreAll();
+    _reminderTaps = service.taps.listen(_openReminderChannel);
+    // A reminder tapped while the app was not running: the stream above only
+    // carries taps that arrive with it already listening.
+    final launch = await service.launchPayload();
+    if (launch != null) await _openReminderChannel(launch);
+  }
+
+  Future<void> _openReminderChannel(String channelId) async {
+    final account = await ref.read(activeAccountProvider.future);
+    if (account == null || !mounted) return;
+    final channel =
+        await ref.read(catalogRepositoryProvider).channelById(account, channelId);
+    if (channel == null || !mounted) return;
+    ref.read(appRouterProvider).push(
+          '/player',
+          extra: PlayerRequest(queue: [
+            PlayerItem(
+              streamRef: StreamRef(
+                accountId: channel.accountId,
+                type: StreamType.live,
+                streamId: channel.id,
+              ),
+              title: channel.displayName,
+              contentKey: contentKeyFor(
+                accountId: channel.accountId,
+                type: StreamType.live,
+                id: channel.id,
+              ),
+              isLive: true,
+            ),
+          ]),
+        );
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _periodic?.cancel();
+    _reminderTaps?.cancel();
     ref.read(syncTriggerProvider).removeListener(_onLocalChange);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -114,13 +168,73 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
     // live set is small; the eviction cost far outweighed what it freed.
   }
 
+  /// The system palette changed under a `system` theme setting.
+  @override
+  void didChangePlatformBrightness() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
+    final prefs =
+        ref.watch(preferencesProvider).value ?? const Preferences.defaults();
+
+    // Material draws a widget's focus highlight only while the focus manager
+    // is in `traditional` mode, and on Android it starts in `touch` mode and
+    // only leaves it when a key event arrives from a real input device. A
+    // television has no touch screen, so `touch` is never the right mode there
+    // — and until the first qualifying key press every stock ListTile, button
+    // and text field is focusable but shows nothing, which is exactly the "I
+    // can't tell where my cursor is" complaint. Pinning the strategy drops the
+    // dependency on what the last interaction happened to be.
+    //
+    // It also makes the Android TV emulator faithful: `adb shell input
+    // keyevent` injects with deviceId -1 (the virtual keyboard), which Flutter
+    // deliberately ignores for this purpose, so focus moved invisibly there and
+    // every scripted D-pad test looked broken when it was not.
+    if (isTelevisionOf(ref)) {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+    }
+
+    // Read from the dispatcher rather than MediaQuery: this widget sits ABOVE
+    // MaterialApp, so there is no MediaQuery ancestor to ask. Changes arrive
+    // through didChangePlatformBrightness above.
+    final systemDark = PlatformDispatcher.instance.platformBrightness ==
+        Brightness.dark;
+    final dark = switch (prefs.themeMode) {
+      AppThemeMode.dark => true,
+      AppThemeMode.light => false,
+      AppThemeMode.system => systemDark,
+    };
+    // The ~250 colour references in the app read this rather than a
+    // ThemeExtension, so it has to be set before the tree below builds. Doing it
+    // here is exactly that: a parent builds before its descendants.
+    AppColors.palette = dark ? DawnPalette.dark : DawnPalette.light;
+
     return MaterialApp.router(
       title: 'Dawn Player',
-      theme: AppTheme.dark,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: switch (prefs.themeMode) {
+        AppThemeMode.dark => ThemeMode.dark,
+        AppThemeMode.light => ThemeMode.light,
+        AppThemeMode.system => ThemeMode.system,
+      },
       routerConfig: ref.watch(appRouterProvider),
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        // Composed with the device's own text scale rather than replacing it:
+        // someone who has made system text larger for a reason should not have
+        // that undone by choosing a size here.
+        final system = MediaQuery.textScalerOf(context).scale(1);
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(system * prefs.uiScale),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

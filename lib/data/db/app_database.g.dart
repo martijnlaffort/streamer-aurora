@@ -67,6 +67,28 @@ class $AccountsTableTable extends AccountsTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _userAgentMeta = const VerificationMeta(
+    'userAgent',
+  );
+  @override
+  late final GeneratedColumn<String> userAgent = GeneratedColumn<String>(
+    'user_agent',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _altHostsMeta = const VerificationMeta(
+    'altHosts',
+  );
+  @override
+  late final GeneratedColumn<String> altHosts = GeneratedColumn<String>(
+    'alt_hosts',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMillisUtcMeta =
       const VerificationMeta('createdAtMillisUtc');
   @override
@@ -85,6 +107,8 @@ class $AccountsTableTable extends AccountsTable
     serverUrl,
     username,
     epgUrl,
+    userAgent,
+    altHosts,
     createdAtMillisUtc,
   ];
   @override
@@ -134,6 +158,18 @@ class $AccountsTableTable extends AccountsTable
         epgUrl.isAcceptableOrUnknown(data['epg_url']!, _epgUrlMeta),
       );
     }
+    if (data.containsKey('user_agent')) {
+      context.handle(
+        _userAgentMeta,
+        userAgent.isAcceptableOrUnknown(data['user_agent']!, _userAgentMeta),
+      );
+    }
+    if (data.containsKey('alt_hosts')) {
+      context.handle(
+        _altHostsMeta,
+        altHosts.isAcceptableOrUnknown(data['alt_hosts']!, _altHostsMeta),
+      );
+    }
     if (data.containsKey('created_at_millis_utc')) {
       context.handle(
         _createdAtMillisUtcMeta,
@@ -180,6 +216,14 @@ class $AccountsTableTable extends AccountsTable
         DriftSqlType.string,
         data['${effectivePrefix}epg_url'],
       ),
+      userAgent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_agent'],
+      ),
+      altHosts: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}alt_hosts'],
+      ),
       createdAtMillisUtc: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}created_at_millis_utc'],
@@ -205,6 +249,11 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
 
   /// Optional XMLTV EPG url for M3U accounts.
   final String? epgUrl;
+
+  /// Per-playlist `User-Agent` for streams, and the other hostnames this
+  /// provider answers on (newline-separated) — both schema v15.
+  final String? userAgent;
+  final String? altHosts;
   final int createdAtMillisUtc;
   const AccountRow({
     required this.id,
@@ -213,6 +262,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     required this.serverUrl,
     required this.username,
     this.epgUrl,
+    this.userAgent,
+    this.altHosts,
     required this.createdAtMillisUtc,
   });
   @override
@@ -230,6 +281,12 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     if (!nullToAbsent || epgUrl != null) {
       map['epg_url'] = Variable<String>(epgUrl);
     }
+    if (!nullToAbsent || userAgent != null) {
+      map['user_agent'] = Variable<String>(userAgent);
+    }
+    if (!nullToAbsent || altHosts != null) {
+      map['alt_hosts'] = Variable<String>(altHosts);
+    }
     map['created_at_millis_utc'] = Variable<int>(createdAtMillisUtc);
     return map;
   }
@@ -244,6 +301,12 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       epgUrl: epgUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(epgUrl),
+      userAgent: userAgent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userAgent),
+      altHosts: altHosts == null && nullToAbsent
+          ? const Value.absent()
+          : Value(altHosts),
       createdAtMillisUtc: Value(createdAtMillisUtc),
     );
   }
@@ -262,6 +325,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       serverUrl: serializer.fromJson<String>(json['serverUrl']),
       username: serializer.fromJson<String>(json['username']),
       epgUrl: serializer.fromJson<String?>(json['epgUrl']),
+      userAgent: serializer.fromJson<String?>(json['userAgent']),
+      altHosts: serializer.fromJson<String?>(json['altHosts']),
       createdAtMillisUtc: serializer.fromJson<int>(json['createdAtMillisUtc']),
     );
   }
@@ -277,6 +342,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       'serverUrl': serializer.toJson<String>(serverUrl),
       'username': serializer.toJson<String>(username),
       'epgUrl': serializer.toJson<String?>(epgUrl),
+      'userAgent': serializer.toJson<String?>(userAgent),
+      'altHosts': serializer.toJson<String?>(altHosts),
       'createdAtMillisUtc': serializer.toJson<int>(createdAtMillisUtc),
     };
   }
@@ -288,6 +355,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     String? serverUrl,
     String? username,
     Value<String?> epgUrl = const Value.absent(),
+    Value<String?> userAgent = const Value.absent(),
+    Value<String?> altHosts = const Value.absent(),
     int? createdAtMillisUtc,
   }) => AccountRow(
     id: id ?? this.id,
@@ -296,6 +365,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     serverUrl: serverUrl ?? this.serverUrl,
     username: username ?? this.username,
     epgUrl: epgUrl.present ? epgUrl.value : this.epgUrl,
+    userAgent: userAgent.present ? userAgent.value : this.userAgent,
+    altHosts: altHosts.present ? altHosts.value : this.altHosts,
     createdAtMillisUtc: createdAtMillisUtc ?? this.createdAtMillisUtc,
   );
   AccountRow copyWithCompanion(AccountsTableCompanion data) {
@@ -306,6 +377,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       serverUrl: data.serverUrl.present ? data.serverUrl.value : this.serverUrl,
       username: data.username.present ? data.username.value : this.username,
       epgUrl: data.epgUrl.present ? data.epgUrl.value : this.epgUrl,
+      userAgent: data.userAgent.present ? data.userAgent.value : this.userAgent,
+      altHosts: data.altHosts.present ? data.altHosts.value : this.altHosts,
       createdAtMillisUtc: data.createdAtMillisUtc.present
           ? data.createdAtMillisUtc.value
           : this.createdAtMillisUtc,
@@ -321,6 +394,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           ..write('serverUrl: $serverUrl, ')
           ..write('username: $username, ')
           ..write('epgUrl: $epgUrl, ')
+          ..write('userAgent: $userAgent, ')
+          ..write('altHosts: $altHosts, ')
           ..write('createdAtMillisUtc: $createdAtMillisUtc')
           ..write(')'))
         .toString();
@@ -334,6 +409,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     serverUrl,
     username,
     epgUrl,
+    userAgent,
+    altHosts,
     createdAtMillisUtc,
   );
   @override
@@ -346,6 +423,8 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           other.serverUrl == this.serverUrl &&
           other.username == this.username &&
           other.epgUrl == this.epgUrl &&
+          other.userAgent == this.userAgent &&
+          other.altHosts == this.altHosts &&
           other.createdAtMillisUtc == this.createdAtMillisUtc);
 }
 
@@ -356,6 +435,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
   final Value<String> serverUrl;
   final Value<String> username;
   final Value<String?> epgUrl;
+  final Value<String?> userAgent;
+  final Value<String?> altHosts;
   final Value<int> createdAtMillisUtc;
   final Value<int> rowid;
   const AccountsTableCompanion({
@@ -365,6 +446,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
     this.serverUrl = const Value.absent(),
     this.username = const Value.absent(),
     this.epgUrl = const Value.absent(),
+    this.userAgent = const Value.absent(),
+    this.altHosts = const Value.absent(),
     this.createdAtMillisUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -375,6 +458,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
     required String serverUrl,
     required String username,
     this.epgUrl = const Value.absent(),
+    this.userAgent = const Value.absent(),
+    this.altHosts = const Value.absent(),
     required int createdAtMillisUtc,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -390,6 +475,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
     Expression<String>? serverUrl,
     Expression<String>? username,
     Expression<String>? epgUrl,
+    Expression<String>? userAgent,
+    Expression<String>? altHosts,
     Expression<int>? createdAtMillisUtc,
     Expression<int>? rowid,
   }) {
@@ -400,6 +487,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
       if (serverUrl != null) 'server_url': serverUrl,
       if (username != null) 'username': username,
       if (epgUrl != null) 'epg_url': epgUrl,
+      if (userAgent != null) 'user_agent': userAgent,
+      if (altHosts != null) 'alt_hosts': altHosts,
       if (createdAtMillisUtc != null)
         'created_at_millis_utc': createdAtMillisUtc,
       if (rowid != null) 'rowid': rowid,
@@ -413,6 +502,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
     Value<String>? serverUrl,
     Value<String>? username,
     Value<String?>? epgUrl,
+    Value<String?>? userAgent,
+    Value<String?>? altHosts,
     Value<int>? createdAtMillisUtc,
     Value<int>? rowid,
   }) {
@@ -423,6 +514,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
       serverUrl: serverUrl ?? this.serverUrl,
       username: username ?? this.username,
       epgUrl: epgUrl ?? this.epgUrl,
+      userAgent: userAgent ?? this.userAgent,
+      altHosts: altHosts ?? this.altHosts,
       createdAtMillisUtc: createdAtMillisUtc ?? this.createdAtMillisUtc,
       rowid: rowid ?? this.rowid,
     );
@@ -451,6 +544,12 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
     if (epgUrl.present) {
       map['epg_url'] = Variable<String>(epgUrl.value);
     }
+    if (userAgent.present) {
+      map['user_agent'] = Variable<String>(userAgent.value);
+    }
+    if (altHosts.present) {
+      map['alt_hosts'] = Variable<String>(altHosts.value);
+    }
     if (createdAtMillisUtc.present) {
       map['created_at_millis_utc'] = Variable<int>(createdAtMillisUtc.value);
     }
@@ -469,6 +568,8 @@ class AccountsTableCompanion extends UpdateCompanion<AccountRow> {
           ..write('serverUrl: $serverUrl, ')
           ..write('username: $username, ')
           ..write('epgUrl: $epgUrl, ')
+          ..write('userAgent: $userAgent, ')
+          ..write('altHosts: $altHosts, ')
           ..write('createdAtMillisUtc: $createdAtMillisUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -3264,6 +3365,39 @@ class $ChannelsTableTable extends ChannelsTable
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _variantKeyMeta = const VerificationMeta(
+    'variantKey',
+  );
+  @override
+  late final GeneratedColumn<String> variantKey = GeneratedColumn<String>(
+    'variant_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _baseNameMeta = const VerificationMeta(
+    'baseName',
+  );
+  @override
+  late final GeneratedColumn<String> baseName = GeneratedColumn<String>(
+    'base_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _qualityRankMeta = const VerificationMeta(
+    'qualityRank',
+  );
+  @override
+  late final GeneratedColumn<int> qualityRank = GeneratedColumn<int>(
+    'quality_rank',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3276,6 +3410,9 @@ class $ChannelsTableTable extends ChannelsTable
     tvArchive,
     tvArchiveDays,
     cachedAtMillisUtc,
+    variantKey,
+    baseName,
+    qualityRank,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3365,6 +3502,27 @@ class $ChannelsTableTable extends ChannelsTable
     } else if (isInserting) {
       context.missing(_cachedAtMillisUtcMeta);
     }
+    if (data.containsKey('variant_key')) {
+      context.handle(
+        _variantKeyMeta,
+        variantKey.isAcceptableOrUnknown(data['variant_key']!, _variantKeyMeta),
+      );
+    }
+    if (data.containsKey('base_name')) {
+      context.handle(
+        _baseNameMeta,
+        baseName.isAcceptableOrUnknown(data['base_name']!, _baseNameMeta),
+      );
+    }
+    if (data.containsKey('quality_rank')) {
+      context.handle(
+        _qualityRankMeta,
+        qualityRank.isAcceptableOrUnknown(
+          data['quality_rank']!,
+          _qualityRankMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3414,6 +3572,18 @@ class $ChannelsTableTable extends ChannelsTable
         DriftSqlType.int,
         data['${effectivePrefix}cached_at_millis_utc'],
       )!,
+      variantKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}variant_key'],
+      ),
+      baseName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}base_name'],
+      ),
+      qualityRank: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}quality_rank'],
+      ),
     );
   }
 
@@ -3439,6 +3609,17 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
   final bool tvArchive;
   final int? tvArchiveDays;
   final int cachedAtMillisUtc;
+
+  /// Variant grouping (schema v13), all derived from [name] at write time by
+  /// `parseChannelVariant` so the collapse can happen in SQL rather than after
+  /// paging — grouping a page in Dart would hand the caller short pages.
+  ///
+  /// [variantKey] is what the rows a line ships for one channel share;
+  /// [baseName] is the name without its quality tag (what a collapsed row
+  /// shows); [qualityRank] decides which row the group plays.
+  final String? variantKey;
+  final String? baseName;
+  final int? qualityRank;
   const ChannelRow({
     required this.id,
     required this.accountId,
@@ -3450,6 +3631,9 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     required this.tvArchive,
     this.tvArchiveDays,
     required this.cachedAtMillisUtc,
+    this.variantKey,
+    this.baseName,
+    this.qualityRank,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3472,6 +3656,15 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       map['tv_archive_days'] = Variable<int>(tvArchiveDays);
     }
     map['cached_at_millis_utc'] = Variable<int>(cachedAtMillisUtc);
+    if (!nullToAbsent || variantKey != null) {
+      map['variant_key'] = Variable<String>(variantKey);
+    }
+    if (!nullToAbsent || baseName != null) {
+      map['base_name'] = Variable<String>(baseName);
+    }
+    if (!nullToAbsent || qualityRank != null) {
+      map['quality_rank'] = Variable<int>(qualityRank);
+    }
     return map;
   }
 
@@ -3495,6 +3688,15 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           ? const Value.absent()
           : Value(tvArchiveDays),
       cachedAtMillisUtc: Value(cachedAtMillisUtc),
+      variantKey: variantKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(variantKey),
+      baseName: baseName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(baseName),
+      qualityRank: qualityRank == null && nullToAbsent
+          ? const Value.absent()
+          : Value(qualityRank),
     );
   }
 
@@ -3514,6 +3716,9 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       tvArchive: serializer.fromJson<bool>(json['tvArchive']),
       tvArchiveDays: serializer.fromJson<int?>(json['tvArchiveDays']),
       cachedAtMillisUtc: serializer.fromJson<int>(json['cachedAtMillisUtc']),
+      variantKey: serializer.fromJson<String?>(json['variantKey']),
+      baseName: serializer.fromJson<String?>(json['baseName']),
+      qualityRank: serializer.fromJson<int?>(json['qualityRank']),
     );
   }
   @override
@@ -3530,6 +3735,9 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       'tvArchive': serializer.toJson<bool>(tvArchive),
       'tvArchiveDays': serializer.toJson<int?>(tvArchiveDays),
       'cachedAtMillisUtc': serializer.toJson<int>(cachedAtMillisUtc),
+      'variantKey': serializer.toJson<String?>(variantKey),
+      'baseName': serializer.toJson<String?>(baseName),
+      'qualityRank': serializer.toJson<int?>(qualityRank),
     };
   }
 
@@ -3544,6 +3752,9 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     bool? tvArchive,
     Value<int?> tvArchiveDays = const Value.absent(),
     int? cachedAtMillisUtc,
+    Value<String?> variantKey = const Value.absent(),
+    Value<String?> baseName = const Value.absent(),
+    Value<int?> qualityRank = const Value.absent(),
   }) => ChannelRow(
     id: id ?? this.id,
     accountId: accountId ?? this.accountId,
@@ -3557,6 +3768,9 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
         ? tvArchiveDays.value
         : this.tvArchiveDays,
     cachedAtMillisUtc: cachedAtMillisUtc ?? this.cachedAtMillisUtc,
+    variantKey: variantKey.present ? variantKey.value : this.variantKey,
+    baseName: baseName.present ? baseName.value : this.baseName,
+    qualityRank: qualityRank.present ? qualityRank.value : this.qualityRank,
   );
   ChannelRow copyWithCompanion(ChannelsTableCompanion data) {
     return ChannelRow(
@@ -3578,6 +3792,13 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       cachedAtMillisUtc: data.cachedAtMillisUtc.present
           ? data.cachedAtMillisUtc.value
           : this.cachedAtMillisUtc,
+      variantKey: data.variantKey.present
+          ? data.variantKey.value
+          : this.variantKey,
+      baseName: data.baseName.present ? data.baseName.value : this.baseName,
+      qualityRank: data.qualityRank.present
+          ? data.qualityRank.value
+          : this.qualityRank,
     );
   }
 
@@ -3593,7 +3814,10 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           ..write('sortOrder: $sortOrder, ')
           ..write('tvArchive: $tvArchive, ')
           ..write('tvArchiveDays: $tvArchiveDays, ')
-          ..write('cachedAtMillisUtc: $cachedAtMillisUtc')
+          ..write('cachedAtMillisUtc: $cachedAtMillisUtc, ')
+          ..write('variantKey: $variantKey, ')
+          ..write('baseName: $baseName, ')
+          ..write('qualityRank: $qualityRank')
           ..write(')'))
         .toString();
   }
@@ -3610,6 +3834,9 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     tvArchive,
     tvArchiveDays,
     cachedAtMillisUtc,
+    variantKey,
+    baseName,
+    qualityRank,
   );
   @override
   bool operator ==(Object other) =>
@@ -3624,7 +3851,10 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           other.sortOrder == this.sortOrder &&
           other.tvArchive == this.tvArchive &&
           other.tvArchiveDays == this.tvArchiveDays &&
-          other.cachedAtMillisUtc == this.cachedAtMillisUtc);
+          other.cachedAtMillisUtc == this.cachedAtMillisUtc &&
+          other.variantKey == this.variantKey &&
+          other.baseName == this.baseName &&
+          other.qualityRank == this.qualityRank);
 }
 
 class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
@@ -3638,6 +3868,9 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
   final Value<bool> tvArchive;
   final Value<int?> tvArchiveDays;
   final Value<int> cachedAtMillisUtc;
+  final Value<String?> variantKey;
+  final Value<String?> baseName;
+  final Value<int?> qualityRank;
   final Value<int> rowid;
   const ChannelsTableCompanion({
     this.id = const Value.absent(),
@@ -3650,6 +3883,9 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     this.tvArchive = const Value.absent(),
     this.tvArchiveDays = const Value.absent(),
     this.cachedAtMillisUtc = const Value.absent(),
+    this.variantKey = const Value.absent(),
+    this.baseName = const Value.absent(),
+    this.qualityRank = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ChannelsTableCompanion.insert({
@@ -3663,6 +3899,9 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     this.tvArchive = const Value.absent(),
     this.tvArchiveDays = const Value.absent(),
     required int cachedAtMillisUtc,
+    this.variantKey = const Value.absent(),
+    this.baseName = const Value.absent(),
+    this.qualityRank = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        accountId = Value(accountId),
@@ -3680,6 +3919,9 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     Expression<bool>? tvArchive,
     Expression<int>? tvArchiveDays,
     Expression<int>? cachedAtMillisUtc,
+    Expression<String>? variantKey,
+    Expression<String>? baseName,
+    Expression<int>? qualityRank,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3693,6 +3935,9 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
       if (tvArchive != null) 'tv_archive': tvArchive,
       if (tvArchiveDays != null) 'tv_archive_days': tvArchiveDays,
       if (cachedAtMillisUtc != null) 'cached_at_millis_utc': cachedAtMillisUtc,
+      if (variantKey != null) 'variant_key': variantKey,
+      if (baseName != null) 'base_name': baseName,
+      if (qualityRank != null) 'quality_rank': qualityRank,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3708,6 +3953,9 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     Value<bool>? tvArchive,
     Value<int?>? tvArchiveDays,
     Value<int>? cachedAtMillisUtc,
+    Value<String?>? variantKey,
+    Value<String?>? baseName,
+    Value<int?>? qualityRank,
     Value<int>? rowid,
   }) {
     return ChannelsTableCompanion(
@@ -3721,6 +3969,9 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
       tvArchive: tvArchive ?? this.tvArchive,
       tvArchiveDays: tvArchiveDays ?? this.tvArchiveDays,
       cachedAtMillisUtc: cachedAtMillisUtc ?? this.cachedAtMillisUtc,
+      variantKey: variantKey ?? this.variantKey,
+      baseName: baseName ?? this.baseName,
+      qualityRank: qualityRank ?? this.qualityRank,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3758,6 +4009,15 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     if (cachedAtMillisUtc.present) {
       map['cached_at_millis_utc'] = Variable<int>(cachedAtMillisUtc.value);
     }
+    if (variantKey.present) {
+      map['variant_key'] = Variable<String>(variantKey.value);
+    }
+    if (baseName.present) {
+      map['base_name'] = Variable<String>(baseName.value);
+    }
+    if (qualityRank.present) {
+      map['quality_rank'] = Variable<int>(qualityRank.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3777,6 +4037,9 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
           ..write('tvArchive: $tvArchive, ')
           ..write('tvArchiveDays: $tvArchiveDays, ')
           ..write('cachedAtMillisUtc: $cachedAtMillisUtc, ')
+          ..write('variantKey: $variantKey, ')
+          ..write('baseName: $baseName, ')
+          ..write('qualityRank: $qualityRank, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4390,6 +4653,41 @@ class $PreferencesTableTable extends PreferencesTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _themeModeMeta = const VerificationMeta(
+    'themeMode',
+  );
+  @override
+  late final GeneratedColumn<String> themeMode = GeneratedColumn<String>(
+    'theme_mode',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _uiScaleMeta = const VerificationMeta(
+    'uiScale',
+  );
+  @override
+  late final GeneratedColumn<double> uiScale = GeneratedColumn<double>(
+    'ui_scale',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _groupChannelVariantsMeta =
+      const VerificationMeta('groupChannelVariants');
+  @override
+  late final GeneratedColumn<bool> groupChannelVariants = GeneratedColumn<bool>(
+    'group_channel_variants',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("group_channel_variants" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _activeAccountIdMeta = const VerificationMeta(
     'activeAccountId',
   );
@@ -4411,6 +4709,9 @@ class $PreferencesTableTable extends PreferencesTable
     contentLanguages,
     tmdbApiKey,
     discoveryRegion,
+    themeMode,
+    uiScale,
+    groupChannelVariants,
     activeAccountId,
   ];
   @override
@@ -4491,6 +4792,27 @@ class $PreferencesTableTable extends PreferencesTable
         ),
       );
     }
+    if (data.containsKey('theme_mode')) {
+      context.handle(
+        _themeModeMeta,
+        themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta),
+      );
+    }
+    if (data.containsKey('ui_scale')) {
+      context.handle(
+        _uiScaleMeta,
+        uiScale.isAcceptableOrUnknown(data['ui_scale']!, _uiScaleMeta),
+      );
+    }
+    if (data.containsKey('group_channel_variants')) {
+      context.handle(
+        _groupChannelVariantsMeta,
+        groupChannelVariants.isAcceptableOrUnknown(
+          data['group_channel_variants']!,
+          _groupChannelVariantsMeta,
+        ),
+      );
+    }
     if (data.containsKey('active_account_id')) {
       context.handle(
         _activeAccountIdMeta,
@@ -4541,6 +4863,18 @@ class $PreferencesTableTable extends PreferencesTable
         DriftSqlType.string,
         data['${effectivePrefix}discovery_region'],
       ),
+      themeMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}theme_mode'],
+      ),
+      uiScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}ui_scale'],
+      ),
+      groupChannelVariants: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}group_channel_variants'],
+      ),
       activeAccountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}active_account_id'],
@@ -4579,6 +4913,18 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
   /// Null → derived from the device locale (added in schema v6).
   final String? discoveryRegion;
 
+  /// [AppThemeMode] name, or null for the dark default (added in schema v12).
+  final String? themeMode;
+
+  /// Text/poster size multiplier, 1.0 = as designed (added in schema v12).
+  /// Device-local: it is not part of the sync payload, so sizing a phone does
+  /// not resize the television.
+  final double? uiScale;
+
+  /// Collapse a line's per-quality duplicates into one channel (schema v13).
+  /// Null → the on-by-default in [Preferences].
+  final bool? groupChannelVariants;
+
   /// App state, not a user preference — which account the UI is showing.
   final String? activeAccountId;
   const PreferencesRow({
@@ -4590,6 +4936,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     this.contentLanguages,
     this.tmdbApiKey,
     this.discoveryRegion,
+    this.themeMode,
+    this.uiScale,
+    this.groupChannelVariants,
     this.activeAccountId,
   });
   @override
@@ -4612,6 +4961,15 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     }
     if (!nullToAbsent || discoveryRegion != null) {
       map['discovery_region'] = Variable<String>(discoveryRegion);
+    }
+    if (!nullToAbsent || themeMode != null) {
+      map['theme_mode'] = Variable<String>(themeMode);
+    }
+    if (!nullToAbsent || uiScale != null) {
+      map['ui_scale'] = Variable<double>(uiScale);
+    }
+    if (!nullToAbsent || groupChannelVariants != null) {
+      map['group_channel_variants'] = Variable<bool>(groupChannelVariants);
     }
     if (!nullToAbsent || activeAccountId != null) {
       map['active_account_id'] = Variable<String>(activeAccountId);
@@ -4639,6 +4997,15 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       discoveryRegion: discoveryRegion == null && nullToAbsent
           ? const Value.absent()
           : Value(discoveryRegion),
+      themeMode: themeMode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(themeMode),
+      uiScale: uiScale == null && nullToAbsent
+          ? const Value.absent()
+          : Value(uiScale),
+      groupChannelVariants: groupChannelVariants == null && nullToAbsent
+          ? const Value.absent()
+          : Value(groupChannelVariants),
       activeAccountId: activeAccountId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeAccountId),
@@ -4663,6 +5030,11 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       contentLanguages: serializer.fromJson<String?>(json['contentLanguages']),
       tmdbApiKey: serializer.fromJson<String?>(json['tmdbApiKey']),
       discoveryRegion: serializer.fromJson<String?>(json['discoveryRegion']),
+      themeMode: serializer.fromJson<String?>(json['themeMode']),
+      uiScale: serializer.fromJson<double?>(json['uiScale']),
+      groupChannelVariants: serializer.fromJson<bool?>(
+        json['groupChannelVariants'],
+      ),
       activeAccountId: serializer.fromJson<String?>(json['activeAccountId']),
     );
   }
@@ -4680,6 +5052,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       'contentLanguages': serializer.toJson<String?>(contentLanguages),
       'tmdbApiKey': serializer.toJson<String?>(tmdbApiKey),
       'discoveryRegion': serializer.toJson<String?>(discoveryRegion),
+      'themeMode': serializer.toJson<String?>(themeMode),
+      'uiScale': serializer.toJson<double?>(uiScale),
+      'groupChannelVariants': serializer.toJson<bool?>(groupChannelVariants),
       'activeAccountId': serializer.toJson<String?>(activeAccountId),
     };
   }
@@ -4693,6 +5068,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     Value<String?> contentLanguages = const Value.absent(),
     Value<String?> tmdbApiKey = const Value.absent(),
     Value<String?> discoveryRegion = const Value.absent(),
+    Value<String?> themeMode = const Value.absent(),
+    Value<double?> uiScale = const Value.absent(),
+    Value<bool?> groupChannelVariants = const Value.absent(),
     Value<String?> activeAccountId = const Value.absent(),
   }) => PreferencesRow(
     id: id ?? this.id,
@@ -4711,6 +5089,11 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     discoveryRegion: discoveryRegion.present
         ? discoveryRegion.value
         : this.discoveryRegion,
+    themeMode: themeMode.present ? themeMode.value : this.themeMode,
+    uiScale: uiScale.present ? uiScale.value : this.uiScale,
+    groupChannelVariants: groupChannelVariants.present
+        ? groupChannelVariants.value
+        : this.groupChannelVariants,
     activeAccountId: activeAccountId.present
         ? activeAccountId.value
         : this.activeAccountId,
@@ -4739,6 +5122,11 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       discoveryRegion: data.discoveryRegion.present
           ? data.discoveryRegion.value
           : this.discoveryRegion,
+      themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
+      uiScale: data.uiScale.present ? data.uiScale.value : this.uiScale,
+      groupChannelVariants: data.groupChannelVariants.present
+          ? data.groupChannelVariants.value
+          : this.groupChannelVariants,
       activeAccountId: data.activeAccountId.present
           ? data.activeAccountId.value
           : this.activeAccountId,
@@ -4756,6 +5144,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           ..write('contentLanguages: $contentLanguages, ')
           ..write('tmdbApiKey: $tmdbApiKey, ')
           ..write('discoveryRegion: $discoveryRegion, ')
+          ..write('themeMode: $themeMode, ')
+          ..write('uiScale: $uiScale, ')
+          ..write('groupChannelVariants: $groupChannelVariants, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -4771,6 +5162,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     contentLanguages,
     tmdbApiKey,
     discoveryRegion,
+    themeMode,
+    uiScale,
+    groupChannelVariants,
     activeAccountId,
   );
   @override
@@ -4785,6 +5179,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           other.contentLanguages == this.contentLanguages &&
           other.tmdbApiKey == this.tmdbApiKey &&
           other.discoveryRegion == this.discoveryRegion &&
+          other.themeMode == this.themeMode &&
+          other.uiScale == this.uiScale &&
+          other.groupChannelVariants == this.groupChannelVariants &&
           other.activeAccountId == this.activeAccountId);
 }
 
@@ -4797,6 +5194,9 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
   final Value<String?> contentLanguages;
   final Value<String?> tmdbApiKey;
   final Value<String?> discoveryRegion;
+  final Value<String?> themeMode;
+  final Value<double?> uiScale;
+  final Value<bool?> groupChannelVariants;
   final Value<String?> activeAccountId;
   const PreferencesTableCompanion({
     this.id = const Value.absent(),
@@ -4807,6 +5207,9 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.contentLanguages = const Value.absent(),
     this.tmdbApiKey = const Value.absent(),
     this.discoveryRegion = const Value.absent(),
+    this.themeMode = const Value.absent(),
+    this.uiScale = const Value.absent(),
+    this.groupChannelVariants = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   PreferencesTableCompanion.insert({
@@ -4818,6 +5221,9 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.contentLanguages = const Value.absent(),
     this.tmdbApiKey = const Value.absent(),
     this.discoveryRegion = const Value.absent(),
+    this.themeMode = const Value.absent(),
+    this.uiScale = const Value.absent(),
+    this.groupChannelVariants = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   static Insertable<PreferencesRow> custom({
@@ -4829,6 +5235,9 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Expression<String>? contentLanguages,
     Expression<String>? tmdbApiKey,
     Expression<String>? discoveryRegion,
+    Expression<String>? themeMode,
+    Expression<double>? uiScale,
+    Expression<bool>? groupChannelVariants,
     Expression<String>? activeAccountId,
   }) {
     return RawValuesInsertable({
@@ -4842,6 +5251,10 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       if (contentLanguages != null) 'content_languages': contentLanguages,
       if (tmdbApiKey != null) 'tmdb_api_key': tmdbApiKey,
       if (discoveryRegion != null) 'discovery_region': discoveryRegion,
+      if (themeMode != null) 'theme_mode': themeMode,
+      if (uiScale != null) 'ui_scale': uiScale,
+      if (groupChannelVariants != null)
+        'group_channel_variants': groupChannelVariants,
       if (activeAccountId != null) 'active_account_id': activeAccountId,
     });
   }
@@ -4855,6 +5268,9 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Value<String?>? contentLanguages,
     Value<String?>? tmdbApiKey,
     Value<String?>? discoveryRegion,
+    Value<String?>? themeMode,
+    Value<double?>? uiScale,
+    Value<bool?>? groupChannelVariants,
     Value<String?>? activeAccountId,
   }) {
     return PreferencesTableCompanion(
@@ -4867,6 +5283,9 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       contentLanguages: contentLanguages ?? this.contentLanguages,
       tmdbApiKey: tmdbApiKey ?? this.tmdbApiKey,
       discoveryRegion: discoveryRegion ?? this.discoveryRegion,
+      themeMode: themeMode ?? this.themeMode,
+      uiScale: uiScale ?? this.uiScale,
+      groupChannelVariants: groupChannelVariants ?? this.groupChannelVariants,
       activeAccountId: activeAccountId ?? this.activeAccountId,
     );
   }
@@ -4900,6 +5319,17 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     if (discoveryRegion.present) {
       map['discovery_region'] = Variable<String>(discoveryRegion.value);
     }
+    if (themeMode.present) {
+      map['theme_mode'] = Variable<String>(themeMode.value);
+    }
+    if (uiScale.present) {
+      map['ui_scale'] = Variable<double>(uiScale.value);
+    }
+    if (groupChannelVariants.present) {
+      map['group_channel_variants'] = Variable<bool>(
+        groupChannelVariants.value,
+      );
+    }
     if (activeAccountId.present) {
       map['active_account_id'] = Variable<String>(activeAccountId.value);
     }
@@ -4917,6 +5347,9 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
           ..write('contentLanguages: $contentLanguages, ')
           ..write('tmdbApiKey: $tmdbApiKey, ')
           ..write('discoveryRegion: $discoveryRegion, ')
+          ..write('themeMode: $themeMode, ')
+          ..write('uiScale: $uiScale, ')
+          ..write('groupChannelVariants: $groupChannelVariants, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -5681,6 +6114,534 @@ class CatalogOverridesTableCompanion
           ..write('hidden: $hidden, ')
           ..write('customName: $customName, ')
           ..write('sortIndex: $sortIndex, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RemindersTableTable extends RemindersTable
+    with TableInfo<$RemindersTableTable, ReminderRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RemindersTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _channelIdMeta = const VerificationMeta(
+    'channelId',
+  );
+  @override
+  late final GeneratedColumn<String> channelId = GeneratedColumn<String>(
+    'channel_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _channelNameMeta = const VerificationMeta(
+    'channelName',
+  );
+  @override
+  late final GeneratedColumn<String> channelName = GeneratedColumn<String>(
+    'channel_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startsAtMillisUtcMeta = const VerificationMeta(
+    'startsAtMillisUtc',
+  );
+  @override
+  late final GeneratedColumn<int> startsAtMillisUtc = GeneratedColumn<int>(
+    'starts_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _leadMinutesMeta = const VerificationMeta(
+    'leadMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> leadMinutes = GeneratedColumn<int>(
+    'lead_minutes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(3),
+  );
+  static const VerificationMeta _notificationIdMeta = const VerificationMeta(
+    'notificationId',
+  );
+  @override
+  late final GeneratedColumn<int> notificationId = GeneratedColumn<int>(
+    'notification_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    accountId,
+    channelId,
+    channelName,
+    title,
+    startsAtMillisUtc,
+    leadMinutes,
+    notificationId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reminders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReminderRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('channel_id')) {
+      context.handle(
+        _channelIdMeta,
+        channelId.isAcceptableOrUnknown(data['channel_id']!, _channelIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_channelIdMeta);
+    }
+    if (data.containsKey('channel_name')) {
+      context.handle(
+        _channelNameMeta,
+        channelName.isAcceptableOrUnknown(
+          data['channel_name']!,
+          _channelNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_channelNameMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('starts_at_millis_utc')) {
+      context.handle(
+        _startsAtMillisUtcMeta,
+        startsAtMillisUtc.isAcceptableOrUnknown(
+          data['starts_at_millis_utc']!,
+          _startsAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_startsAtMillisUtcMeta);
+    }
+    if (data.containsKey('lead_minutes')) {
+      context.handle(
+        _leadMinutesMeta,
+        leadMinutes.isAcceptableOrUnknown(
+          data['lead_minutes']!,
+          _leadMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notification_id')) {
+      context.handle(
+        _notificationIdMeta,
+        notificationId.isAcceptableOrUnknown(
+          data['notification_id']!,
+          _notificationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_notificationIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReminderRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReminderRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      channelId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}channel_id'],
+      )!,
+      channelName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}channel_name'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      startsAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}starts_at_millis_utc'],
+      )!,
+      leadMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lead_minutes'],
+      )!,
+      notificationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}notification_id'],
+      )!,
+    );
+  }
+
+  @override
+  $RemindersTableTable createAlias(String alias) {
+    return $RemindersTableTable(attachedDatabase, alias);
+  }
+}
+
+class ReminderRow extends DataClass implements Insertable<ReminderRow> {
+  final String id;
+  final String accountId;
+  final String channelId;
+  final String channelName;
+  final String title;
+  final int startsAtMillisUtc;
+  final int leadMinutes;
+  final int notificationId;
+  const ReminderRow({
+    required this.id,
+    required this.accountId,
+    required this.channelId,
+    required this.channelName,
+    required this.title,
+    required this.startsAtMillisUtc,
+    required this.leadMinutes,
+    required this.notificationId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['account_id'] = Variable<String>(accountId);
+    map['channel_id'] = Variable<String>(channelId);
+    map['channel_name'] = Variable<String>(channelName);
+    map['title'] = Variable<String>(title);
+    map['starts_at_millis_utc'] = Variable<int>(startsAtMillisUtc);
+    map['lead_minutes'] = Variable<int>(leadMinutes);
+    map['notification_id'] = Variable<int>(notificationId);
+    return map;
+  }
+
+  RemindersTableCompanion toCompanion(bool nullToAbsent) {
+    return RemindersTableCompanion(
+      id: Value(id),
+      accountId: Value(accountId),
+      channelId: Value(channelId),
+      channelName: Value(channelName),
+      title: Value(title),
+      startsAtMillisUtc: Value(startsAtMillisUtc),
+      leadMinutes: Value(leadMinutes),
+      notificationId: Value(notificationId),
+    );
+  }
+
+  factory ReminderRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReminderRow(
+      id: serializer.fromJson<String>(json['id']),
+      accountId: serializer.fromJson<String>(json['accountId']),
+      channelId: serializer.fromJson<String>(json['channelId']),
+      channelName: serializer.fromJson<String>(json['channelName']),
+      title: serializer.fromJson<String>(json['title']),
+      startsAtMillisUtc: serializer.fromJson<int>(json['startsAtMillisUtc']),
+      leadMinutes: serializer.fromJson<int>(json['leadMinutes']),
+      notificationId: serializer.fromJson<int>(json['notificationId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'accountId': serializer.toJson<String>(accountId),
+      'channelId': serializer.toJson<String>(channelId),
+      'channelName': serializer.toJson<String>(channelName),
+      'title': serializer.toJson<String>(title),
+      'startsAtMillisUtc': serializer.toJson<int>(startsAtMillisUtc),
+      'leadMinutes': serializer.toJson<int>(leadMinutes),
+      'notificationId': serializer.toJson<int>(notificationId),
+    };
+  }
+
+  ReminderRow copyWith({
+    String? id,
+    String? accountId,
+    String? channelId,
+    String? channelName,
+    String? title,
+    int? startsAtMillisUtc,
+    int? leadMinutes,
+    int? notificationId,
+  }) => ReminderRow(
+    id: id ?? this.id,
+    accountId: accountId ?? this.accountId,
+    channelId: channelId ?? this.channelId,
+    channelName: channelName ?? this.channelName,
+    title: title ?? this.title,
+    startsAtMillisUtc: startsAtMillisUtc ?? this.startsAtMillisUtc,
+    leadMinutes: leadMinutes ?? this.leadMinutes,
+    notificationId: notificationId ?? this.notificationId,
+  );
+  ReminderRow copyWithCompanion(RemindersTableCompanion data) {
+    return ReminderRow(
+      id: data.id.present ? data.id.value : this.id,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      channelId: data.channelId.present ? data.channelId.value : this.channelId,
+      channelName: data.channelName.present
+          ? data.channelName.value
+          : this.channelName,
+      title: data.title.present ? data.title.value : this.title,
+      startsAtMillisUtc: data.startsAtMillisUtc.present
+          ? data.startsAtMillisUtc.value
+          : this.startsAtMillisUtc,
+      leadMinutes: data.leadMinutes.present
+          ? data.leadMinutes.value
+          : this.leadMinutes,
+      notificationId: data.notificationId.present
+          ? data.notificationId.value
+          : this.notificationId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReminderRow(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('channelId: $channelId, ')
+          ..write('channelName: $channelName, ')
+          ..write('title: $title, ')
+          ..write('startsAtMillisUtc: $startsAtMillisUtc, ')
+          ..write('leadMinutes: $leadMinutes, ')
+          ..write('notificationId: $notificationId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    accountId,
+    channelId,
+    channelName,
+    title,
+    startsAtMillisUtc,
+    leadMinutes,
+    notificationId,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReminderRow &&
+          other.id == this.id &&
+          other.accountId == this.accountId &&
+          other.channelId == this.channelId &&
+          other.channelName == this.channelName &&
+          other.title == this.title &&
+          other.startsAtMillisUtc == this.startsAtMillisUtc &&
+          other.leadMinutes == this.leadMinutes &&
+          other.notificationId == this.notificationId);
+}
+
+class RemindersTableCompanion extends UpdateCompanion<ReminderRow> {
+  final Value<String> id;
+  final Value<String> accountId;
+  final Value<String> channelId;
+  final Value<String> channelName;
+  final Value<String> title;
+  final Value<int> startsAtMillisUtc;
+  final Value<int> leadMinutes;
+  final Value<int> notificationId;
+  final Value<int> rowid;
+  const RemindersTableCompanion({
+    this.id = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.channelId = const Value.absent(),
+    this.channelName = const Value.absent(),
+    this.title = const Value.absent(),
+    this.startsAtMillisUtc = const Value.absent(),
+    this.leadMinutes = const Value.absent(),
+    this.notificationId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RemindersTableCompanion.insert({
+    required String id,
+    required String accountId,
+    required String channelId,
+    required String channelName,
+    required String title,
+    required int startsAtMillisUtc,
+    this.leadMinutes = const Value.absent(),
+    required int notificationId,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       accountId = Value(accountId),
+       channelId = Value(channelId),
+       channelName = Value(channelName),
+       title = Value(title),
+       startsAtMillisUtc = Value(startsAtMillisUtc),
+       notificationId = Value(notificationId);
+  static Insertable<ReminderRow> custom({
+    Expression<String>? id,
+    Expression<String>? accountId,
+    Expression<String>? channelId,
+    Expression<String>? channelName,
+    Expression<String>? title,
+    Expression<int>? startsAtMillisUtc,
+    Expression<int>? leadMinutes,
+    Expression<int>? notificationId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (accountId != null) 'account_id': accountId,
+      if (channelId != null) 'channel_id': channelId,
+      if (channelName != null) 'channel_name': channelName,
+      if (title != null) 'title': title,
+      if (startsAtMillisUtc != null) 'starts_at_millis_utc': startsAtMillisUtc,
+      if (leadMinutes != null) 'lead_minutes': leadMinutes,
+      if (notificationId != null) 'notification_id': notificationId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RemindersTableCompanion copyWith({
+    Value<String>? id,
+    Value<String>? accountId,
+    Value<String>? channelId,
+    Value<String>? channelName,
+    Value<String>? title,
+    Value<int>? startsAtMillisUtc,
+    Value<int>? leadMinutes,
+    Value<int>? notificationId,
+    Value<int>? rowid,
+  }) {
+    return RemindersTableCompanion(
+      id: id ?? this.id,
+      accountId: accountId ?? this.accountId,
+      channelId: channelId ?? this.channelId,
+      channelName: channelName ?? this.channelName,
+      title: title ?? this.title,
+      startsAtMillisUtc: startsAtMillisUtc ?? this.startsAtMillisUtc,
+      leadMinutes: leadMinutes ?? this.leadMinutes,
+      notificationId: notificationId ?? this.notificationId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (channelId.present) {
+      map['channel_id'] = Variable<String>(channelId.value);
+    }
+    if (channelName.present) {
+      map['channel_name'] = Variable<String>(channelName.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (startsAtMillisUtc.present) {
+      map['starts_at_millis_utc'] = Variable<int>(startsAtMillisUtc.value);
+    }
+    if (leadMinutes.present) {
+      map['lead_minutes'] = Variable<int>(leadMinutes.value);
+    }
+    if (notificationId.present) {
+      map['notification_id'] = Variable<int>(notificationId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RemindersTableCompanion(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('channelId: $channelId, ')
+          ..write('channelName: $channelName, ')
+          ..write('title: $title, ')
+          ..write('startsAtMillisUtc: $startsAtMillisUtc, ')
+          ..write('leadMinutes: $leadMinutes, ')
+          ..write('notificationId: $notificationId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -8441,6 +9402,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FavoritesTableTable favoritesTable = $FavoritesTableTable(this);
   late final $CatalogOverridesTableTable catalogOverridesTable =
       $CatalogOverridesTableTable(this);
+  late final $RemindersTableTable remindersTable = $RemindersTableTable(this);
   late final $EpgCacheTableTable epgCacheTable = $EpgCacheTableTable(this);
   late final $CatalogMetaTableTable catalogMetaTable = $CatalogMetaTableTable(
     this,
@@ -8470,6 +9432,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     preferencesTable,
     favoritesTable,
     catalogOverridesTable,
+    remindersTable,
     epgCacheTable,
     catalogMetaTable,
     catalogCategoryMetaTable,
@@ -8488,6 +9451,8 @@ typedef $$AccountsTableTableCreateCompanionBuilder =
       required String serverUrl,
       required String username,
       Value<String?> epgUrl,
+      Value<String?> userAgent,
+      Value<String?> altHosts,
       required int createdAtMillisUtc,
       Value<int> rowid,
     });
@@ -8499,6 +9464,8 @@ typedef $$AccountsTableTableUpdateCompanionBuilder =
       Value<String> serverUrl,
       Value<String> username,
       Value<String?> epgUrl,
+      Value<String?> userAgent,
+      Value<String?> altHosts,
       Value<int> createdAtMillisUtc,
       Value<int> rowid,
     });
@@ -8540,6 +9507,16 @@ class $$AccountsTableTableFilterComposer
 
   ColumnFilters<String> get epgUrl => $composableBuilder(
     column: $table.epgUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userAgent => $composableBuilder(
+    column: $table.userAgent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get altHosts => $composableBuilder(
+    column: $table.altHosts,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8588,6 +9565,16 @@ class $$AccountsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userAgent => $composableBuilder(
+    column: $table.userAgent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get altHosts => $composableBuilder(
+    column: $table.altHosts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get createdAtMillisUtc => $composableBuilder(
     column: $table.createdAtMillisUtc,
     builder: (column) => ColumnOrderings(column),
@@ -8620,6 +9607,12 @@ class $$AccountsTableTableAnnotationComposer
 
   GeneratedColumn<String> get epgUrl =>
       $composableBuilder(column: $table.epgUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get userAgent =>
+      $composableBuilder(column: $table.userAgent, builder: (column) => column);
+
+  GeneratedColumn<String> get altHosts =>
+      $composableBuilder(column: $table.altHosts, builder: (column) => column);
 
   GeneratedColumn<int> get createdAtMillisUtc => $composableBuilder(
     column: $table.createdAtMillisUtc,
@@ -8664,6 +9657,8 @@ class $$AccountsTableTableTableManager
                 Value<String> serverUrl = const Value.absent(),
                 Value<String> username = const Value.absent(),
                 Value<String?> epgUrl = const Value.absent(),
+                Value<String?> userAgent = const Value.absent(),
+                Value<String?> altHosts = const Value.absent(),
                 Value<int> createdAtMillisUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AccountsTableCompanion(
@@ -8673,6 +9668,8 @@ class $$AccountsTableTableTableManager
                 serverUrl: serverUrl,
                 username: username,
                 epgUrl: epgUrl,
+                userAgent: userAgent,
+                altHosts: altHosts,
                 createdAtMillisUtc: createdAtMillisUtc,
                 rowid: rowid,
               ),
@@ -8684,6 +9681,8 @@ class $$AccountsTableTableTableManager
                 required String serverUrl,
                 required String username,
                 Value<String?> epgUrl = const Value.absent(),
+                Value<String?> userAgent = const Value.absent(),
+                Value<String?> altHosts = const Value.absent(),
                 required int createdAtMillisUtc,
                 Value<int> rowid = const Value.absent(),
               }) => AccountsTableCompanion.insert(
@@ -8693,6 +9692,8 @@ class $$AccountsTableTableTableManager
                 serverUrl: serverUrl,
                 username: username,
                 epgUrl: epgUrl,
+                userAgent: userAgent,
+                altHosts: altHosts,
                 createdAtMillisUtc: createdAtMillisUtc,
                 rowid: rowid,
               ),
@@ -10016,6 +11017,9 @@ typedef $$ChannelsTableTableCreateCompanionBuilder =
       Value<bool> tvArchive,
       Value<int?> tvArchiveDays,
       required int cachedAtMillisUtc,
+      Value<String?> variantKey,
+      Value<String?> baseName,
+      Value<int?> qualityRank,
       Value<int> rowid,
     });
 typedef $$ChannelsTableTableUpdateCompanionBuilder =
@@ -10030,6 +11034,9 @@ typedef $$ChannelsTableTableUpdateCompanionBuilder =
       Value<bool> tvArchive,
       Value<int?> tvArchiveDays,
       Value<int> cachedAtMillisUtc,
+      Value<String?> variantKey,
+      Value<String?> baseName,
+      Value<int?> qualityRank,
       Value<int> rowid,
     });
 
@@ -10089,6 +11096,21 @@ class $$ChannelsTableTableFilterComposer
 
   ColumnFilters<int> get cachedAtMillisUtc => $composableBuilder(
     column: $table.cachedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get variantKey => $composableBuilder(
+    column: $table.variantKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get baseName => $composableBuilder(
+    column: $table.baseName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get qualityRank => $composableBuilder(
+    column: $table.qualityRank,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -10151,6 +11173,21 @@ class $$ChannelsTableTableOrderingComposer
     column: $table.cachedAtMillisUtc,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get variantKey => $composableBuilder(
+    column: $table.variantKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get baseName => $composableBuilder(
+    column: $table.baseName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get qualityRank => $composableBuilder(
+    column: $table.qualityRank,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ChannelsTableTableAnnotationComposer
@@ -10199,6 +11236,19 @@ class $$ChannelsTableTableAnnotationComposer
     column: $table.cachedAtMillisUtc,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get variantKey => $composableBuilder(
+    column: $table.variantKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get baseName =>
+      $composableBuilder(column: $table.baseName, builder: (column) => column);
+
+  GeneratedColumn<int> get qualityRank => $composableBuilder(
+    column: $table.qualityRank,
+    builder: (column) => column,
+  );
 }
 
 class $$ChannelsTableTableTableManager
@@ -10242,6 +11292,9 @@ class $$ChannelsTableTableTableManager
                 Value<bool> tvArchive = const Value.absent(),
                 Value<int?> tvArchiveDays = const Value.absent(),
                 Value<int> cachedAtMillisUtc = const Value.absent(),
+                Value<String?> variantKey = const Value.absent(),
+                Value<String?> baseName = const Value.absent(),
+                Value<int?> qualityRank = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChannelsTableCompanion(
                 id: id,
@@ -10254,6 +11307,9 @@ class $$ChannelsTableTableTableManager
                 tvArchive: tvArchive,
                 tvArchiveDays: tvArchiveDays,
                 cachedAtMillisUtc: cachedAtMillisUtc,
+                variantKey: variantKey,
+                baseName: baseName,
+                qualityRank: qualityRank,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -10268,6 +11324,9 @@ class $$ChannelsTableTableTableManager
                 Value<bool> tvArchive = const Value.absent(),
                 Value<int?> tvArchiveDays = const Value.absent(),
                 required int cachedAtMillisUtc,
+                Value<String?> variantKey = const Value.absent(),
+                Value<String?> baseName = const Value.absent(),
+                Value<int?> qualityRank = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChannelsTableCompanion.insert(
                 id: id,
@@ -10280,6 +11339,9 @@ class $$ChannelsTableTableTableManager
                 tvArchive: tvArchive,
                 tvArchiveDays: tvArchiveDays,
                 cachedAtMillisUtc: cachedAtMillisUtc,
+                variantKey: variantKey,
+                baseName: baseName,
+                qualityRank: qualityRank,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -10578,6 +11640,9 @@ typedef $$PreferencesTableTableCreateCompanionBuilder =
       Value<String?> contentLanguages,
       Value<String?> tmdbApiKey,
       Value<String?> discoveryRegion,
+      Value<String?> themeMode,
+      Value<double?> uiScale,
+      Value<bool?> groupChannelVariants,
       Value<String?> activeAccountId,
     });
 typedef $$PreferencesTableTableUpdateCompanionBuilder =
@@ -10590,6 +11655,9 @@ typedef $$PreferencesTableTableUpdateCompanionBuilder =
       Value<String?> contentLanguages,
       Value<String?> tmdbApiKey,
       Value<String?> discoveryRegion,
+      Value<String?> themeMode,
+      Value<double?> uiScale,
+      Value<bool?> groupChannelVariants,
       Value<String?> activeAccountId,
     });
 
@@ -10639,6 +11707,21 @@ class $$PreferencesTableTableFilterComposer
 
   ColumnFilters<String> get discoveryRegion => $composableBuilder(
     column: $table.discoveryRegion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get themeMode => $composableBuilder(
+    column: $table.themeMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get uiScale => $composableBuilder(
+    column: $table.uiScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get groupChannelVariants => $composableBuilder(
+    column: $table.groupChannelVariants,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10697,6 +11780,21 @@ class $$PreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get themeMode => $composableBuilder(
+    column: $table.themeMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get uiScale => $composableBuilder(
+    column: $table.uiScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get groupChannelVariants => $composableBuilder(
+    column: $table.groupChannelVariants,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get activeAccountId => $composableBuilder(
     column: $table.activeAccountId,
     builder: (column) => ColumnOrderings(column),
@@ -10747,6 +11845,17 @@ class $$PreferencesTableTableAnnotationComposer
 
   GeneratedColumn<String> get discoveryRegion => $composableBuilder(
     column: $table.discoveryRegion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get themeMode =>
+      $composableBuilder(column: $table.themeMode, builder: (column) => column);
+
+  GeneratedColumn<double> get uiScale =>
+      $composableBuilder(column: $table.uiScale, builder: (column) => column);
+
+  GeneratedColumn<bool> get groupChannelVariants => $composableBuilder(
+    column: $table.groupChannelVariants,
     builder: (column) => column,
   );
 
@@ -10801,6 +11910,9 @@ class $$PreferencesTableTableTableManager
                 Value<String?> contentLanguages = const Value.absent(),
                 Value<String?> tmdbApiKey = const Value.absent(),
                 Value<String?> discoveryRegion = const Value.absent(),
+                Value<String?> themeMode = const Value.absent(),
+                Value<double?> uiScale = const Value.absent(),
+                Value<bool?> groupChannelVariants = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion(
                 id: id,
@@ -10811,6 +11923,9 @@ class $$PreferencesTableTableTableManager
                 contentLanguages: contentLanguages,
                 tmdbApiKey: tmdbApiKey,
                 discoveryRegion: discoveryRegion,
+                themeMode: themeMode,
+                uiScale: uiScale,
+                groupChannelVariants: groupChannelVariants,
                 activeAccountId: activeAccountId,
               ),
           createCompanionCallback:
@@ -10823,6 +11938,9 @@ class $$PreferencesTableTableTableManager
                 Value<String?> contentLanguages = const Value.absent(),
                 Value<String?> tmdbApiKey = const Value.absent(),
                 Value<String?> discoveryRegion = const Value.absent(),
+                Value<String?> themeMode = const Value.absent(),
+                Value<double?> uiScale = const Value.absent(),
+                Value<bool?> groupChannelVariants = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion.insert(
                 id: id,
@@ -10833,6 +11951,9 @@ class $$PreferencesTableTableTableManager
                 contentLanguages: contentLanguages,
                 tmdbApiKey: tmdbApiKey,
                 discoveryRegion: discoveryRegion,
+                themeMode: themeMode,
+                uiScale: uiScale,
+                groupChannelVariants: groupChannelVariants,
                 activeAccountId: activeAccountId,
               ),
           withReferenceMapper: (p0) => p0
@@ -11287,6 +12408,273 @@ typedef $$CatalogOverridesTableTableProcessedTableManager =
         >,
       ),
       CatalogOverrideRow,
+      PrefetchHooks Function()
+    >;
+typedef $$RemindersTableTableCreateCompanionBuilder =
+    RemindersTableCompanion Function({
+      required String id,
+      required String accountId,
+      required String channelId,
+      required String channelName,
+      required String title,
+      required int startsAtMillisUtc,
+      Value<int> leadMinutes,
+      required int notificationId,
+      Value<int> rowid,
+    });
+typedef $$RemindersTableTableUpdateCompanionBuilder =
+    RemindersTableCompanion Function({
+      Value<String> id,
+      Value<String> accountId,
+      Value<String> channelId,
+      Value<String> channelName,
+      Value<String> title,
+      Value<int> startsAtMillisUtc,
+      Value<int> leadMinutes,
+      Value<int> notificationId,
+      Value<int> rowid,
+    });
+
+class $$RemindersTableTableFilterComposer
+    extends Composer<_$AppDatabase, $RemindersTableTable> {
+  $$RemindersTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get channelId => $composableBuilder(
+    column: $table.channelId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get channelName => $composableBuilder(
+    column: $table.channelName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startsAtMillisUtc => $composableBuilder(
+    column: $table.startsAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get leadMinutes => $composableBuilder(
+    column: $table.leadMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get notificationId => $composableBuilder(
+    column: $table.notificationId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RemindersTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $RemindersTableTable> {
+  $$RemindersTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get channelId => $composableBuilder(
+    column: $table.channelId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get channelName => $composableBuilder(
+    column: $table.channelName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startsAtMillisUtc => $composableBuilder(
+    column: $table.startsAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get leadMinutes => $composableBuilder(
+    column: $table.leadMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get notificationId => $composableBuilder(
+    column: $table.notificationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RemindersTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RemindersTableTable> {
+  $$RemindersTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get channelId =>
+      $composableBuilder(column: $table.channelId, builder: (column) => column);
+
+  GeneratedColumn<String> get channelName => $composableBuilder(
+    column: $table.channelName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<int> get startsAtMillisUtc => $composableBuilder(
+    column: $table.startsAtMillisUtc,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get leadMinutes => $composableBuilder(
+    column: $table.leadMinutes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get notificationId => $composableBuilder(
+    column: $table.notificationId,
+    builder: (column) => column,
+  );
+}
+
+class $$RemindersTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RemindersTableTable,
+          ReminderRow,
+          $$RemindersTableTableFilterComposer,
+          $$RemindersTableTableOrderingComposer,
+          $$RemindersTableTableAnnotationComposer,
+          $$RemindersTableTableCreateCompanionBuilder,
+          $$RemindersTableTableUpdateCompanionBuilder,
+          (
+            ReminderRow,
+            BaseReferences<_$AppDatabase, $RemindersTableTable, ReminderRow>,
+          ),
+          ReminderRow,
+          PrefetchHooks Function()
+        > {
+  $$RemindersTableTableTableManager(
+    _$AppDatabase db,
+    $RemindersTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RemindersTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RemindersTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RemindersTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> accountId = const Value.absent(),
+                Value<String> channelId = const Value.absent(),
+                Value<String> channelName = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<int> startsAtMillisUtc = const Value.absent(),
+                Value<int> leadMinutes = const Value.absent(),
+                Value<int> notificationId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RemindersTableCompanion(
+                id: id,
+                accountId: accountId,
+                channelId: channelId,
+                channelName: channelName,
+                title: title,
+                startsAtMillisUtc: startsAtMillisUtc,
+                leadMinutes: leadMinutes,
+                notificationId: notificationId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String accountId,
+                required String channelId,
+                required String channelName,
+                required String title,
+                required int startsAtMillisUtc,
+                Value<int> leadMinutes = const Value.absent(),
+                required int notificationId,
+                Value<int> rowid = const Value.absent(),
+              }) => RemindersTableCompanion.insert(
+                id: id,
+                accountId: accountId,
+                channelId: channelId,
+                channelName: channelName,
+                title: title,
+                startsAtMillisUtc: startsAtMillisUtc,
+                leadMinutes: leadMinutes,
+                notificationId: notificationId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RemindersTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RemindersTableTable,
+      ReminderRow,
+      $$RemindersTableTableFilterComposer,
+      $$RemindersTableTableOrderingComposer,
+      $$RemindersTableTableAnnotationComposer,
+      $$RemindersTableTableCreateCompanionBuilder,
+      $$RemindersTableTableUpdateCompanionBuilder,
+      (
+        ReminderRow,
+        BaseReferences<_$AppDatabase, $RemindersTableTable, ReminderRow>,
+      ),
+      ReminderRow,
       PrefetchHooks Function()
     >;
 typedef $$EpgCacheTableTableCreateCompanionBuilder =
@@ -12833,6 +14221,8 @@ class $AppDatabaseManager {
       $$FavoritesTableTableTableManager(_db, _db.favoritesTable);
   $$CatalogOverridesTableTableTableManager get catalogOverridesTable =>
       $$CatalogOverridesTableTableTableManager(_db, _db.catalogOverridesTable);
+  $$RemindersTableTableTableManager get remindersTable =>
+      $$RemindersTableTableTableManager(_db, _db.remindersTable);
   $$EpgCacheTableTableTableManager get epgCacheTable =>
       $$EpgCacheTableTableTableManager(_db, _db.epgCacheTable);
   $$CatalogMetaTableTableTableManager get catalogMetaTable =>

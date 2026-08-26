@@ -137,13 +137,13 @@ class _MovieDetail extends ConsumerWidget {
                   fit: BoxFit.cover,
                   memCacheWidth: 1080,
                   placeholder: (context, url) =>
-                      const ColoredBox(color: AppColors.surfaceElevated),
+                      ColoredBox(color: AppColors.surfaceElevated),
                   errorWidget: (context, url, error) =>
-                      const ColoredBox(color: AppColors.surfaceElevated),
+                      ColoredBox(color: AppColors.surfaceElevated),
                 )
               else
-                const ColoredBox(color: AppColors.surfaceElevated),
-              const DecoratedBox(
+                ColoredBox(color: AppColors.surfaceElevated),
+              DecoratedBox(
                   decoration: BoxDecoration(gradient: AppColors.scrim)),
             ],
           )),
@@ -158,7 +158,7 @@ class _MovieDetail extends ConsumerWidget {
               if (meta.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(meta,
-                    style: const TextStyle(color: AppColors.textSecondary)),
+                    style: TextStyle(color: AppColors.textSecondary)),
               ],
               const SizedBox(height: 24),
               Row(
@@ -217,7 +217,7 @@ class _MovieDetail extends ConsumerWidget {
                 Text('Cast', style: AppTypography.title.copyWith(fontSize: 16)),
                 const SizedBox(height: 6),
                 Text(movie.cast!,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AppColors.textSecondary, height: 1.5)),
               ],
             ],

@@ -19,6 +19,11 @@ class AccountsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Accounts')),
       floatingActionButton: FloatingActionButton.extended(
+        // Without this the screen is a dead end on a remote: when there are no
+        // accounts yet nothing else on it can take focus, so the D-pad has
+        // nowhere to go and the only way out is Back — which is exactly the
+        // screen a new TV user lands on from "Or add a playlist manually".
+        autofocus: true,
         onPressed: () => context.push('/accounts/add'),
         icon: const Icon(Icons.add),
         label: const Text('Add account'),
@@ -27,11 +32,11 @@ class AccountsScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Text('Could not load accounts: $e',
-              style: const TextStyle(color: AppColors.error)),
+              style: TextStyle(color: AppColors.error)),
         ),
         data: (list) {
           if (list.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -65,19 +70,27 @@ class AccountsScreen extends ConsumerWidget {
                   title: Text(account.name),
                   subtitle: Text(
                     '${account.type.name} · ${_hostOf(account.serverUrl)}',
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: TextStyle(color: AppColors.textSecondary),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (isActive)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(right: 4),
                           child: Icon(Icons.check_circle,
                               color: AppColors.accent, size: 20),
                         ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline,
+                        tooltip: 'Streaming & hosts',
+                        icon: Icon(Icons.tune,
+                            color: AppColors.textSecondary),
+                        onPressed: () => context.push(
+                            '/accounts/${Uri.encodeComponent(account.id)}/network'),
+                      ),
+                      IconButton(
+                        tooltip: 'Delete',
+                        icon: Icon(Icons.delete_outline,
                             color: AppColors.textSecondary),
                         onPressed: () => _confirmDelete(context, ref, account),
                       ),

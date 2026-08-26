@@ -236,7 +236,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
             color: AppColors.error.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text(_error!, style: const TextStyle(color: AppColors.error)),
+          child: Text(_error!, style: TextStyle(color: AppColors.error)),
         ),
       ],
       const SizedBox(height: 16),
@@ -264,7 +264,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       Text('Caching catalog',
           style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 4),
-      const Text(
+      Text(
         'Fetching everything once so browsing is instant — even offline.',
         style: TextStyle(color: AppColors.textSecondary),
       ),
@@ -273,23 +273,23 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: switch (p.status) {
-            _KindStatus.pending => const Icon(Icons.circle_outlined,
+            _KindStatus.pending => Icon(Icons.circle_outlined,
                 color: AppColors.textSecondary),
             _KindStatus.running => const SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(strokeWidth: 2)),
             _KindStatus.done =>
-              const Icon(Icons.check_circle, color: AppColors.accentAlt),
+              Icon(Icons.check_circle, color: AppColors.accentAlt),
             _KindStatus.failed =>
-              const Icon(Icons.error_outline, color: AppColors.error),
+              Icon(Icons.error_outline, color: AppColors.error),
           },
           title: Text(p.label),
           subtitle: switch (p.status) {
             _KindStatus.done => Text('${p.count} items',
-                style: const TextStyle(color: AppColors.textSecondary)),
+                style: TextStyle(color: AppColors.textSecondary)),
             _KindStatus.failed => Text(p.error ?? 'failed',
-                style: const TextStyle(color: AppColors.error)),
+                style: TextStyle(color: AppColors.error)),
             _ => null,
           },
         ),

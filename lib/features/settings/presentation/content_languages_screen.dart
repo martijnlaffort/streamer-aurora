@@ -59,7 +59,7 @@ class ContentLanguagesScreen extends ConsumerWidget {
         error: (e, _) => ErrorView(error: e, onRetry: () => ref.invalidate(availableContentLanguagesProvider)),
         data: (langs) {
           if (langs.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
@@ -74,7 +74,7 @@ class ContentLanguagesScreen extends ConsumerWidget {
           final allCodes = [for (final l in langs) l.lang.code];
           return ListView(
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Text(
                   'Only the languages you check appear across Movies, Series, '
@@ -91,7 +91,7 @@ class ContentLanguagesScreen extends ConsumerWidget {
                   subtitle: Text(
                     '${entry.count} '
                     '${entry.count == 1 ? 'category' : 'categories'}',
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: TextStyle(color: AppColors.textSecondary),
                   ),
                   onChanged: (v) => toggle(allCodes, entry.lang.code, v ?? false),
                 ),

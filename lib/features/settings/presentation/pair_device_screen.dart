@@ -174,12 +174,12 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.check_circle_outline,
+          Icon(Icons.check_circle_outline,
               color: AppColors.accentAlt, size: 48),
           const SizedBox(height: 16),
           Text(_done!, textAlign: TextAlign.center, style: AppTypography.title),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Your watch history and My List will fill in automatically over the '
             'next moment, and stay in sync from now on.',
             textAlign: TextAlign.center,
@@ -212,7 +212,7 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('Where does your sync server live?',
+          Text('Where does your sync server live?',
               style: TextStyle(color: AppColors.textSecondary)),
           const SizedBox(height: 12),
           TextField(
@@ -232,17 +232,17 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
       );
     }
     if (_starting || _session == null) {
-      return const CircularProgressIndicator(color: AppColors.accent);
+      return CircularProgressIndicator(color: AppColors.accent);
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('On your phone, open Dawn Player and go to',
+        Text('On your phone, open Dawn Player and go to',
             style: TextStyle(color: AppColors.textSecondary)),
         const SizedBox(height: 4),
         Text('Settings → Set up a TV', style: AppTypography.title),
         const SizedBox(height: 28),
-        const Text('Then enter this code:',
+        Text('Then enter this code:',
             style: TextStyle(color: AppColors.textSecondary)),
         const SizedBox(height: 12),
         Container(
@@ -254,7 +254,7 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
           child: Text(
             // Spaced out: this is read across a room and typed on a phone.
             _session!.code.split('').join(' '),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 44,
               fontWeight: FontWeight.w700,
               letterSpacing: 2,
@@ -263,7 +263,7 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SizedBox(
@@ -277,7 +277,7 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        const Text('The code expires in 10 minutes.',
+        Text('The code expires in 10 minutes.',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
       ],
     );

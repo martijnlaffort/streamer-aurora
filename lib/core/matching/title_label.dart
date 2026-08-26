@@ -14,6 +14,8 @@
 /// keep working from the raw name.
 library;
 
+import 'name_tags.dart';
+
 /// Language and packaging tags panels bracket names with.
 const _prefixNoise = {
   'multi', 'multisub', 'multisubs', 'lingo', 'dual', 'vip', 'ex', 'exyu', 'yu',
@@ -43,7 +45,7 @@ const _trailingNoise = {
 /// lines use a look-alike (broken bar, fullwidth bar, box-drawing bar), and a
 /// name split on the wrong one keeps its `| MULTI |` prefix intact all the way
 /// to the player's title.
-final _separators = RegExp(r'[|¦｜∣│┃‖•·]+');
+final _separators = kNameSeparators;
 final _whitespace = RegExp(r'\s+');
 final _plausibleYear = RegExp(r'^(19|20)\d{2}$');
 
@@ -56,8 +58,9 @@ final _plausibleYear = RegExp(r'^(19|20)\d{2}$');
 /// filed as `Blade Runner`.
 String prettyTitle(String raw, {int? year}) {
   // Drop `| NL |`-style segments, keeping the longest remaining piece — the
-  // title is essentially always the substantial one.
-  final segments = raw
+  // title is essentially always the substantial one. The bracketed tag comes
+  // off first, so a provider using a bar we do not recognise still loses it.
+  final segments = stripLeadingTag(raw, _isNoiseSegment)
       .split(_separators)
       .map((s) => s.replaceAll(_whitespace, ' ').trim())
       .where((s) => s.isNotEmpty)

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/live/presentation/guide_screen.dart';
 import '../../features/live/presentation/live_screen.dart';
+import '../../features/live/presentation/multi_view_screen.dart';
 import '../../features/movies/presentation/movie_category_screen.dart';
 import '../../features/movies/presentation/movie_detail_screen.dart';
 import '../../features/movies/presentation/movies_screen.dart';
@@ -14,18 +15,20 @@ import '../../features/series/presentation/series_category_screen.dart';
 import '../../features/series/presentation/series_detail_screen.dart';
 import '../../features/series/presentation/series_screen.dart';
 import '../../features/settings/presentation/about_screen.dart';
+import '../../features/settings/presentation/account_network_screen.dart';
 import '../../features/settings/presentation/accounts_screen.dart';
 import '../../features/settings/presentation/add_account_screen.dart';
 import '../../features/settings/presentation/content_languages_screen.dart';
 import '../../features/settings/presentation/hidden_channels_screen.dart';
 import '../../features/settings/presentation/manage_categories_screen.dart';
 import '../../features/settings/presentation/pair_device_screen.dart';
+import '../../features/settings/presentation/reminders_screen.dart';
 import '../../features/settings/presentation/pair_tv_screen.dart';
 import '../../features/settings/presentation/favorites_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/source_probe_screen.dart';
 import '../../features/settings/presentation/sync_settings_screen.dart';
-import '../../domain/models/models.dart' show CategoryType;
+import '../../domain/models/models.dart' show CategoryType, Channel;
 import 'app_shell.dart';
 
 /// Provider-wrapped so later tasks can add guards that watch app state.
@@ -134,6 +137,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const GuideScreen(),
       ),
       GoRoute(
+        path: '/multiview',
+        name: 'multiview',
+        // Needs its channels handed over in `extra`; without them there is
+        // nothing to show, so send the user back to Live rather than crash.
+        redirect: (context, state) =>
+            state.extra is List<Channel> ? null : '/live',
+        builder: (context, state) =>
+            MultiViewScreen(channels: state.extra! as List<Channel>),
+      ),
+      GoRoute(
         path: '/favorites',
         name: 'favorites',
         builder: (context, state) => const FavoritesScreen(),
@@ -169,6 +182,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/settings/reminders',
+        name: 'reminders',
+        builder: (context, state) => const RemindersScreen(),
+      ),
+      GoRoute(
         path: '/settings/hidden-channels',
         name: 'hiddenChannels',
         builder: (context, state) => const HiddenChannelsScreen(),
@@ -187,6 +205,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/accounts/add',
         name: 'addAccount',
         builder: (context, state) => const AddAccountScreen(),
+      ),
+      GoRoute(
+        path: '/accounts/:id/network',
+        name: 'accountNetwork',
+        builder: (context, state) => AccountNetworkScreen(
+          accountId: Uri.decodeComponent(state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/dev/source-probe',

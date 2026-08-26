@@ -62,7 +62,7 @@ class _NoAccount extends ConsumerWidget {
                 ? 'Pair with your phone to bring your playlists across.'
                 : 'Add a playlist to light this screen up.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
           // On a television, pairing is THE way in — typing a server URL, a
@@ -484,15 +484,15 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
                               imageUrl: entry.imageUrl!,
                               fit: BoxFit.cover,
                               memCacheWidth: 720,
-                              placeholder: (context, url) => const ColoredBox(
+                              placeholder: (context, url) => ColoredBox(
                                   color: AppColors.surfaceElevated),
                               errorWidget: (context, url, error) =>
-                                  const ColoredBox(
+                                  ColoredBox(
                                       color: AppColors.surfaceElevated),
                             )
                           else
-                            const ColoredBox(color: AppColors.surfaceElevated),
-                          const Center(
+                            ColoredBox(color: AppColors.surfaceElevated),
+                          Center(
                             child: Icon(Icons.play_circle_outline,
                                 size: 40, color: AppColors.textPrimary),
                           ),
@@ -519,7 +519,7 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
                   Text(entry.subtitle!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: AppColors.textSecondary, fontSize: 12)),
               ],
             ),

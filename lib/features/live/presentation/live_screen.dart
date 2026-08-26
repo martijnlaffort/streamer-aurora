@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/matching/channel_variant.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/category_chips.dart';
@@ -14,6 +15,7 @@ import '../../../domain/models/models.dart';
 import '../../movies/movies_providers.dart' show isFavoriteProvider;
 import '../../player/player_request.dart';
 import '../live_providers.dart';
+import 'multi_view_screen.dart';
 
 /// Live TV (PRD §8.5): channel list with category filter and favorites,
 /// now/next where the source provides EPG, tap to play.
@@ -141,6 +143,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
             excludeIds: overrides.hiddenChannels,
             byName: _byName,
             namePrefix: _letter,
+            groupVariants: ref.read(groupChannelVariantsProvider),
             limit: channelsPageSize,
             offset: _items.length,
           );
@@ -166,6 +169,12 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     });
     ref.listen(allowedCategoryIdsProvider(CategoryType.live), (prev, next) {
       if (!_sameIdSet(prev?.value, next.value)) _reload();
+    });
+    // Collapsing changes what the pages CONTAIN, and the loaded pages are held
+    // in `_items` — without this the switch in Settings appears to do nothing
+    // until the tab is rebuilt from scratch.
+    ref.listen(groupChannelVariantsProvider, (prev, next) {
+      if (prev != next) _reload();
     });
     final categories = ref.watch(liveCategoriesProvider);
     final hasEpg = ref.watch(hasEpgProvider).value ?? false;
@@ -325,7 +334,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   /// under you rather than leaving a stale row behind.
   Widget _favoritesList(List<Channel> favorites) {
     if (favorites.isEmpty) {
-      return const Center(
+      return Center(
         child: Text('No favourite channels yet.',
             style: TextStyle(color: AppColors.textSecondary)),
       );
@@ -349,9 +358,9 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       if (_error != null) {
         return Center(
             child: Text('$_error',
-                style: const TextStyle(color: AppColors.error)));
+                style: TextStyle(color: AppColors.error)));
       }
-      return const Center(
+      return Center(
         child: Text('No channels in this playlist.',
             style: TextStyle(color: AppColors.textSecondary)),
       );
@@ -386,19 +395,27 @@ class _ChannelTile extends ConsumerWidget {
   String get _contentKey => contentKeyFor(
       accountId: channel.accountId, type: StreamType.live, id: channel.id);
 
-  void _play(BuildContext context, {String? nowTitle}) {
+  /// Plays this channel, or [variant] when the user picked a specific quality
+  /// from a collapsed group.
+  void _play(BuildContext context,
+      {String? nowTitle, Channel? variant, String? title}) {
+    final target = variant ?? channel;
     context.push(
       '/player',
       extra: PlayerRequest(
         queue: [
           PlayerItem(
             streamRef: StreamRef(
-              accountId: channel.accountId,
+              accountId: target.accountId,
               type: StreamType.live,
-              streamId: channel.id,
+              streamId: target.id,
             ),
-            title: channel.name,
+            title: title ?? target.name,
             subtitle: nowTitle != null ? 'Now: $nowTitle' : null,
+            // The GROUP's key, deliberately, even when a specific variant is
+            // playing: the heart on this row toggles that key, so keying
+            // progress to the variant instead would let "is this a favourite"
+            // disagree with what the row shows.
             contentKey: _contentKey,
             isLive: true,
           ),
@@ -443,10 +460,33 @@ class _ChannelTile extends ConsumerWidget {
                 _renameChannel(context, ref, custom);
               },
             ),
+            if (channel.variantKey != null)
+              ListTile(
+                leading: const Icon(Icons.high_quality_outlined),
+                title: const Text('Choose quality…'),
+                subtitle: Text('Pick a different stream for this channel',
+                    style: TextStyle(color: AppColors.textSecondary)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showQualityPicker(context, ref, displayName);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.splitscreen_outlined),
+              title: const Text('Watch alongside…'),
+              subtitle: Text('Two channels side by side',
+                  style: TextStyle(color: AppColors.textSecondary)),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                final other = await pickCompanionChannel(context, channel);
+                if (other == null || !context.mounted) return;
+                context.push('/multiview', extra: <Channel>[channel, other]);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.visibility_off_outlined),
               title: const Text('Hide channel'),
-              subtitle: const Text('Undo in Settings → Hidden channels',
+              subtitle: Text('Undo in Settings → Hidden channels',
                   style: TextStyle(color: AppColors.textSecondary)),
               onTap: () async {
                 Navigator.pop(sheetContext);
@@ -461,6 +501,73 @@ class _ChannelTile extends ConsumerWidget {
                 ref.invalidate(catalogOverridesProvider);
               },
             ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The other streams the line carries for this channel.
+  ///
+  /// Read on demand rather than carried on every row: on a 25k line that would
+  /// be an extra query per visible tile for something most people never open.
+  Future<void> _showQualityPicker(
+      BuildContext context, WidgetRef ref, String displayName) async {
+    final key = channel.variantKey;
+    final account = await ref.read(activeAccountProvider.future);
+    if (key == null || account == null || !context.mounted) return;
+    final variants =
+        await ref.read(catalogRepositoryProvider).channelVariants(account, key);
+    if (!context.mounted) return;
+    if (variants.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('This channel only has one stream.')));
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.title),
+              ),
+            ),
+            for (final (i, variant) in variants.indexed)
+              ListTile(
+                autofocus: i == 0,
+                leading: Icon(
+                  variant.id == channel.id
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: variant.id == channel.id
+                      ? AppColors.accent
+                      : AppColors.textSecondary,
+                ),
+                title: Text(
+                    parseChannelVariant(variant.name).qualityLabel ??
+                        'Default',
+                    maxLines: 1),
+                // The provider's own name for it, so two rows that resolve to
+                // the same label are still tellable apart.
+                subtitle: Text(variant.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: AppColors.textSecondary)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _play(context, variant: variant, title: displayName);
+                },
+              ),
             const SizedBox(height: 8),
           ],
         ),
@@ -522,7 +629,15 @@ class _ChannelTile extends ConsumerWidget {
     final favorite = ref.watch(isFavoriteProvider(_contentKey)).value ?? false;
     final overrides =
         ref.watch(catalogOverridesProvider).value ?? CatalogOverrides.empty;
-    final displayName = overrides.channelName(channel.id, channel.name);
+    // Collapsed rows show the channel without its quality tag; a user rename
+    // still wins over both.
+    final grouped = ref.watch(groupChannelVariantsProvider);
+    final displayName = overrides.channelName(
+        channel.id, grouped ? channel.displayName : channel.name);
+    // What the row will actually play, so a collapsed group says which of its
+    // variants won rather than leaving the user to guess.
+    final quality =
+        grouped ? parseChannelVariant(channel.name).qualityLabel : null;
 
     // The play area and the heart are SIBLINGS, not a ListTile with a trailing
     // button. That is what makes the heart reachable with a remote: a ListTile's
@@ -557,21 +672,32 @@ class _ChannelTile extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(displayName,
-                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(displayName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                ),
+                                if (quality != null) ...[
+                                  const SizedBox(width: 6),
+                                  _QualityChip(quality),
+                                ],
+                              ],
+                            ),
                             if (now != null) ...[
                               const SizedBox(height: 2),
                               Text('Now: ${now.title}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       color: AppColors.accentAlt,
                                       fontSize: 13)),
                               if (next != null)
                                 Text('Next: ${next.title}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 13)),
                               const SizedBox(height: 4),
@@ -581,7 +707,7 @@ class _ChannelTile extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(Icons.play_circle_outline,
+                      Icon(Icons.play_circle_outline,
                           color: AppColors.textSecondary, size: 22),
                     ],
                   ),
@@ -613,13 +739,43 @@ class _ChannelTile extends ConsumerWidget {
             scale: 1.0,
             child: IconButton(
               tooltip: 'More',
-              icon: const Icon(Icons.more_vert,
+              icon: Icon(Icons.more_vert,
                   size: 22, color: AppColors.textSecondary),
               onPressed: () =>
                   _showChannelMenu(context, ref, displayName, overrides),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The quality a collapsed row is about to play (`HD`, `FHD`, `4K`).
+///
+/// Small and muted on purpose: it is a footnote to the channel name, not a
+/// badge competing with it.
+class _QualityChip extends StatelessWidget {
+  const _QualityChip(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }
@@ -646,10 +802,10 @@ class _Logo extends StatelessWidget {
               imageUrl: url!,
               fit: BoxFit.contain,
               memCacheWidth: 200,
-              errorWidget: (context, u, e) => const Icon(Icons.live_tv,
+              errorWidget: (context, u, e) => Icon(Icons.live_tv,
                   color: AppColors.textSecondary),
             )
-          : const Icon(Icons.live_tv, color: AppColors.textSecondary),
+          : Icon(Icons.live_tv, color: AppColors.textSecondary),
     );
   }
 }

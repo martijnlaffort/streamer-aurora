@@ -25,7 +25,7 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 4),
           const _BuildIdentity(),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'A player for your own IPTV subscription. Dawn Player does not provide, '
             'host or resell any channels or media — it plays what your own '
             'playlist gives it.',
@@ -86,7 +86,7 @@ class _BuildIdentity extends StatelessWidget {
             : '${info.version} (${info.buildNumber})';
         return SelectableText(
           '$version · $_commit',
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontFamily: 'monospace',
@@ -120,7 +120,7 @@ class _Credit extends StatelessWidget {
                   .copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           Text(body,
-              style: const TextStyle(
+              style: TextStyle(
                   color: AppColors.textSecondary, fontSize: 13, height: 1.4)),
         ],
       ),

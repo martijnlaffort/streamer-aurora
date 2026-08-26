@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/db/app_database.dart' show CatalogKind;
+import '../../../data/notifications/reminder_service.dart';
 import '../../../data/providers.dart';
 import '../../../data/sources/playlist_source.dart' show SourceException;
 import '../../../data/sources/tmdb_source.dart';
@@ -66,7 +67,7 @@ Future<void> _editDiscovery(
           const Text('Discovery rails',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Trending, Popular and New Releases come from TMDB\'s public '
             'lists, filtered to what your playlist actually carries. Your '
             'playlist is never uploaded. A free key takes a minute: '
@@ -228,7 +229,7 @@ class SettingsScreen extends ConsumerWidget {
                 AsyncData(value: final a?) => 'Active: ${a.name}',
                 _ => 'No active account',
               },
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/accounts'),
@@ -246,7 +247,7 @@ class SettingsScreen extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.phonelink_ring),
               title: const Text('Pair with your phone'),
-              subtitle: const Text(
+              subtitle: Text(
                 'Copy your playlists and sync settings across, without typing',
                 style: TextStyle(color: AppColors.textSecondary),
               ),
@@ -257,7 +258,7 @@ class SettingsScreen extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.tv),
               title: const Text('Set up a TV'),
-              subtitle: const Text(
+              subtitle: Text(
                 'Send your playlists and sync settings to another device',
                 style: TextStyle(color: AppColors.textSecondary),
               ),
@@ -267,7 +268,7 @@ class SettingsScreen extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.phonelink_ring),
               title: const Text('Pair with another device'),
-              subtitle: const Text(
+              subtitle: Text(
                 'Receive playlists and sync settings from a set-up device',
                 style: TextStyle(color: AppColors.textSecondary),
               ),
@@ -288,7 +289,7 @@ class SettingsScreen extends ConsumerWidget {
               (ref.watch(syncConfigProvider).value?.isConfigured ?? false)
                   ? 'On — across your devices'
                   : 'Off',
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/sync'),
@@ -300,7 +301,7 @@ class SettingsScreen extends ConsumerWidget {
               prefs.contentLanguages == null
                   ? 'All languages'
                   : '${prefs.contentLanguages!.length} selected',
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/languages'),
@@ -311,7 +312,7 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.tune),
             title: const Text('Live TV groups'),
-            subtitle: const Text('Hide, rename and reorder',
+            subtitle: Text('Hide, rename and reorder',
                 style: TextStyle(color: AppColors.textSecondary)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/groups/live'),
@@ -319,7 +320,7 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.tune),
             title: const Text('Movie groups'),
-            subtitle: const Text('Hide, rename and reorder',
+            subtitle: Text('Hide, rename and reorder',
                 style: TextStyle(color: AppColors.textSecondary)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/groups/vod'),
@@ -327,7 +328,7 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.tune),
             title: const Text('Series groups'),
-            subtitle: const Text('Hide, rename and reorder',
+            subtitle: Text('Hide, rename and reorder',
                 style: TextStyle(color: AppColors.textSecondary)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/groups/series'),
@@ -337,10 +338,31 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.visibility_off_outlined),
             title: const Text('Hidden channels'),
-            subtitle: const Text('Bring individual channels back',
+            subtitle: Text('Bring individual channels back',
                 style: TextStyle(color: AppColors.textSecondary)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/hidden-channels'),
+          ),
+          if (ReminderService.isSupported)
+            ListTile(
+              leading: const Icon(Icons.notifications_none_outlined),
+              title: const Text('Reminders'),
+              subtitle: Text('Programmes you asked to be told about',
+                  style: TextStyle(color: AppColors.textSecondary)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/reminders'),
+            ),
+          SwitchListTile(
+            secondary: const Icon(Icons.high_quality_outlined),
+            title: const Text('Group channel qualities'),
+            subtitle: Text(
+                'Show one row per channel and play the best of its '
+                'SD/HD/FHD/4K streams',
+                style: TextStyle(color: AppColors.textSecondary)),
+            value: prefs.groupChannelVariants,
+            activeThumbColor: AppColors.accent,
+            onChanged: (v) =>
+                savePrefs(prefs.copyWith(groupChannelVariants: v)),
           ),
           ListTile(
             leading: const Icon(Icons.local_fire_department_outlined),
@@ -350,7 +372,7 @@ class SettingsScreen extends ConsumerWidget {
                   ? 'Award winners only — add a TMDB key for Trending & Popular'
                   : 'On — trending, popular and new in '
                       '${prefs.discoveryRegion ?? 'your region'}',
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _editDiscovery(context, ref, prefs, savePrefs),
@@ -361,7 +383,7 @@ class SettingsScreen extends ConsumerWidget {
             leading: const Icon(Icons.audiotrack_outlined),
             title: const Text('Preferred audio language'),
             subtitle: Text(_languageLabel(prefs.preferredAudioLang),
-                style: const TextStyle(color: AppColors.accentAlt)),
+                style: TextStyle(color: AppColors.accentAlt)),
             onTap: () => _pickLanguage(
               context,
               ref,
@@ -376,7 +398,7 @@ class SettingsScreen extends ConsumerWidget {
             leading: const Icon(Icons.subtitles_outlined),
             title: const Text('Preferred subtitle language'),
             subtitle: Text(_languageLabel(prefs.preferredSubtitleLang),
-                style: const TextStyle(color: AppColors.accentAlt)),
+                style: TextStyle(color: AppColors.accentAlt)),
             onTap: () => _pickLanguage(
               context,
               ref,
@@ -397,7 +419,7 @@ class SettingsScreen extends ConsumerWidget {
           SwitchListTile(
             secondary: const Icon(Icons.headphones_outlined),
             title: const Text('Continue audio in background'),
-            subtitle: const Text('Keep playing when the app is minimised',
+            subtitle: Text('Keep playing when the app is minimised',
                 style: TextStyle(color: AppColors.textSecondary)),
             value: prefs.backgroundPlayback,
             activeThumbColor: AppColors.accent,
@@ -416,13 +438,13 @@ class SettingsScreen extends ConsumerWidget {
                       '${s.series} series · ${s.episodes} episodes',
                 _ => '—',
               },
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
           ),
           ListTile(
             leading: const Icon(Icons.refresh),
             title: const Text('Force refresh'),
-            subtitle: const Text('Refetch the full catalog from the source',
+            subtitle: Text('Refetch the full catalog from the source',
                 style: TextStyle(color: AppColors.textSecondary)),
             onTap: () async {
               final account = await ref.read(activeAccountProvider.future);
@@ -446,7 +468,7 @@ class SettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.delete_sweep_outlined),
             title: const Text('Clear catalog cache'),
-            subtitle: const Text('Progress and favorites are kept',
+            subtitle: Text('Progress and favorites are kept',
                 style: TextStyle(color: AppColors.textSecondary)),
             onTap: () async {
               final confirmed = await showDialog<bool>(
@@ -481,11 +503,86 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const Divider(),
           const _SectionLabel('Appearance'),
-          const ListTile(
-            leading: Icon(Icons.dark_mode_outlined),
-            title: Text('Theme'),
-            subtitle: Text('Dark — the cinematic default (PRD §10)',
-                style: TextStyle(color: AppColors.textSecondary)),
+          ListTile(
+            leading: Icon(switch (prefs.themeMode) {
+              AppThemeMode.dark => Icons.dark_mode_outlined,
+              AppThemeMode.light => Icons.light_mode_outlined,
+              AppThemeMode.system => Icons.brightness_auto_outlined,
+            }),
+            title: const Text('Theme'),
+            subtitle: Text(
+              switch (prefs.themeMode) {
+                AppThemeMode.dark => 'Dark — the cinematic default',
+                AppThemeMode.light => 'Light',
+                AppThemeMode.system => 'Follow the device',
+              },
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final picked = await showDialog<AppThemeMode>(
+                context: context,
+                builder: (context) => SimpleDialog(
+                  backgroundColor: AppColors.surface,
+                  title: const Text('Theme'),
+                  children: [
+                    for (final mode in AppThemeMode.values)
+                      RadioListTile<AppThemeMode>(
+                        autofocus: mode == prefs.themeMode,
+                        value: mode,
+                        // ignore: deprecated_member_use
+                        groupValue: prefs.themeMode,
+                        // ignore: deprecated_member_use
+                        onChanged: (_) => Navigator.pop(context, mode),
+                        activeColor: AppColors.accent,
+                        title: Text(switch (mode) {
+                          AppThemeMode.dark => 'Dark',
+                          AppThemeMode.light => 'Light',
+                          AppThemeMode.system => 'Follow the device',
+                        }),
+                      ),
+                  ],
+                ),
+              );
+              if (picked == null) return;
+              await savePrefs(prefs.copyWith(themeMode: picked));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.format_size),
+            title: const Text('Size'),
+            subtitle: Text(
+              // Named rather than a percentage: "Large" is a choice, "115%" is
+              // a number to reason about.
+              '${UiSize.nearest(prefs.uiScale).label} — text and posters',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final current = UiSize.nearest(prefs.uiScale);
+              final picked = await showDialog<UiSize>(
+                context: context,
+                builder: (context) => SimpleDialog(
+                  backgroundColor: AppColors.surface,
+                  title: const Text('Size'),
+                  children: [
+                    for (final size in UiSize.values)
+                      RadioListTile<UiSize>(
+                        autofocus: size == current,
+                        value: size,
+                        // ignore: deprecated_member_use
+                        groupValue: current,
+                        // ignore: deprecated_member_use
+                        onChanged: (_) => Navigator.pop(context, size),
+                        activeColor: AppColors.accent,
+                        title: Text(size.label),
+                      ),
+                  ],
+                ),
+              );
+              if (picked == null) return;
+              await savePrefs(prefs.copyWith(uiScale: picked.scale));
+            },
           ),
           if (kDebugMode) ...[
             const Divider(),
@@ -520,7 +617,7 @@ class _SectionLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       child: Text(text.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 11,
               letterSpacing: 1.2,
               color: AppColors.textSecondary,

@@ -93,7 +93,7 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text(
+          Text(
             'Sync watch progress, favorites, and preferences across your '
             'devices via your own server — automatically, in the background. '
             'Optional; Dawn Player works fully without it. Usually there is '
@@ -147,7 +147,7 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
           if (_status != null) ...[
             const SizedBox(height: 16),
             Text(_status!,
-                style: const TextStyle(color: AppColors.textSecondary)),
+                style: TextStyle(color: AppColors.textSecondary)),
           ],
         ],
       ),

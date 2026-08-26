@@ -35,7 +35,7 @@ class ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_outlined,
+            Icon(Icons.cloud_off_outlined,
                 size: 44, color: AppColors.textSecondary),
             const SizedBox(height: 14),
             Text(
@@ -48,7 +48,7 @@ class ErrorView extends StatelessWidget {
             Text(
               messageFor(error),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 20),
@@ -98,7 +98,7 @@ class EmptyView extends StatelessWidget {
               const SizedBox(height: 8),
               Text(message!,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.textSecondary)),
+                  style: TextStyle(color: AppColors.textSecondary)),
             ],
             if (action != null) ...[const SizedBox(height: 20), action!],
           ],

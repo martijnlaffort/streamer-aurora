@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../data/providers.dart';
 import '../../../../core/theme/app_typography.dart';
 
 /// A titled, horizontally scrolling rail (PRD §8.2/§10). Builder-based so
 /// large catalogs only build visible cards.
-class MediaRail extends StatelessWidget {
+class MediaRail extends ConsumerWidget {
   const MediaRail({
     super.key,
     required this.title,
@@ -25,7 +27,10 @@ class MediaRail extends StatelessWidget {
   final VoidCallback? onSeeAll;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Rails are laid out in logical pixels, so the size preference has to be
+    // applied here; text elsewhere scales through MediaQuery.
+    final scale = ref.watch(uiScaleProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -42,14 +47,14 @@ class MediaRail extends StatelessWidget {
               if (onSeeAll != null)
                 TextButton(
                   onPressed: onSeeAll,
-                  child: const Text('See all',
+                  child: Text('See all',
                       style: TextStyle(color: AppColors.accentAlt)),
                 ),
             ],
           ),
         ),
         SizedBox(
-          height: height,
+          height: height * scale,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),

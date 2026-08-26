@@ -459,7 +459,17 @@ catalogue with legal artwork, and it means no screenshot ever shows a real provi
 - [ ] `site/` changes merged to `plexus/site` — that is the branch `pages.yml` deploys from
 - [ ] Mock panel deployed at `https://demo.dawnplayer.com`
 - [ ] Play developer account registered (start the 12-tester clock early — §3.5)
-- [ ] Apple Developer Program membership active
+- [ ] Apple Developer Program membership active — **the only thing blocking the iOS path**; the
+      certificate must be issued against a real team (§4.4)
+- [x] iOS build verified on Xcode (run 32967296683, `plexus/apps`). The built `Info.plist` reads
+      `com.dawnplayer.app`, `UIDeviceFamily [1]`, `ITSAppUsesNonExemptEncryption false`,
+      `MinimumOSVersion 13.0`, version `1.0.0 (1)`; the app-level `PrivacyInfo.xcprivacy` is present
+      in `Runner.app`, and all six bundled fonts plus both OFL texts ship in `flutter_assets`
+- [ ] iOS screenshots. The dev iPhone is a base iPhone 17 (6.3", 1206×2622) and the required 6.9"
+      slot takes only 1320×2868 / 1290×2796 / 1260×2736 — so raw captures from it are not accepted.
+      Either composite real captures into 1320×2868 designed screenshots, or borrow a 6.9" device
+- [ ] `flutter build ios` warns that plugins not adopting Swift Package Manager "will become an
+      error in a future version of Flutter". Not urgent, but it dates the toolchain pin
 - [x] Signed AAB produced and verified — signed `CN=Dawn Player, O=Laffort, C=NL`, ABIs
       arm64-v8a / armeabi-v7a / x86_64, all native libs stripped and 16 KB aligned.
       `build/` in this worktree is now a junction to `D:\dev\flutter-build\streamer-aurora-apps`

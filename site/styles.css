@@ -276,6 +276,35 @@ img, svg { display: block; }
 }
 .tile--teal { background: rgba(79, 209, 197, .13); border-color: rgba(79, 209, 197, .24); color: #7FE0D6; }
 
+/* ---- discovery sources ------------------------------------------------- */
+.src {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
+  padding: 26px 26px 28px; display: flex; flex-direction: column; gap: 12px;
+  transition: border-color .18s ease, background .18s ease;
+}
+.src:hover { border-color: rgba(124, 92, 255, .3); background: linear-gradient(180deg, rgba(124, 92, 255, .06), var(--surface) 60%); }
+.src__what {
+  display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+  font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--amber); background: rgba(255, 196, 107, .10);
+  border: 1px solid rgba(255, 196, 107, .24); border-radius: var(--r-pill); padding: 5px 11px;
+}
+.src h3 { font-family: var(--display); font-size: 20px; font-weight: 600; letter-spacing: -.2px; line-height: 1.25; margin: 0; }
+.src p { font-size: 14.5px; line-height: 1.55; color: var(--muted); margin: 0; }
+.src p b { color: var(--text); font-weight: 500; }
+/* The engineering aside — the bit a curious reader wants and nobody else does. */
+.src .aside {
+  margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, .05);
+  font-size: 12.5px; line-height: 1.5; color: var(--dim);
+}
+.src .aside b { color: var(--muted); font-weight: 600; }
+.closer {
+  margin: clamp(24px, 3vw, 34px) 0 0; padding: 18px 22px; border-radius: var(--r-lg);
+  background: var(--surface); border: 1px solid var(--line);
+  font-size: 14.5px; line-height: 1.6; color: var(--muted);
+}
+.closer b { color: var(--text); font-weight: 600; }
+
 /* ---- player mock ------------------------------------------------------- */
 .player-shell {
   position: relative; padding: 8px; border-radius: var(--r-xl);

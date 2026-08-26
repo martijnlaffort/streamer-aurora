@@ -231,34 +231,47 @@ class _AppShellState extends ConsumerState<AppShell> {
         // seeds it.
         autofocus: true,
         skipTraversal: true,
-        child: Stack(
-          children: [
-            // The page is inset by the COLLAPSED width only, so expanding the
-            // rail never reflows it. Pushing the page sideways every time focus
-            // touched the rail would make the whole screen twitch.
-            Padding(
-              padding: const EdgeInsets.only(left: _collapsedWidth),
-              child: FocusScope(node: _contentFocus, child: shell),
-            ),
-            // Pinned to the full height explicitly. Left to size itself in a
-            // Stack it takes its content's height, which on a short landscape
-            // screen overflows — and Flutter reports that every single frame,
-            // which was enough to hang the app outright.
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: _TvRail(
-                destinations: _destinations,
-                selectedIndex: shell.currentIndex,
-                onSelected: _go,
-                itemFocus: _railItemFocus,
-                expanded: _railHasFocus,
-                collapsedWidth: _collapsedWidth,
-                expandedWidth: _expandedWidth,
+        // Overscan. Televisions crop the outer few percent of the signal, so
+        // anything anchored to an edge — the rail's icons, the right-hand end of
+        // every poster rail, the A-Z index — is physically off-screen on a real
+        // set while looking correct in an emulator. Padding the whole stack
+        // insets the rail and the content together, which is why it goes here
+        // and not inside each screen.
+        //
+        // The player is a root-level route that covers this shell and carries
+        // its own, larger inset (see _tvControls) — it is full-bleed video with
+        // controls floated on top, a different problem.
+        child: Padding(
+          padding: tvOverscan,
+          child: Stack(
+            children: [
+              // The page is inset by the COLLAPSED width only, so expanding the
+              // rail never reflows it. Pushing the page sideways every time focus
+              // touched the rail would make the whole screen twitch.
+              Padding(
+                padding: const EdgeInsets.only(left: _collapsedWidth),
+                child: FocusScope(node: _contentFocus, child: shell),
               ),
-            ),
-          ],
+              // Pinned to the full height explicitly. Left to size itself in a
+              // Stack it takes its content's height, which on a short landscape
+              // screen overflows — and Flutter reports that every single frame,
+              // which was enough to hang the app outright.
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: _TvRail(
+                  destinations: _destinations,
+                  selectedIndex: shell.currentIndex,
+                  onSelected: _go,
+                  itemFocus: _railItemFocus,
+                  expanded: _railHasFocus,
+                  collapsedWidth: _collapsedWidth,
+                  expandedWidth: _expandedWidth,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

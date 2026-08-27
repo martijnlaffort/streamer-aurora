@@ -68,9 +68,20 @@ class CatalogOverrides {
 
 /// Reads and writes the user's catalogue edits (schema v11).
 class CatalogOverridesRepository {
-  CatalogOverridesRepository({required this._db});
+  CatalogOverridesRepository({
+    required this._db,
+    DateTime Function()? clock,
+    this.onChanged,
+  }) : _clock = clock ?? (() => DateTime.now().toUtc());
 
   final AppDatabase _db;
+  final DateTime Function() _clock;
+
+  /// Fired after any local edit so the sync coordinator can push promptly.
+  ///
+  /// Deliberately NOT an invalidate of the overrides provider — that is what
+  /// created a top-level provider cycle last time. Callers still invalidate.
+  final void Function()? onChanged;
   Future<CatalogOverrides> forAccount(String accountId) async {
     final rows = await (_db.catalogOverridesTable.select()
           ..where((t) => t.accountId.equals(accountId)))
@@ -139,10 +150,46 @@ class CatalogOverridesRepository {
   }
 
   /// Everything back to what the panel says, for one account.
+  ///
+  /// Resets the rows in place rather than deleting them. A delete is invisible
+  /// to last-write-wins — the other device still holds its copies, so the next
+  /// sync would hand every hidden channel straight back.
   Future<void> clearAll(String accountId) async {
-    await (_db.catalogOverridesTable.delete()
+    await (_db.catalogOverridesTable.update()
           ..where((t) => t.accountId.equals(accountId)))
-        .go();
+        .write(CatalogOverridesTableCompanion(
+      hidden: const Value(false),
+      customName: const Value(null),
+      sortIndex: const Value(null),
+      updatedAtMillisUtc: Value(_clock().millisecondsSinceEpoch),
+    ));
+    onChanged?.call();
+  }
+
+  /// Every row for [accountId], for the sync push.
+  Future<List<CatalogOverrideRow>> records(String accountId) =>
+      (_db.catalogOverridesTable.select()
+            ..where((t) => t.accountId.equals(accountId)))
+          .get();
+
+  /// Applies a row pulled from another device. Returns whether it changed
+  /// anything here — the caller only rebuilds the UI when something did.
+  Future<bool> applyRemote(CatalogOverrideRow remote) async {
+    final existing = await (_db.catalogOverridesTable.select()
+          ..where((t) =>
+              t.accountId.equals(remote.accountId) &
+              t.scope.equals(remote.scope) &
+              t.targetId.equals(remote.targetId)))
+        .getSingleOrNull();
+    // Ties go to the local row: re-applying an edit we already have would
+    // churn the providers on every sync for no visible change.
+    if (existing != null &&
+        (existing.updatedAtMillisUtc ?? 0) >=
+            (remote.updatedAtMillisUtc ?? 0)) {
+      return false;
+    }
+    await _db.catalogOverridesTable.insertOnConflictUpdate(remote);
+    return true;
   }
 
   Future<void> _upsert(
@@ -161,6 +208,7 @@ class CatalogOverridesRepository {
               t.scope.equals(scope.name) &
               t.targetId.equals(targetId)))
         .getSingleOrNull();
+    final stamp = Value(_clock().millisecondsSinceEpoch);
     if (existing == null) {
       await _db.catalogOverridesTable.insertOne(
         CatalogOverridesTableCompanion.insert(
@@ -170,6 +218,7 @@ class CatalogOverridesRepository {
           hidden: hidden.present ? Value(hidden.value) : const Value.absent(),
           customName: customName,
           sortIndex: sortIndex,
+          updatedAtMillisUtc: stamp,
         ),
       );
     } else {
@@ -182,7 +231,9 @@ class CatalogOverridesRepository {
         hidden: hidden,
         customName: customName,
         sortIndex: sortIndex,
+        updatedAtMillisUtc: stamp,
       ));
     }
+    onChanged?.call();
   }
 }

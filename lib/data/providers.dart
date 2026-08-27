@@ -210,8 +210,13 @@ final hasReminderProvider =
 });
 
 final catalogOverridesRepositoryProvider =
-    Provider<CatalogOverridesRepository>((ref) =>
-        CatalogOverridesRepository(db: ref.watch(appDatabaseProvider)));
+    Provider<CatalogOverridesRepository>((ref) => CatalogOverridesRepository(
+          db: ref.watch(appDatabaseProvider),
+          // Pings the sync coordinator only. Invalidating the overrides
+          // provider from here is what created a top-level provider cycle
+          // before; call sites still do that themselves.
+          onChanged: () => ref.read(syncTriggerProvider).ping(),
+        ));
 
 /// The active account's hidden / renamed / reordered categories and channels.
 final catalogOverridesProvider = FutureProvider<CatalogOverrides>((ref) async {

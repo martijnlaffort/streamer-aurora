@@ -143,6 +143,51 @@ class HttpFavoritesSyncBackend implements FavoritesSyncBackend {
   }
 }
 
+class HttpOverridesSyncBackend implements OverridesSyncBackend {
+  HttpOverridesSyncBackend(
+      {required String baseUrl, required String token, Dio? dio})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+
+  final _ApiClient _api;
+
+  @override
+  Future<void> push(List<OverrideRecord> records) async {
+    if (records.isEmpty) return;
+    await _api._dio.post('/overrides', data: {
+      'entries': [
+        for (final r in records)
+          {
+            'account_id': r.accountId,
+            'scope': r.scope,
+            'target_id': r.targetId,
+            'hidden': r.hidden,
+            'custom_name': r.customName,
+            'sort_index': r.sortIndex,
+            'updated_at': r.updatedAt.toUtc().toIso8601String(),
+          },
+      ],
+    });
+  }
+
+  @override
+  Future<List<OverrideRecord>> pull() async {
+    final response = await _api._dio.get<Map<String, dynamic>>('/overrides');
+    final rows = (response.data?['overrides'] as List?) ?? const [];
+    return [
+      for (final o in rows.cast<Map<String, dynamic>>())
+        (
+          accountId: o['account_id'] as String,
+          scope: o['scope'] as String,
+          targetId: o['target_id'] as String,
+          hidden: o['hidden'] as bool? ?? false,
+          customName: o['custom_name'] as String?,
+          sortIndex: (o['sort_index'] as num?)?.toInt(),
+          updatedAt: DateTime.parse(o['updated_at'] as String).toUtc(),
+        ),
+    ];
+  }
+}
+
 class HttpAccountSyncBackend implements AccountSyncBackend {
   HttpAccountSyncBackend(
       {required String baseUrl, required String token, Dio? dio})

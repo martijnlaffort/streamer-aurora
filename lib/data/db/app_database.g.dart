@@ -5767,6 +5767,16 @@ class $CatalogOverridesTableTable extends CatalogOverridesTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _updatedAtMillisUtcMeta =
+      const VerificationMeta('updatedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> updatedAtMillisUtc = GeneratedColumn<int>(
+    'updated_at_millis_utc',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     accountId,
@@ -5775,6 +5785,7 @@ class $CatalogOverridesTableTable extends CatalogOverridesTable
     hidden,
     customName,
     sortIndex,
+    updatedAtMillisUtc,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5830,6 +5841,15 @@ class $CatalogOverridesTableTable extends CatalogOverridesTable
         sortIndex.isAcceptableOrUnknown(data['sort_index']!, _sortIndexMeta),
       );
     }
+    if (data.containsKey('updated_at_millis_utc')) {
+      context.handle(
+        _updatedAtMillisUtcMeta,
+        updatedAtMillisUtc.isAcceptableOrUnknown(
+          data['updated_at_millis_utc']!,
+          _updatedAtMillisUtcMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5863,6 +5883,10 @@ class $CatalogOverridesTableTable extends CatalogOverridesTable
         DriftSqlType.int,
         data['${effectivePrefix}sort_index'],
       ),
+      updatedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_millis_utc'],
+      ),
     );
   }
 
@@ -5887,6 +5911,10 @@ class CatalogOverrideRow extends DataClass
   /// Position in the user's ordering; null sorts after everything explicitly
   /// placed, keeping the panel's order among themselves.
   final int? sortIndex;
+
+  /// Last-write-wins key for sync (schema v17). Curating twelve thousand
+  /// channels once is tolerable; doing it again on the next device is not.
+  final int? updatedAtMillisUtc;
   const CatalogOverrideRow({
     required this.accountId,
     required this.scope,
@@ -5894,6 +5922,7 @@ class CatalogOverrideRow extends DataClass
     required this.hidden,
     this.customName,
     this.sortIndex,
+    this.updatedAtMillisUtc,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5907,6 +5936,9 @@ class CatalogOverrideRow extends DataClass
     }
     if (!nullToAbsent || sortIndex != null) {
       map['sort_index'] = Variable<int>(sortIndex);
+    }
+    if (!nullToAbsent || updatedAtMillisUtc != null) {
+      map['updated_at_millis_utc'] = Variable<int>(updatedAtMillisUtc);
     }
     return map;
   }
@@ -5923,6 +5955,9 @@ class CatalogOverrideRow extends DataClass
       sortIndex: sortIndex == null && nullToAbsent
           ? const Value.absent()
           : Value(sortIndex),
+      updatedAtMillisUtc: updatedAtMillisUtc == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAtMillisUtc),
     );
   }
 
@@ -5938,6 +5973,7 @@ class CatalogOverrideRow extends DataClass
       hidden: serializer.fromJson<bool>(json['hidden']),
       customName: serializer.fromJson<String?>(json['customName']),
       sortIndex: serializer.fromJson<int?>(json['sortIndex']),
+      updatedAtMillisUtc: serializer.fromJson<int?>(json['updatedAtMillisUtc']),
     );
   }
   @override
@@ -5950,6 +5986,7 @@ class CatalogOverrideRow extends DataClass
       'hidden': serializer.toJson<bool>(hidden),
       'customName': serializer.toJson<String?>(customName),
       'sortIndex': serializer.toJson<int?>(sortIndex),
+      'updatedAtMillisUtc': serializer.toJson<int?>(updatedAtMillisUtc),
     };
   }
 
@@ -5960,6 +5997,7 @@ class CatalogOverrideRow extends DataClass
     bool? hidden,
     Value<String?> customName = const Value.absent(),
     Value<int?> sortIndex = const Value.absent(),
+    Value<int?> updatedAtMillisUtc = const Value.absent(),
   }) => CatalogOverrideRow(
     accountId: accountId ?? this.accountId,
     scope: scope ?? this.scope,
@@ -5967,6 +6005,9 @@ class CatalogOverrideRow extends DataClass
     hidden: hidden ?? this.hidden,
     customName: customName.present ? customName.value : this.customName,
     sortIndex: sortIndex.present ? sortIndex.value : this.sortIndex,
+    updatedAtMillisUtc: updatedAtMillisUtc.present
+        ? updatedAtMillisUtc.value
+        : this.updatedAtMillisUtc,
   );
   CatalogOverrideRow copyWithCompanion(CatalogOverridesTableCompanion data) {
     return CatalogOverrideRow(
@@ -5978,6 +6019,9 @@ class CatalogOverrideRow extends DataClass
           ? data.customName.value
           : this.customName,
       sortIndex: data.sortIndex.present ? data.sortIndex.value : this.sortIndex,
+      updatedAtMillisUtc: data.updatedAtMillisUtc.present
+          ? data.updatedAtMillisUtc.value
+          : this.updatedAtMillisUtc,
     );
   }
 
@@ -5989,14 +6033,22 @@ class CatalogOverrideRow extends DataClass
           ..write('targetId: $targetId, ')
           ..write('hidden: $hidden, ')
           ..write('customName: $customName, ')
-          ..write('sortIndex: $sortIndex')
+          ..write('sortIndex: $sortIndex, ')
+          ..write('updatedAtMillisUtc: $updatedAtMillisUtc')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(accountId, scope, targetId, hidden, customName, sortIndex);
+  int get hashCode => Object.hash(
+    accountId,
+    scope,
+    targetId,
+    hidden,
+    customName,
+    sortIndex,
+    updatedAtMillisUtc,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6006,7 +6058,8 @@ class CatalogOverrideRow extends DataClass
           other.targetId == this.targetId &&
           other.hidden == this.hidden &&
           other.customName == this.customName &&
-          other.sortIndex == this.sortIndex);
+          other.sortIndex == this.sortIndex &&
+          other.updatedAtMillisUtc == this.updatedAtMillisUtc);
 }
 
 class CatalogOverridesTableCompanion
@@ -6017,6 +6070,7 @@ class CatalogOverridesTableCompanion
   final Value<bool> hidden;
   final Value<String?> customName;
   final Value<int?> sortIndex;
+  final Value<int?> updatedAtMillisUtc;
   final Value<int> rowid;
   const CatalogOverridesTableCompanion({
     this.accountId = const Value.absent(),
@@ -6025,6 +6079,7 @@ class CatalogOverridesTableCompanion
     this.hidden = const Value.absent(),
     this.customName = const Value.absent(),
     this.sortIndex = const Value.absent(),
+    this.updatedAtMillisUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CatalogOverridesTableCompanion.insert({
@@ -6034,6 +6089,7 @@ class CatalogOverridesTableCompanion
     this.hidden = const Value.absent(),
     this.customName = const Value.absent(),
     this.sortIndex = const Value.absent(),
+    this.updatedAtMillisUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : accountId = Value(accountId),
        scope = Value(scope),
@@ -6045,6 +6101,7 @@ class CatalogOverridesTableCompanion
     Expression<bool>? hidden,
     Expression<String>? customName,
     Expression<int>? sortIndex,
+    Expression<int>? updatedAtMillisUtc,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6054,6 +6111,8 @@ class CatalogOverridesTableCompanion
       if (hidden != null) 'hidden': hidden,
       if (customName != null) 'custom_name': customName,
       if (sortIndex != null) 'sort_index': sortIndex,
+      if (updatedAtMillisUtc != null)
+        'updated_at_millis_utc': updatedAtMillisUtc,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6065,6 +6124,7 @@ class CatalogOverridesTableCompanion
     Value<bool>? hidden,
     Value<String?>? customName,
     Value<int?>? sortIndex,
+    Value<int?>? updatedAtMillisUtc,
     Value<int>? rowid,
   }) {
     return CatalogOverridesTableCompanion(
@@ -6074,6 +6134,7 @@ class CatalogOverridesTableCompanion
       hidden: hidden ?? this.hidden,
       customName: customName ?? this.customName,
       sortIndex: sortIndex ?? this.sortIndex,
+      updatedAtMillisUtc: updatedAtMillisUtc ?? this.updatedAtMillisUtc,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6099,6 +6160,9 @@ class CatalogOverridesTableCompanion
     if (sortIndex.present) {
       map['sort_index'] = Variable<int>(sortIndex.value);
     }
+    if (updatedAtMillisUtc.present) {
+      map['updated_at_millis_utc'] = Variable<int>(updatedAtMillisUtc.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6114,6 +6178,7 @@ class CatalogOverridesTableCompanion
           ..write('hidden: $hidden, ')
           ..write('customName: $customName, ')
           ..write('sortIndex: $sortIndex, ')
+          ..write('updatedAtMillisUtc: $updatedAtMillisUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -12513,6 +12578,7 @@ typedef $$CatalogOverridesTableTableCreateCompanionBuilder =
       Value<bool> hidden,
       Value<String?> customName,
       Value<int?> sortIndex,
+      Value<int?> updatedAtMillisUtc,
       Value<int> rowid,
     });
 typedef $$CatalogOverridesTableTableUpdateCompanionBuilder =
@@ -12523,6 +12589,7 @@ typedef $$CatalogOverridesTableTableUpdateCompanionBuilder =
       Value<bool> hidden,
       Value<String?> customName,
       Value<int?> sortIndex,
+      Value<int?> updatedAtMillisUtc,
       Value<int> rowid,
     });
 
@@ -12562,6 +12629,11 @@ class $$CatalogOverridesTableTableFilterComposer
 
   ColumnFilters<int> get sortIndex => $composableBuilder(
     column: $table.sortIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtMillisUtc => $composableBuilder(
+    column: $table.updatedAtMillisUtc,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -12604,6 +12676,11 @@ class $$CatalogOverridesTableTableOrderingComposer
     column: $table.sortIndex,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get updatedAtMillisUtc => $composableBuilder(
+    column: $table.updatedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CatalogOverridesTableTableAnnotationComposer
@@ -12634,6 +12711,11 @@ class $$CatalogOverridesTableTableAnnotationComposer
 
   GeneratedColumn<int> get sortIndex =>
       $composableBuilder(column: $table.sortIndex, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMillisUtc => $composableBuilder(
+    column: $table.updatedAtMillisUtc,
+    builder: (column) => column,
+  );
 }
 
 class $$CatalogOverridesTableTableTableManager
@@ -12688,6 +12770,7 @@ class $$CatalogOverridesTableTableTableManager
                 Value<bool> hidden = const Value.absent(),
                 Value<String?> customName = const Value.absent(),
                 Value<int?> sortIndex = const Value.absent(),
+                Value<int?> updatedAtMillisUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CatalogOverridesTableCompanion(
                 accountId: accountId,
@@ -12696,6 +12779,7 @@ class $$CatalogOverridesTableTableTableManager
                 hidden: hidden,
                 customName: customName,
                 sortIndex: sortIndex,
+                updatedAtMillisUtc: updatedAtMillisUtc,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -12706,6 +12790,7 @@ class $$CatalogOverridesTableTableTableManager
                 Value<bool> hidden = const Value.absent(),
                 Value<String?> customName = const Value.absent(),
                 Value<int?> sortIndex = const Value.absent(),
+                Value<int?> updatedAtMillisUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CatalogOverridesTableCompanion.insert(
                 accountId: accountId,
@@ -12714,6 +12799,7 @@ class $$CatalogOverridesTableTableTableManager
                 hidden: hidden,
                 customName: customName,
                 sortIndex: sortIndex,
+                updatedAtMillisUtc: updatedAtMillisUtc,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

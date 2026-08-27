@@ -32,6 +32,8 @@ final syncServiceProvider = FutureProvider<SyncService?>((ref) async {
     favorites: HttpFavoritesSyncBackend(baseUrl: baseUrl, token: token),
     accountsRepo: ref.watch(accountRepositoryProvider),
     accounts: HttpAccountSyncBackend(baseUrl: baseUrl, token: token),
+    overridesRepo: ref.watch(catalogOverridesRepositoryProvider),
+    overrides: HttpOverridesSyncBackend(baseUrl: baseUrl, token: token),
     configStore: ref.watch(syncConfigStoreProvider),
     // Tag outgoing episode progress with its series id, resolved from the
     // local catalogue (the episode is cached here — it was watched here).

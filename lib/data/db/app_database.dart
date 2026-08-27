@@ -300,6 +300,10 @@ class CatalogOverridesTable extends Table {
   /// placed, keeping the panel's order among themselves.
   IntColumn get sortIndex => integer().nullable()();
 
+  /// Last-write-wins key for sync (schema v17). Curating twelve thousand
+  /// channels once is tolerable; doing it again on the next device is not.
+  IntColumn get updatedAtMillisUtc => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {accountId, scope, targetId};
 }
@@ -512,7 +516,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -612,6 +616,17 @@ class AppDatabase extends _$AppDatabase {
           // losing it costs one extra failover and nothing else.
           if (from < 16) {
             await m.createTable(streamChoicesTable);
+          }
+          // v17: curation becomes syncable, which needs a per-row LWW stamp.
+          // Existing rows are stamped NOW rather than 0: they are the user's
+          // real, current curation and should win over an empty server, not
+          // lose to it.
+          if (from < 17) {
+            await m.addColumn(
+                catalogOverridesTable, catalogOverridesTable.updatedAtMillisUtc);
+            await customStatement(
+                'UPDATE catalog_overrides SET updated_at_millis_utc = ?',
+                [DateTime.now().toUtc().millisecondsSinceEpoch]);
           }
         },
         beforeOpen: (details) async {

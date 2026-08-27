@@ -136,6 +136,9 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
           ref.invalidate(favoriteChannelsProvider);
           ref.invalidate(isFavoriteProvider);
         }
+        // Curation from another device changes which categories and channels
+        // exist at all, so every list that filters by it has to be rebuilt.
+        if (result.overridesChanged) ref.invalidate(catalogOverridesProvider);
       }
     } finally {
       _syncing = false;

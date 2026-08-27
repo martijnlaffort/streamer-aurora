@@ -6648,6 +6648,338 @@ class RemindersTableCompanion extends UpdateCompanion<ReminderRow> {
   }
 }
 
+class $StreamChoicesTableTable extends StreamChoicesTable
+    with TableInfo<$StreamChoicesTableTable, StreamChoiceRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StreamChoicesTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _variantKeyMeta = const VerificationMeta(
+    'variantKey',
+  );
+  @override
+  late final GeneratedColumn<String> variantKey = GeneratedColumn<String>(
+    'variant_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<String> streamId = GeneratedColumn<String>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chosenAtMillisUtcMeta = const VerificationMeta(
+    'chosenAtMillisUtc',
+  );
+  @override
+  late final GeneratedColumn<int> chosenAtMillisUtc = GeneratedColumn<int>(
+    'chosen_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    accountId,
+    variantKey,
+    streamId,
+    chosenAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'stream_choices';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StreamChoiceRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('variant_key')) {
+      context.handle(
+        _variantKeyMeta,
+        variantKey.isAcceptableOrUnknown(data['variant_key']!, _variantKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_variantKeyMeta);
+    }
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('chosen_at_millis_utc')) {
+      context.handle(
+        _chosenAtMillisUtcMeta,
+        chosenAtMillisUtc.isAcceptableOrUnknown(
+          data['chosen_at_millis_utc']!,
+          _chosenAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_chosenAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {accountId, variantKey};
+  @override
+  StreamChoiceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StreamChoiceRow(
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      variantKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}variant_key'],
+      )!,
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      chosenAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chosen_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $StreamChoicesTableTable createAlias(String alias) {
+    return $StreamChoicesTableTable(attachedDatabase, alias);
+  }
+}
+
+class StreamChoiceRow extends DataClass implements Insertable<StreamChoiceRow> {
+  final String accountId;
+
+  /// The logical channel (see `channels.variant_key`), not one of its streams.
+  final String variantKey;
+
+  /// The stream that last actually played for that channel.
+  final String streamId;
+  final int chosenAtMillisUtc;
+  const StreamChoiceRow({
+    required this.accountId,
+    required this.variantKey,
+    required this.streamId,
+    required this.chosenAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['account_id'] = Variable<String>(accountId);
+    map['variant_key'] = Variable<String>(variantKey);
+    map['stream_id'] = Variable<String>(streamId);
+    map['chosen_at_millis_utc'] = Variable<int>(chosenAtMillisUtc);
+    return map;
+  }
+
+  StreamChoicesTableCompanion toCompanion(bool nullToAbsent) {
+    return StreamChoicesTableCompanion(
+      accountId: Value(accountId),
+      variantKey: Value(variantKey),
+      streamId: Value(streamId),
+      chosenAtMillisUtc: Value(chosenAtMillisUtc),
+    );
+  }
+
+  factory StreamChoiceRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StreamChoiceRow(
+      accountId: serializer.fromJson<String>(json['accountId']),
+      variantKey: serializer.fromJson<String>(json['variantKey']),
+      streamId: serializer.fromJson<String>(json['streamId']),
+      chosenAtMillisUtc: serializer.fromJson<int>(json['chosenAtMillisUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'accountId': serializer.toJson<String>(accountId),
+      'variantKey': serializer.toJson<String>(variantKey),
+      'streamId': serializer.toJson<String>(streamId),
+      'chosenAtMillisUtc': serializer.toJson<int>(chosenAtMillisUtc),
+    };
+  }
+
+  StreamChoiceRow copyWith({
+    String? accountId,
+    String? variantKey,
+    String? streamId,
+    int? chosenAtMillisUtc,
+  }) => StreamChoiceRow(
+    accountId: accountId ?? this.accountId,
+    variantKey: variantKey ?? this.variantKey,
+    streamId: streamId ?? this.streamId,
+    chosenAtMillisUtc: chosenAtMillisUtc ?? this.chosenAtMillisUtc,
+  );
+  StreamChoiceRow copyWithCompanion(StreamChoicesTableCompanion data) {
+    return StreamChoiceRow(
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      variantKey: data.variantKey.present
+          ? data.variantKey.value
+          : this.variantKey,
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      chosenAtMillisUtc: data.chosenAtMillisUtc.present
+          ? data.chosenAtMillisUtc.value
+          : this.chosenAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StreamChoiceRow(')
+          ..write('accountId: $accountId, ')
+          ..write('variantKey: $variantKey, ')
+          ..write('streamId: $streamId, ')
+          ..write('chosenAtMillisUtc: $chosenAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(accountId, variantKey, streamId, chosenAtMillisUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StreamChoiceRow &&
+          other.accountId == this.accountId &&
+          other.variantKey == this.variantKey &&
+          other.streamId == this.streamId &&
+          other.chosenAtMillisUtc == this.chosenAtMillisUtc);
+}
+
+class StreamChoicesTableCompanion extends UpdateCompanion<StreamChoiceRow> {
+  final Value<String> accountId;
+  final Value<String> variantKey;
+  final Value<String> streamId;
+  final Value<int> chosenAtMillisUtc;
+  final Value<int> rowid;
+  const StreamChoicesTableCompanion({
+    this.accountId = const Value.absent(),
+    this.variantKey = const Value.absent(),
+    this.streamId = const Value.absent(),
+    this.chosenAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StreamChoicesTableCompanion.insert({
+    required String accountId,
+    required String variantKey,
+    required String streamId,
+    required int chosenAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : accountId = Value(accountId),
+       variantKey = Value(variantKey),
+       streamId = Value(streamId),
+       chosenAtMillisUtc = Value(chosenAtMillisUtc);
+  static Insertable<StreamChoiceRow> custom({
+    Expression<String>? accountId,
+    Expression<String>? variantKey,
+    Expression<String>? streamId,
+    Expression<int>? chosenAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (accountId != null) 'account_id': accountId,
+      if (variantKey != null) 'variant_key': variantKey,
+      if (streamId != null) 'stream_id': streamId,
+      if (chosenAtMillisUtc != null) 'chosen_at_millis_utc': chosenAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StreamChoicesTableCompanion copyWith({
+    Value<String>? accountId,
+    Value<String>? variantKey,
+    Value<String>? streamId,
+    Value<int>? chosenAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return StreamChoicesTableCompanion(
+      accountId: accountId ?? this.accountId,
+      variantKey: variantKey ?? this.variantKey,
+      streamId: streamId ?? this.streamId,
+      chosenAtMillisUtc: chosenAtMillisUtc ?? this.chosenAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (variantKey.present) {
+      map['variant_key'] = Variable<String>(variantKey.value);
+    }
+    if (streamId.present) {
+      map['stream_id'] = Variable<String>(streamId.value);
+    }
+    if (chosenAtMillisUtc.present) {
+      map['chosen_at_millis_utc'] = Variable<int>(chosenAtMillisUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StreamChoicesTableCompanion(')
+          ..write('accountId: $accountId, ')
+          ..write('variantKey: $variantKey, ')
+          ..write('streamId: $streamId, ')
+          ..write('chosenAtMillisUtc: $chosenAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $EpgCacheTableTable extends EpgCacheTable
     with TableInfo<$EpgCacheTableTable, EpgRow> {
   @override
@@ -9403,6 +9735,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CatalogOverridesTableTable catalogOverridesTable =
       $CatalogOverridesTableTable(this);
   late final $RemindersTableTable remindersTable = $RemindersTableTable(this);
+  late final $StreamChoicesTableTable streamChoicesTable =
+      $StreamChoicesTableTable(this);
   late final $EpgCacheTableTable epgCacheTable = $EpgCacheTableTable(this);
   late final $CatalogMetaTableTable catalogMetaTable = $CatalogMetaTableTable(
     this,
@@ -9433,6 +9767,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     favoritesTable,
     catalogOverridesTable,
     remindersTable,
+    streamChoicesTable,
     epgCacheTable,
     catalogMetaTable,
     catalogCategoryMetaTable,
@@ -12677,6 +13012,204 @@ typedef $$RemindersTableTableProcessedTableManager =
       ReminderRow,
       PrefetchHooks Function()
     >;
+typedef $$StreamChoicesTableTableCreateCompanionBuilder =
+    StreamChoicesTableCompanion Function({
+      required String accountId,
+      required String variantKey,
+      required String streamId,
+      required int chosenAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$StreamChoicesTableTableUpdateCompanionBuilder =
+    StreamChoicesTableCompanion Function({
+      Value<String> accountId,
+      Value<String> variantKey,
+      Value<String> streamId,
+      Value<int> chosenAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$StreamChoicesTableTableFilterComposer
+    extends Composer<_$AppDatabase, $StreamChoicesTableTable> {
+  $$StreamChoicesTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get variantKey => $composableBuilder(
+    column: $table.variantKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chosenAtMillisUtc => $composableBuilder(
+    column: $table.chosenAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$StreamChoicesTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $StreamChoicesTableTable> {
+  $$StreamChoicesTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get variantKey => $composableBuilder(
+    column: $table.variantKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get chosenAtMillisUtc => $composableBuilder(
+    column: $table.chosenAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$StreamChoicesTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $StreamChoicesTableTable> {
+  $$StreamChoicesTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get variantKey => $composableBuilder(
+    column: $table.variantKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<int> get chosenAtMillisUtc => $composableBuilder(
+    column: $table.chosenAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$StreamChoicesTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $StreamChoicesTableTable,
+          StreamChoiceRow,
+          $$StreamChoicesTableTableFilterComposer,
+          $$StreamChoicesTableTableOrderingComposer,
+          $$StreamChoicesTableTableAnnotationComposer,
+          $$StreamChoicesTableTableCreateCompanionBuilder,
+          $$StreamChoicesTableTableUpdateCompanionBuilder,
+          (
+            StreamChoiceRow,
+            BaseReferences<
+              _$AppDatabase,
+              $StreamChoicesTableTable,
+              StreamChoiceRow
+            >,
+          ),
+          StreamChoiceRow,
+          PrefetchHooks Function()
+        > {
+  $$StreamChoicesTableTableTableManager(
+    _$AppDatabase db,
+    $StreamChoicesTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StreamChoicesTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StreamChoicesTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StreamChoicesTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> accountId = const Value.absent(),
+                Value<String> variantKey = const Value.absent(),
+                Value<String> streamId = const Value.absent(),
+                Value<int> chosenAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StreamChoicesTableCompanion(
+                accountId: accountId,
+                variantKey: variantKey,
+                streamId: streamId,
+                chosenAtMillisUtc: chosenAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String accountId,
+                required String variantKey,
+                required String streamId,
+                required int chosenAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => StreamChoicesTableCompanion.insert(
+                accountId: accountId,
+                variantKey: variantKey,
+                streamId: streamId,
+                chosenAtMillisUtc: chosenAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$StreamChoicesTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $StreamChoicesTableTable,
+      StreamChoiceRow,
+      $$StreamChoicesTableTableFilterComposer,
+      $$StreamChoicesTableTableOrderingComposer,
+      $$StreamChoicesTableTableAnnotationComposer,
+      $$StreamChoicesTableTableCreateCompanionBuilder,
+      $$StreamChoicesTableTableUpdateCompanionBuilder,
+      (
+        StreamChoiceRow,
+        BaseReferences<
+          _$AppDatabase,
+          $StreamChoicesTableTable,
+          StreamChoiceRow
+        >,
+      ),
+      StreamChoiceRow,
+      PrefetchHooks Function()
+    >;
 typedef $$EpgCacheTableTableCreateCompanionBuilder =
     EpgCacheTableCompanion Function({
       required String accountId,
@@ -14223,6 +14756,8 @@ class $AppDatabaseManager {
       $$CatalogOverridesTableTableTableManager(_db, _db.catalogOverridesTable);
   $$RemindersTableTableTableManager get remindersTable =>
       $$RemindersTableTableTableManager(_db, _db.remindersTable);
+  $$StreamChoicesTableTableTableManager get streamChoicesTable =>
+      $$StreamChoicesTableTableTableManager(_db, _db.streamChoicesTable);
   $$EpgCacheTableTableTableManager get epgCacheTable =>
       $$EpgCacheTableTableTableManager(_db, _db.epgCacheTable);
   $$CatalogMetaTableTableTableManager get catalogMetaTable =>

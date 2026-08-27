@@ -38,6 +38,17 @@ const bool _forceSoftwareDecode = bool.fromEnvironment('DAWN_SW_DECODE');
 /// Present as VLC, which panels accept almost universally.
 const String kStreamUserAgent = 'VLC/3.0.21 LibVLC/3.0.21';
 
+/// One thing worth trying for a channel: a specific stream, reached through a
+/// specific one of the account's hosts.
+class _StreamCandidate {
+  const _StreamCandidate({required this.streamId, required this.hostAttempt});
+
+  final String streamId;
+
+  /// 0 is the account's own `serverUrl`; 1..n index into its fallback hosts.
+  final int hostAttempt;
+}
+
 /// The player (PRD §8.8): media_kit playback with a custom HBO-style
 /// controls overlay, audio/subtitle selection, gestures, and an
 /// autoplay-next queue.
@@ -133,13 +144,27 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// stream that never opened at all.
   bool _everPlayed = false;
 
-  /// Which of the account's hosts is being tried: 0 is the account's own
-  /// `serverUrl`, 1..n index into its fallbacks.
-  int _hostAttempt = 0;
+  /// Everything worth trying for the current item, best first.
+  ///
+  /// A channel is an ordered set of streams, not a URL: a line ships the same
+  /// channel two to five times (4K/FHD/HD, backup rows) and they are not
+  /// equally healthy. Walking that list silently is the difference between
+  /// "reconnects on its own", which is a retry loop against a dead source, and
+  /// a channel that simply plays.
+  List<_StreamCandidate> _candidates = const [];
+  int _candidateIndex = 0;
 
-  /// How many fallbacks the active account has, cached from the last open so
-  /// the error path can decide without another async read.
-  int _altHostCount = 0;
+  /// The logical channel the candidates belong to, for remembering the winner.
+  String? _variantKey;
+
+  /// True while walking the candidate list, as opposed to recovering a stream
+  /// that had been playing — the two look identical to the code and completely
+  /// different to the viewer.
+  bool _switchingFeed = false;
+
+  /// Fires when a candidate connects but never starts playing. See
+  /// [_watchdogBudget].
+  Timer? _watchdog;
 
   /// Focus node for remote/keyboard input. The player is the one screen where
   /// the entire UI is a video surface, so it owns key handling directly rather
@@ -277,6 +302,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           _reconnecting = false;
         }
       });
+      if (v) {
+        // This candidate works: stand the watchdog down and remember it, so
+        // the next tune-in does not repeat the walk that found it.
+        _watchdog?.cancel();
+        _switchingFeed = false;
+        _rememberWinner();
+      }
       // Save on pause (PRD §8.9).
       if (!v && _position > Duration.zero && _duration > Duration.zero) {
         _saveProgress();
@@ -373,6 +405,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _upNextTimer?.cancel();
     _liveEpgTimer?.cancel();
     _reconnectTimer?.cancel();
+    _watchdog?.cancel();
     _zapToastTimer?.cancel();
     _keyboardFocus.dispose();
     _playPauseFocus.dispose();
@@ -521,9 +554,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _reconnectAttempt = 0;
         _reconnecting = false;
         _everPlayed = false;
-        // A different item starts from the provider's primary host again: the
-        // fallback that rescued the last channel says nothing about this one.
-        _hostAttempt = 0;
+        // A different item starts its own walk: the backup that rescued the
+        // last channel says nothing about this one.
+        _candidateIndex = 0;
+        _switchingFeed = false;
       }
     });
     _upNextTimer?.cancel();
@@ -548,13 +582,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         }
       }
       _pendingResumeSeconds = resumeFrom;
-      _altHostCount = account.altHosts.length;
+      if (!isRetry) await _buildCandidates(account);
+      if (!mounted) return;
+      final candidate = _candidates.isEmpty
+          ? _StreamCandidate(
+              streamId: _current.streamRef.streamId, hostAttempt: 0)
+          : _candidates[_candidateIndex.clamp(0, _candidates.length - 1)];
       final url = _withAltHost(
-        await ref
-            .read(sourceFactoryProvider)(account)
-            .buildStreamUrl(_current.streamRef),
+        await ref.read(sourceFactoryProvider)(account).buildStreamUrl(
+              StreamRef(
+                accountId: _current.streamRef.accountId,
+                type: _current.streamRef.type,
+                streamId: candidate.streamId,
+                containerExt: _current.streamRef.containerExt,
+                catchupStart: _current.streamRef.catchupStart,
+                catchupMinutes: _current.streamRef.catchupMinutes,
+              ),
+            ),
         account,
-        _hostAttempt,
+        candidate.hostAttempt,
       );
       if (!mounted) return;
       // Present a player User-Agent panels accept. Per account, because which
@@ -570,6 +616,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       }
       await _player.open(Media(url));
       if (!mounted) return;
+      _armWatchdog();
       _scheduleHide();
       if (_current.isLive) {
         _refreshLiveEpg();
@@ -581,6 +628,117 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // transient reasons too, and a reconnect in progress should keep trying.
       _onStreamError('$e');
     }
+  }
+
+  /// How long a candidate gets to actually start playing before it is written
+  /// off and the next one tried.
+  ///
+  /// Only applied while there is something else to try: the LAST candidate
+  /// waits indefinitely. That is what makes an aggressive budget safe — a
+  /// healthy-but-slow line walks its list quickly and then sits patiently on
+  /// the final entry, rather than being abandoned with nothing playing.
+  ///
+  /// Four seconds rather than the two a stopwatch would suggest: below that,
+  /// a line that is merely slow gets silently demoted to its lowest-quality
+  /// row, and the user has no idea why the picture got worse.
+  static const _watchdogBudget = Duration(seconds: 4);
+
+  /// Builds the ordered list of things to try for [_current].
+  ///
+  /// Sources first, then hosts. Walking every source against every host would
+  /// be a combinatorial crawl through a dozen dead ends; a stream that is gone
+  /// is gone on all of the provider's hostnames, and a blocked host blocks all
+  /// of them, so the two failures are independent and one pass each finds them.
+  Future<void> _buildCandidates(Account account) async {
+    _variantKey = null;
+    final ref0 = _current.streamRef;
+    // Only live channels have variants. A film has exactly one stream, and a
+    // catch-up request is tied to the specific channel that recorded it.
+    if (_current.isLive && !ref0.isCatchup) {
+      final channel = await ref
+          .read(catalogRepositoryProvider)
+          .channelById(account, ref0.streamId);
+      final key = channel?.variantKey;
+      if (key != null) {
+        final variants =
+            await ref.read(catalogRepositoryProvider).channelVariants(account, key);
+        if (variants.length > 1) {
+          _variantKey = key;
+          final preferred = await ref
+              .read(streamChoiceRepositoryProvider)
+              .preferred(account.id, key);
+          final ids = [for (final v in variants) v.id];
+          // The one that worked last time leads; everything else keeps its
+          // quality order behind it.
+          if (preferred != null && ids.remove(preferred)) {
+            ids.insert(0, preferred);
+          }
+          _candidates = [
+            for (final id in ids)
+              _StreamCandidate(streamId: id, hostAttempt: 0),
+            for (var h = 1; h <= account.altHosts.length; h++)
+              _StreamCandidate(streamId: ids.first, hostAttempt: h),
+          ];
+          return;
+        }
+      }
+    }
+    _candidates = [
+      _StreamCandidate(streamId: ref0.streamId, hostAttempt: 0),
+      for (var h = 1; h <= account.altHosts.length; h++)
+        _StreamCandidate(streamId: ref0.streamId, hostAttempt: h),
+    ];
+  }
+
+  /// Moves to the next candidate, if there is one. Returns false when the list
+  /// is exhausted and the failure is real.
+  bool _tryNextCandidate() {
+    if (_candidateIndex + 1 >= _candidates.length) return false;
+    setState(() {
+      _candidateIndex++;
+      _reconnecting = true;
+      _switchingFeed = true;
+      _error = null;
+    });
+    _openCurrent(isRetry: true);
+    return true;
+  }
+
+  /// Arms the "connected but nothing is playing" watchdog.
+  ///
+  /// A source that accepts the connection and then delivers nothing is the
+  /// silent failure this whole feature exists for: without it the player sits
+  /// on a black screen forever, because as far as it is concerned nothing has
+  /// gone wrong.
+  void _armWatchdog() {
+    _watchdog?.cancel();
+    if (_candidateIndex + 1 >= _candidates.length) return; // nothing to switch to
+    _watchdog = Timer(_watchdogBudget, () {
+      if (!mounted || _everPlayed) return;
+      debugPrint('Candidate $_candidateIndex produced no playback; switching.');
+      _tryNextCandidate();
+    });
+  }
+
+  /// Records the stream that actually played, so the next tune-in starts there.
+  void _rememberWinner() {
+    final key = _variantKey;
+    if (key == null || _candidates.isEmpty) return;
+    final candidate =
+        _candidates[_candidateIndex.clamp(0, _candidates.length - 1)];
+    unawaited(() async {
+      try {
+        final account = await ref.read(activeAccountProvider.future);
+        if (account == null) return;
+        await ref.read(streamChoiceRepositoryProvider).remember(
+              accountId: account.id,
+              variantKey: key,
+              streamId: candidate.streamId,
+            );
+      } on Object {
+        // Best-effort: forgetting which stream won costs one extra failover.
+      }
+    }());
   }
 
   /// Points [url] at the account's [attempt]-th fallback host.
@@ -693,20 +851,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// see [_maxReconnectAttempts].
   void _onStreamError(String message) {
     if (!mounted) return;
-    // A stream that never opened may be nothing worse than this hostname.
-    // Providers hand out several and they are not interchangeable in practice:
-    // one can be blocked or badly routed from the current exit IP while the
-    // next answers immediately. Walk them before reporting a failure — trying
-    // them by hand is exactly the debugging session this is meant to end.
-    if (!_everPlayed && _hostAttempt < _altHostCount) {
-      setState(() {
-        _hostAttempt++;
-        _reconnecting = true;
-        _error = null;
-      });
-      _openCurrent(isRetry: true);
-      return;
-    }
+    // A stream that never opened may be nothing worse than this particular
+    // row of the channel, or this particular hostname. Walk the rest before
+    // reporting a failure — doing that by hand is the debugging session this
+    // is meant to end.
+    if (!_everPlayed && _tryNextCandidate()) return;
     // A stream that never opened is usually a real problem (wrong URL, denied,
     // offline) and retrying it just delays a useful message. A stream that was
     // playing and stopped is a drop, and is worth reopening.
@@ -1540,13 +1689,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 color: AppColors.accent, strokeWidth: 3),
           ),
           const SizedBox(height: 14),
+          // Walking the channel's other streams is not the same event as
+          // recovering a dropped one, and saying "Attempt 0 of 3" during a
+          // failover was both wrong and alarming. What the viewer needs to
+          // know is that something is being tried, never which provider error
+          // came back.
           Text(
-            'Reconnecting…',
+            _switchingFeed ? 'Switching to backup feed…' : 'Reconnecting…',
             style: AppTypography.body,
           ),
           const SizedBox(height: 4),
           Text(
-            'Attempt $_reconnectAttempt of $_maxReconnectAttempts',
+            _switchingFeed
+                ? 'Feed ${_candidateIndex + 1} of ${_candidates.length}'
+                : 'Attempt $_reconnectAttempt of $_maxReconnectAttempts',
             style: TextStyle(
                 color: AppColors.textSecondary, fontSize: 12),
           ),

@@ -244,6 +244,24 @@ class PreferencesTable extends Table {
 /// names and the order; this table is how the user overrules that without
 /// touching the cached catalogue itself — a refresh replaces catalogue rows
 /// wholesale, so anything editable has to live beside them rather than in them.
+@DataClassName('StreamChoiceRow')
+class StreamChoicesTable extends Table {
+  @override
+  String get tableName => 'stream_choices';
+
+  TextColumn get accountId => text()();
+
+  /// The logical channel (see `channels.variant_key`), not one of its streams.
+  TextColumn get variantKey => text()();
+
+  /// The stream that last actually played for that channel.
+  TextColumn get streamId => text()();
+  IntColumn get chosenAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {accountId, variantKey};
+}
+
 @DataClassName('ReminderRow')
 class RemindersTable extends Table {
   @override
@@ -474,6 +492,7 @@ class SearchHistoryTable extends Table {
   FavoritesTable,
   CatalogOverridesTable,
   RemindersTable,
+  StreamChoicesTable,
   EpgCacheTable,
   CatalogMetaTable,
   CatalogCategoryMetaTable,
@@ -493,7 +512,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -587,6 +606,12 @@ class AppDatabase extends _$AppDatabase {
           if (from < 15) {
             await m.addColumn(accountsTable, accountsTable.userAgent);
             await m.addColumn(accountsTable, accountsTable.altHosts);
+          }
+          // v16: which of a channel's streams last actually played, so failover
+          // does not start from the top every time. Local and disposable —
+          // losing it costs one extra failover and nothing else.
+          if (from < 16) {
+            await m.createTable(streamChoicesTable);
           }
         },
         beforeOpen: (details) async {

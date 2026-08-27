@@ -18,6 +18,7 @@ import 'repositories/favorites_repository.dart';
 import 'repositories/preferences_repository.dart';
 import 'repositories/reminders_repository.dart';
 import 'repositories/search_history_repository.dart';
+import 'repositories/stream_choice_repository.dart';
 import 'repositories/watch_progress_repository.dart';
 import 'sources/canon_source.dart';
 import 'sources/m3u_source.dart';
@@ -180,6 +181,9 @@ final uiScaleProvider = Provider<double>(
 /// steps through rows the user cannot see.
 final groupChannelVariantsProvider = Provider<bool>((ref) =>
     ref.watch(preferencesProvider).value?.groupChannelVariants ?? true);
+
+final streamChoiceRepositoryProvider = Provider<StreamChoiceRepository>(
+    (ref) => StreamChoiceRepository(db: ref.watch(appDatabaseProvider)));
 
 final remindersRepositoryProvider = Provider<RemindersRepository>(
     (ref) => RemindersRepository(db: ref.watch(appDatabaseProvider)));

@@ -251,6 +251,23 @@ class SyncService {
     final accountsRepo = _accountsRepo;
     if (repo == null || backend == null || accountsRepo == null) return false;
 
+    // Isolated from the rest of the reconcile on purpose. These endpoints are
+    // newer than the others, so a backend that has not been redeployed yet
+    // answers 404 — and an exception here would abort the whole reconcile,
+    // stopping progress, favourites and playlists from syncing too. Curation
+    // is additive: failing it must never take the rest down with it.
+    try {
+      return await _syncOverrides(repo, backend, accountsRepo);
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<bool> _syncOverrides(
+    CatalogOverridesRepository repo,
+    OverridesSyncBackend backend,
+    AccountRepository accountsRepo,
+  ) async {
     var changed = false;
     for (final remote in await backend.pull()) {
       final applied = await repo.applyRemote(CatalogOverrideRow(

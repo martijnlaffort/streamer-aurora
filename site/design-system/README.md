@@ -76,6 +76,26 @@ Two things in this kit the newer design changed, so read the cards with that in 
   corner joined by a "same position, both screens" line, and under 820px the nav keeps only its
   "Get set up" CTA.
 
+## Update 2026-08-27: the shipped site now mixes real screenshots with mockups
+
+`site/shots/` holds four real iPhone screenshots, used in the hero and in the discovery section. So the
+"no screenshots, ever" rule below is **no longer true of the site** — it still describes this kit.
+
+Where the line now falls, and why:
+
+- **Real** where the point is *proof*: the hero (Continue Watching with real progress) and the discovery
+  strip (Trending Today, Award Winners, Summer Blockbusters — features you cannot honestly illustrate with
+  invented titles, because the whole claim is that they pick real things out of a real line).
+- **Mockups** everywhere else: the player overlay, the TV Guide, the Windows and television panels. The TV
+  Guide mockup is deliberately kept over a real screenshot — it is far more legible, and a real one carries
+  the provider's channel branding.
+- **Three screenshots were rejected**, not lost: Live TV (channels named after real broadcasters and a
+  premium sports competition) and two Movies/Series tabs whose rails are literally titled after streaming
+  services. On a public page they would evidence a specific line carrying named services' content, which is
+  the exact impression the honesty panel exists to prevent.
+- The hero TV mockup's title was changed to match the phone screenshot beside it, because the pill between
+  them claims they show the same resume point.
+
 ## Mockups, deliberately
 
 No screenshots. Every device mockup is CSS and inline SVG built from the real widget structure

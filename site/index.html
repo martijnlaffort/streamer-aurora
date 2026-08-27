@@ -102,11 +102,13 @@
           <div class="tv-shell__screen art-tv-hero">
             <div class="scrim-tv"></div>
             <div style="position:absolute;left:4%;right:4%;bottom:5%">
+              <!-- Must match the phone screenshot beside it: the pill above claims
+                   they are the same resume point, so they had better agree. -->
               <p class="dev-eyebrow" style="font-size:1.9cqw;letter-spacing:.18em;margin-bottom:1.4%">Continue watching · Living room</p>
-              <h3 class="dev-title" style="font-size:5cqw;margin-bottom:1.6%">Harbourline</h3>
-              <p style="margin:0 0 2.6%;font-size:2.1cqw;color:var(--muted)">S2 · E4 — The Undertow · 22 min left</p>
+              <h3 class="dev-title" style="font-size:5cqw;margin-bottom:1.6%">Gold Rush</h3>
+              <p style="margin:0 0 2.6%;font-size:2.1cqw;color:var(--muted)">S3 · E14 — carried over from the phone</p>
               <div style="position:relative;height:3px;border-radius:2px;background:rgba(255,255,255,.18);width:46%">
-                <i style="position:absolute;inset:0 auto 0 0;width:64%;border-radius:2px;background:var(--violet)"></i>
+                <i style="position:absolute;inset:0 auto 0 0;width:45%;border-radius:2px;background:var(--violet)"></i>
               </div>
             </div>
             <span style="position:absolute;top:5%;right:4%;display:inline-flex;align-items:center;font-size:1.9cqw;font-weight:600;color:var(--text);background:rgba(23,28,37,.72);border:1px solid var(--line-strong);border-radius:999px;padding:1.1% 2.6%">Android TV</span>
@@ -118,42 +120,12 @@
 
       <div class="duo__phone">
         <div class="phone">
+          <!-- A real screenshot, so no fake notch: the image brings iOS's own
+               status bar with it. -->
           <div class="phone__screen">
-            <div class="notch"></div>
-            <div class="art-hero" style="position:relative;height:224px;flex:none">
-              <div class="scrim-hero"></div>
-              <div style="position:absolute;left:15px;right:15px;bottom:13px">
-                <p class="dev-eyebrow" style="font-size:9.5px;letter-spacing:.7px;margin-bottom:4px">Recently added</p>
-                <h3 class="dev-title" style="font-size:21px;letter-spacing:-.5px;line-height:1.1;margin-bottom:10px;max-width:190px">The Quiet Coast</h3>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span class="chip chip--primary">Details</span>
-                  <span class="chip chip--tonal">My List</span>
-                  <span class="dots"><i class="on"></i><i></i><i></i><i></i></span>
-                </div>
-              </div>
-            </div>
-            <div class="rail">
-              <h4>Continue Watching</h4>
-              <div class="rail__track">
-                <div class="cw">
-                  <div class="cw__thumb art-blue"><div class="bar"><i style="width:64%"></i></div></div>
-                  <p class="cw__title">Harbourline</p><span class="cw__sub">S2 · E4 — 22 min left</span>
-                </div>
-                <div class="cw">
-                  <div class="cw__thumb art-amber"><div class="bar"><i style="width:31%"></i></div></div>
-                  <p class="cw__title">Ashfall</p><span class="cw__sub">1 h 14 min left</span>
-                </div>
-              </div>
-            </div>
-            <div class="rail">
-              <h4>Trending Today</h4>
-              <div class="rail__track">
-                <div class="poster art-rose"></div>
-                <div class="poster art-teal"></div>
-                <div class="poster art-plum"></div>
-                <div class="poster art-blue"></div>
-              </div>
-            </div>
+            <img class="phone__shot" src="shots/home.jpg" width="560" height="1218"
+                 alt="Dawn Player's Home screen on an iPhone: a Continue Watching row with two part-watched
+                      episodes and violet progress bars, a My List row, and the start of Trending Today.">
           </div>
         </div>
       </div>
@@ -411,6 +383,30 @@
         <p class="aside">Awards are resolved <b>by name, not by Wikidata id</b>: hardcoded ids were wrong
           seven times out of twelve, and one wrong id silently returned a different award's winners.</p>
       </div>
+    </div>
+    <p class="shots-lead" data-reveal><b>All three, on a real line, this week.</b> Not mockups — screenshots
+      from a phone, taken on 27 August, which is why the seasonal rail below says what it says.</p>
+    <div class="shots">
+      <figure class="shot" data-reveal>
+        <img src="shots/trending.jpg" width="600" height="1217" loading="lazy"
+             alt="Trending Today showing Oppenheimer, Green Lantern and Bokeh, above an Award Winners row
+                  with Father Mother Sister Brother, Ida and Boyhood, and the start of Award-Winning Series.">
+        <figcaption><b>Two sources in one screen.</b> Trending Today comes from Wikipedia pageviews;
+          Award Winners comes from the canon baked into the binary. Neither used a key.</figcaption>
+      </figure>
+      <figure class="shot" data-reveal>
+        <img src="shots/seasonal.jpg" width="600" height="1217" loading="lazy"
+             alt="Award-Winning Series showing The Office, Succession and Olive Kitteridge, above a
+                  Summer Blockbusters row with Zone Drifter, South to Sian and Aviator.">
+        <figcaption><b>Summer Blockbusters, because it is August.</b> That rail runs to the 31st and then
+          disappears until horror arrives on 1 October. Nothing was configured to make it appear.</figcaption>
+      </figure>
+      <figure class="shot" data-reveal>
+        <img src="shots/movies.jpg" width="600" height="1210" loading="lazy"
+             alt="The Movies tab with a 4K HDR category row and a New Releases row, each with a See all link.">
+        <figcaption><b>The panel's own categories, made readable.</b> Providers name these things carelessly;
+          the Movies tab tidies them up and gives each one a See all.</figcaption>
+      </figure>
     </div>
     <p class="closer" data-reveal><b>TMDB is still in here — but only for pictures.</b> It fills in posters
       and synopses your provider never sent. Nothing about <i>what</i> you get shown depends on it, which is

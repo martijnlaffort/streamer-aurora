@@ -276,6 +276,29 @@ img, svg { display: block; }
 }
 .tile--teal { background: rgba(79, 209, 197, .13); border-color: rgba(79, 209, 197, .24); color: #7FE0D6; }
 
+/* ---- real screenshots --------------------------------------------------
+   These are photographs of the app, not CSS. They carry the iOS status bar
+   with them, so the frames they sit in drop the fake notch. */
+.phone__shot { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+
+.shots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin: clamp(28px, 4vw, 44px) 0 0; }
+@media (max-width: 900px) { .shots { grid-template-columns: 1fr; max-width: 420px; margin-left: auto; margin-right: auto; } }
+.shot { margin: 0; }
+.shot img {
+  display: block; width: 100%; border-radius: 14px;
+  border: 1px solid var(--line-strong); background: var(--bg);
+  box-shadow: 0 24px 60px -26px rgba(0, 0, 0, .9);
+  /* Pinned so all three are the same height and the captions line up; the
+     sources are within 7px of this ratio, so the crop is invisible.
+     height:auto is required — without it the HTML height attribute wins as a
+     presentational hint and aspect-ratio is ignored entirely. */
+  height: auto; aspect-ratio: 600 / 1215; object-fit: cover; object-position: top center;
+}
+.shot figcaption { margin: 14px 2px 0; font-size: 12.5px; line-height: 1.55; color: var(--dim); }
+.shot figcaption b { color: var(--muted); font-weight: 600; }
+.shots-lead { margin: clamp(28px, 4vw, 40px) 0 0; font-size: 15px; line-height: 1.6; color: var(--muted); max-width: 60ch; }
+.shots-lead b { color: var(--text); font-weight: 600; }
+
 /* ---- discovery sources ------------------------------------------------- */
 .src {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);

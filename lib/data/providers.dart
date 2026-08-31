@@ -26,6 +26,7 @@ import 'sources/playlist_source.dart';
 import 'sources/tmdb_source.dart';
 import 'sources/xtream_source.dart';
 import 'db/account_id_migration.dart';
+import 'sync/server_clock.dart';
 import 'sync/sync_trigger.dart';
 
 /// Riverpod wiring for the data layer. The UI depends on these providers and
@@ -157,6 +158,7 @@ class ArtworkQuery {
 final watchProgressRepositoryProvider = Provider<WatchProgressRepository>(
     (ref) => WatchProgressRepository(
           db: ref.watch(appDatabaseProvider),
+          clock: ref.watch(serverClockProvider).now,
           onChanged: () => ref.read(syncTriggerProvider).ping(),
         ));
 
@@ -166,6 +168,7 @@ final preferencesRepositoryProvider = Provider<PreferencesRepository>(
 final favoritesRepositoryProvider = Provider<FavoritesRepository>(
     (ref) => FavoritesRepository(
           db: ref.watch(appDatabaseProvider),
+          clock: ref.watch(serverClockProvider).now,
           onChanged: () => ref.read(syncTriggerProvider).ping(),
         ));
 
@@ -209,9 +212,17 @@ final hasReminderProvider =
   return ref.watch(remindersRepositoryProvider).exists(id);
 });
 
+/// The clock every cross-device timestamp is written against.
+///
+/// One instance for the whole app: the correction is learned once per sync and
+/// has to apply to every repository that stamps something another device will
+/// compare, or the devices disagree among themselves.
+final serverClockProvider = Provider<ServerClock>((ref) => ServerClock());
+
 final catalogOverridesRepositoryProvider =
     Provider<CatalogOverridesRepository>((ref) => CatalogOverridesRepository(
           db: ref.watch(appDatabaseProvider),
+          clock: ref.watch(serverClockProvider).now,
           // Pings the sync coordinator only. Invalidating the overrides
           // provider from here is what created a top-level provider cycle
           // before; call sites still do that themselves.

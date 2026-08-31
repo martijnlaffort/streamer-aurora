@@ -2,26 +2,69 @@ import 'package:dio/dio.dart';
 
 import '../../domain/models/models.dart';
 import '../repositories/sync_backend.dart';
+import 'server_clock.dart';
 
 /// Dio-backed implementations of the sync seam (PRD §9) against the Laravel
 /// API in `backend/`. One shared bearer token authenticates every call.
 class _ApiClient {
-  _ApiClient({required String baseUrl, required String token, Dio? dio})
+  _ApiClient(
+      {required String baseUrl,
+      required String token,
+      Dio? dio,
+      ServerClock? clock})
       : _dio = dio ??
             Dio(BaseOptions(
               baseUrl: '${baseUrl.replaceAll(RegExp(r'/+$'), '')}/api',
               headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
               connectTimeout: const Duration(seconds: 15),
               receiveTimeout: const Duration(seconds: 30),
-            ));
+            )) {
+    // Every response already carries the one clock all devices agree on. Read
+    // it here rather than adding a "what time is it" endpoint: this costs
+    // nothing and works on every call the app already makes.
+    if (clock != null) _dio.interceptors.add(_ClockInterceptor(clock));
+  }
 
   final Dio _dio;
 }
 
+class _ClockInterceptor extends Interceptor {
+  _ClockInterceptor(this._clock);
+
+  final ServerClock _clock;
+  final _sent = <int, DateTime>{};
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    _sent[options.hashCode] = DateTime.now().toUtc();
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response<dynamic> response, ResponseInterceptorHandler h) {
+    final sentAt = _sent.remove(response.requestOptions.hashCode);
+    final date =
+        ServerClock.parseHttpDate(response.headers.value('date'));
+    if (date != null) {
+      _clock.observe(date,
+          roundTrip: sentAt == null
+              ? Duration.zero
+              : DateTime.now().toUtc().difference(sentAt));
+    }
+    h.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    _sent.remove(err.requestOptions.hashCode);
+    handler.next(err);
+  }
+}
+
 class HttpProgressSyncBackend implements ProgressSyncBackend {
   HttpProgressSyncBackend(
-      {required String baseUrl, required String token, Dio? dio})
-      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+      {required String baseUrl, required String token, Dio? dio, ServerClock? clock})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio, clock: clock);
 
   final _ApiClient _api;
 
@@ -68,8 +111,8 @@ class HttpProgressSyncBackend implements ProgressSyncBackend {
 
 class HttpPreferencesSyncBackend implements PreferencesSyncBackend {
   HttpPreferencesSyncBackend(
-      {required String baseUrl, required String token, Dio? dio})
-      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+      {required String baseUrl, required String token, Dio? dio, ServerClock? clock})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio, clock: clock);
 
   final _ApiClient _api;
 
@@ -104,8 +147,8 @@ class HttpPreferencesSyncBackend implements PreferencesSyncBackend {
 
 class HttpFavoritesSyncBackend implements FavoritesSyncBackend {
   HttpFavoritesSyncBackend(
-      {required String baseUrl, required String token, Dio? dio})
-      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+      {required String baseUrl, required String token, Dio? dio, ServerClock? clock})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio, clock: clock);
 
   final _ApiClient _api;
 
@@ -145,8 +188,8 @@ class HttpFavoritesSyncBackend implements FavoritesSyncBackend {
 
 class HttpOverridesSyncBackend implements OverridesSyncBackend {
   HttpOverridesSyncBackend(
-      {required String baseUrl, required String token, Dio? dio})
-      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+      {required String baseUrl, required String token, Dio? dio, ServerClock? clock})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio, clock: clock);
 
   final _ApiClient _api;
 
@@ -190,8 +233,8 @@ class HttpOverridesSyncBackend implements OverridesSyncBackend {
 
 class HttpAccountSyncBackend implements AccountSyncBackend {
   HttpAccountSyncBackend(
-      {required String baseUrl, required String token, Dio? dio})
-      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+      {required String baseUrl, required String token, Dio? dio, ServerClock? clock})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio, clock: clock);
 
   final _ApiClient _api;
 

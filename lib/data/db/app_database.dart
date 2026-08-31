@@ -309,7 +309,12 @@ class CatalogOverridesTable extends Table {
 }
 
 /// What a [CatalogOverridesTable] row applies to.
-enum OverrideScope { category, channel }
+/// What an override row applies to.
+///
+/// [epg] is a mapping rather than a presentation edit: its `customName` column
+/// holds the XMLTV channel id the user pointed this channel at, which is how a
+/// guide that matched nothing gets fixed by hand.
+enum OverrideScope { category, channel, epg }
 
 @DataClassName('FavoriteRow')
 class FavoritesTable extends Table {

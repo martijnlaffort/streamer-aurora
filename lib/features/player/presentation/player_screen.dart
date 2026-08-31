@@ -166,6 +166,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// [_watchdogBudget].
   Timer? _watchdog;
 
+  /// Cached channel count for the current zap scope, and the scope it belongs
+  /// to. Recomputing it per press is what made channel-up wait on a GROUP BY
+  /// over the whole channel table.
+  int? _zapTotal;
+  String? _zapScopeKey;
+
   /// Focus node for remote/keyboard input. The player is the one screen where
   /// the entire UI is a video surface, so it owns key handling directly rather
   /// than relying on focus traversal between buttons.
@@ -1012,6 +1018,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final zap = _zap;
     if (zap == null || _zapping) return;
     _zapping = true;
+    // Paint BEFORE any I/O. A remote press has to produce visible feedback
+    // immediately — Roku certifies 250 ms for it — and the banner used to wait
+    // on a channel count, an overrides read and a row lookup first. On a 25k
+    // line that count is a GROUP BY over the whole table, so the one
+    // interaction people repeat all evening was the one that waited longest.
+    //
+    // The position is predicted from the cached total; if there isn't one yet
+    // the direction is still something, and both are corrected below the
+    // moment the real row arrives.
+    final knownTotal = _zapTotal;
+    _showZapToast(knownTotal != null && knownTotal > 0
+        ? '${(zap.index + delta) % knownTotal + 1}/$knownTotal · …'
+        : (delta > 0 ? 'Channel up…' : 'Channel down…'));
     try {
       final account = await ref.read(activeAccountProvider.future);
       if (!mounted || account == null) return;
@@ -1019,12 +1038,32 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // Grouping has to match the list the index came from, or channel-up steps
       // through per-quality duplicates the user cannot see on the Live tab.
       final grouped = ref.read(groupChannelVariantsProvider);
-      final total = await catalog.channelCount(
-        account,
-        categoryId: zap.categoryId,
-        categoryIds: zap.categoryIds,
-        groupVariants: grouped,
-      );
+      // Hidden channels have to come out here too. channelCount's own comment
+      // says the list, the count and zapping must match exactly — and this call
+      // site was the one that did not, so channel-up walked into channels the
+      // user had explicitly hidden and could not see on the Live tab. Read
+      // fresh rather than carried on ZapContext: the set is the user's current
+      // curation, which now also arrives from other devices mid-session.
+      final overrides = await ref.read(catalogOverridesProvider.future);
+      if (!mounted) return;
+      final hidden = overrides.hiddenChannels;
+      // Counting is the expensive half — grouped, it is a GROUP BY over every
+      // channel — and the answer only moves when the scope or the hidden set
+      // does. Cache it so holding channel-up costs one indexed row read per
+      // press instead of a full recount.
+      final scopeKey = '${zap.categoryId}|${zap.categoryIds?.length}'
+          '|$grouped|${hidden.length}';
+      if (_zapTotal == null || _zapScopeKey != scopeKey) {
+        _zapTotal = await catalog.channelCount(
+          account,
+          categoryId: zap.categoryId,
+          categoryIds: zap.categoryIds,
+          excludeIds: hidden,
+          groupVariants: grouped,
+        );
+        _zapScopeKey = scopeKey;
+      }
+      final total = _zapTotal!;
       if (total <= 1) {
         _showZapToast('No other channels in this list');
         return;
@@ -1035,6 +1074,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         nextIndex,
         categoryId: zap.categoryId,
         categoryIds: zap.categoryIds,
+        excludeIds: hidden,
         groupVariants: grouped,
       );
       if (channel == null || !mounted) return;
@@ -1056,7 +1096,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           isLive: true,
         );
       });
-      _showZapToast('${nextIndex + 1}/$total · ${channel.name}');
+      // The name the LIVE LIST shows: its base name when qualities are grouped,
+      // and any rename the user gave it. Announcing the raw provider row here
+      // ("NL | NPO 1 FHD") after they renamed it to "NPO 1" reads as landing on
+      // a different channel.
+      final label = overrides.channelName(
+          channel.id, grouped ? channel.displayName : channel.name);
+      _showZapToast('${nextIndex + 1}/$total · $label');
       await _openCurrent();
     } finally {
       _zapping = false;

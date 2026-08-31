@@ -15,6 +15,7 @@ class CatalogOverrides {
     this.categoryNames = const {},
     this.channelNames = const {},
     this.categoryOrder = const {},
+    this.epgIds = const {},
   });
 
   static const empty = CatalogOverrides();
@@ -27,12 +28,22 @@ class CatalogOverrides {
   /// Category id → the position the user put it in.
   final Map<String, int> categoryOrder;
 
+  /// Channel id → the XMLTV channel id the user pointed it at, when the
+  /// automatic match found nothing or found the wrong thing.
+  final Map<String, String> epgIds;
+
   bool get isEmpty =>
       hiddenCategories.isEmpty &&
       hiddenChannels.isEmpty &&
       categoryNames.isEmpty &&
       channelNames.isEmpty &&
-      categoryOrder.isEmpty;
+      categoryOrder.isEmpty &&
+      epgIds.isEmpty;
+
+  /// Which guide key to read a channel's programmes under: the user's mapping
+  /// if they set one, otherwise whatever the playlist claimed.
+  String epgKey(String channelId, String fallback) =>
+      epgIds[channelId] ?? fallback;
 
   String categoryName(String id, String fallback) =>
       categoryNames[id] ?? fallback;
@@ -93,17 +104,27 @@ class CatalogOverridesRepository {
     final categoryNames = <String, String>{};
     final channelNames = <String, String>{};
     final categoryOrder = <String, int>{};
+    final epgIds = <String, String>{};
     for (final r in rows) {
-      final isCategory = r.scope == OverrideScope.category.name;
-      if (r.hidden) {
-        (isCategory ? hiddenCategories : hiddenChannels).add(r.targetId);
-      }
+      // Explicitly three-way. This used to be "category or else channel", so
+      // adding a third scope would have filed every EPG mapping as a channel
+      // RENAME and put an XMLTV id on screen as the channel's name.
+      final scope = OverrideScope.values
+          .where((s) => s.name == r.scope)
+          .firstOrNull;
       final name = r.customName;
-      if (name != null && name.isNotEmpty) {
-        (isCategory ? categoryNames : channelNames)[r.targetId] = name;
-      }
-      if (isCategory && r.sortIndex != null) {
-        categoryOrder[r.targetId] = r.sortIndex!;
+      switch (scope) {
+        case OverrideScope.category:
+          if (r.hidden) hiddenCategories.add(r.targetId);
+          if (name != null && name.isNotEmpty) categoryNames[r.targetId] = name;
+          if (r.sortIndex != null) categoryOrder[r.targetId] = r.sortIndex!;
+        case OverrideScope.channel:
+          if (r.hidden) hiddenChannels.add(r.targetId);
+          if (name != null && name.isNotEmpty) channelNames[r.targetId] = name;
+        case OverrideScope.epg:
+          if (name != null && name.isNotEmpty) epgIds[r.targetId] = name;
+        case null:
+          break; // A scope written by a newer build; ignore rather than guess.
       }
     }
     return CatalogOverrides(
@@ -112,6 +133,7 @@ class CatalogOverridesRepository {
       categoryNames: categoryNames,
       channelNames: channelNames,
       categoryOrder: categoryOrder,
+      epgIds: epgIds,
     );
   }
 

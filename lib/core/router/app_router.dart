@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/live/presentation/guide_coverage_screen.dart';
 import '../../features/live/presentation/guide_screen.dart';
 import '../../features/live/presentation/live_screen.dart';
 import '../../features/live/presentation/multi_view_screen.dart';
@@ -135,6 +136,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/guide',
         name: 'guide',
         builder: (context, state) => const GuideScreen(),
+      ),
+      GoRoute(
+        path: '/guide/coverage',
+        name: 'guideCoverage',
+        builder: (context, state) => const GuideCoverageScreen(),
       ),
       GoRoute(
         path: '/multiview',

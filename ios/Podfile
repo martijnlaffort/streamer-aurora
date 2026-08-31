@@ -1,5 +1,7 @@
-# media_kit's libmpv backend requires iOS 13.0+.
-platform :ios, '13.0'
+# media_kit's libmpv backend requires iOS 13.0+; we set 15.0 because Apple
+# stops accepting uploads below 15.0 in Spring 2027, and iOS 15 covers the
+# same iPhone generations as 13 (6s and later) so it costs no reach.
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -39,9 +41,9 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
 
     # Force every pod to the same minimum deployment target so media_kit's
-    # native libs (which require 13.0) don't get overridden to a lower value.
+    # native libs (which require 13.0+) don't get overridden to a lower value.
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
     end
   end
 end

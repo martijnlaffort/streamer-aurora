@@ -6,8 +6,8 @@
 # This script re-asserts the iOS settings the build and the App Store listing
 # depend on, so both are correct regardless of what the scaffold produced:
 #   1. App Transport Security -> NSAllowsArbitraryLoads (plain-HTTP IPTV).
-#   2. Podfile platform + per-pod deployment target -> 13.0.
-#   3. Xcode project IPHONEOS_DEPLOYMENT_TARGET -> 13.0.
+#   2. Podfile platform + per-pod deployment target -> 15.0.
+#   3. Xcode project IPHONEOS_DEPLOYMENT_TARGET -> 15.0.
 #   4. PRODUCT_BUNDLE_IDENTIFIER -> com.dawnplayer.app (the App Store identity;
 #      the scaffold default is com.example.<name>, which cannot be uploaded).
 #   5. ITSAppUsesNonExemptEncryption -> false (export compliance).
@@ -45,12 +45,12 @@ fi
 echo "==> Patching Podfile platform: $PODFILE"
 if [ -f "$PODFILE" ]; then
   if grep -qE "^\s*#?\s*platform :ios" "$PODFILE"; then
-    # Replace whatever platform line exists (commented or not) with 13.0.
-    sed -i.bak -E "s/^\s*#?\s*platform :ios.*/platform :ios, '13.0'/" "$PODFILE"
+    # Replace whatever platform line exists (commented or not) with 15.0.
+    sed -i.bak -E "s/^\s*#?\s*platform :ios.*/platform :ios, '15.0'/" "$PODFILE"
     rm -f "$PODFILE.bak"
   else
     # No platform line at all: prepend one.
-    printf "platform :ios, '13.0'\n%s" "$(cat "$PODFILE")" > "$PODFILE"
+    printf "platform :ios, '15.0'\n%s" "$(cat "$PODFILE")" > "$PODFILE"
   fi
 else
   echo "!! $PODFILE not found" >&2
@@ -59,7 +59,7 @@ fi
 
 echo "==> Patching Xcode deployment target: $PBXPROJ"
 if [ -f "$PBXPROJ" ]; then
-  sed -i.bak -E "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;/IPHONEOS_DEPLOYMENT_TARGET = 13.0;/g" "$PBXPROJ"
+  sed -i.bak -E "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g" "$PBXPROJ"
   rm -f "$PBXPROJ.bak"
 else
   echo "!! $PBXPROJ not found (scaffold not generated yet)" >&2
@@ -92,4 +92,4 @@ else
   exit 1
 fi
 
-echo "==> iOS config patched: ATS=on, target=13.0, id=com.dawnplayer.app"
+echo "==> iOS config patched: ATS=on, target=15.0, id=com.dawnplayer.app"

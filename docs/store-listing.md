@@ -419,6 +419,27 @@ catches the cheap rejections — missing icon, bad Info.plist key, wrong bundle 
 than after a long upload. Build numbers must strictly increase per version string, so treat
 `git rev-list --count HEAD` as the source of truth if you ever lose track.
 
+Both `--validate-app` and `--upload-app` require the app record to exist first. Run the workflow
+with `submit_to_testflight` unchecked until it does: that exercises the entire signing path and
+produces a signed IPA artifact without touching App Store Connect.
+
+#### Troubleshooting: "No development certificates available to code sign app"
+
+Hit on the first signed build, and misleading — it appears even with a valid Apple Distribution
+certificate and App Store profile installed. The cause is in Flutter itself
+(`flutter_tools/lib/src/ios/code_signing.dart`): when the Xcode project has no `DEVELOPMENT_TEAM`
+build setting, Flutter searches the keychain for a *development* identity and fails hard if it finds
+none, and a distribution certificate never matches that search.
+
+Fixed by setting `DEVELOPMENT_TEAM`, `CODE_SIGN_STYLE = Manual`,
+`CODE_SIGN_IDENTITY[sdk=iphoneos*] = "Apple Distribution"` and `PROVISIONING_PROFILE_SPECIFIER` on
+the **Runner target's** Release configuration. Target level matters: the Flutter template puts
+`CODE_SIGN_IDENTITY[sdk=iphoneos*] = "iPhone Developer"` at *project* level, and project settings
+outrank `Release.xcconfig` — so an xcconfig override looks right and silently loses.
+
+`ios-unsigned.yml` is unaffected, because `--no-codesign` passes `CODE_SIGNING_ALLOWED=NO` on the
+xcodebuild command line, which outranks everything in the project.
+
 ---
 
 ## 5. Graphic assets
@@ -465,8 +486,15 @@ catalogue with legal artwork, and it means no screenshot ever shows a real provi
       Play's privacy-policy fetch would have failed had this not been caught
 - [ ] Mock panel deployed at `https://demo.dawnplayer.com`
 - [ ] Play developer account registered (start the 12-tester clock early — §3.5)
-- [ ] Apple Developer Program membership active — **the only thing blocking the iOS path**; the
-      certificate must be issued against a real team (§4.4)
+- [x] Apple Developer Program membership active (2026-08-31). Team `XTBG48BLG7`
+- [x] iOS signing works end to end. All 7 secrets loaded; run 33371032544 produced a **signed**
+      IPA (31.5 MB) whose `embedded.mobileprovision` is `Dawn Player App Store` for
+      `XTBG48BLG7.com.dawnplayer.app`, `get-task-allow false`, no provisioned devices —
+      a genuine App Store distribution build. Certificate valid to 2027-08-31
+- [ ] **App Store Connect app record** — queried the API: the account currently has **0 apps**.
+      Create it (iOS, `Dawn Player`, `com.dawnplayer.app`, SKU `dawnplayer-ios`) before any upload
+- [ ] Note: the legacy `com.example.aurora` App ID still exists in the portal from sideloading days.
+      Harmless; rename its description so it cannot be picked by mistake when issuing profiles
 - [x] iOS build verified on Xcode (run 32967296683, `plexus/apps`). The built `Info.plist` reads
       `com.dawnplayer.app`, `UIDeviceFamily [1]`, `ITSAppUsesNonExemptEncryption false`,
       `MinimumOSVersion 13.0`, version `1.0.0 (1)`; the app-level `PrivacyInfo.xcprivacy` is present

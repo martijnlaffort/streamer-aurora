@@ -502,8 +502,16 @@ catalogue with legal artwork, and it means no screenshot ever shows a real provi
 - [ ] iOS screenshots. The dev iPhone is a base iPhone 17 (6.3", 1206×2622) and the required 6.9"
       slot takes only 1320×2868 / 1290×2796 / 1260×2736 — so raw captures from it are not accepted.
       Either composite real captures into 1320×2868 designed screenshots, or borrow a 6.9" device
-- [ ] `flutter build ios` warns that plugins not adopting Swift Package Manager "will become an
-      error in a future version of Flutter". Not urgent, but it dates the toolchain pin
+- [x] Minimum iOS raised 13.0 -> 15.0, clearing Apple warning 90068 (uploads below 15.0 are
+      refused from Spring 2027). No reach lost: iOS 15 covers the same iPhone generations as 13
+- [x] Launch screen replaced. It was the Flutter placeholder — pure white background and a 1x1
+      transparent pixel — so every cold start flashed white before a near-black app. Now #0B0D12
+      with the icon at 120pt, alpha rounded corners
+- [x] Builds uploaded: build 1 (2026-08-31, `state=VALID` at Apple) and build 2 with both fixes
+      above. Build 2's validation reports **no errors and no warnings** at all
+- [ ] `flutter build ios` warns that plugins not adopting Swift Package Manager (media_kit_video,
+      media_kit_libs_ios_video) "will become an error in a future version of Flutter". Not urgent,
+      but it dates the toolchain pin
 - [x] Signed AAB produced and verified — signed `CN=Dawn Player, O=Laffort, C=NL`, ABIs
       arm64-v8a / armeabi-v7a / x86_64, all native libs stripped and 16 KB aligned.
       `build/` in this worktree is now a junction to `D:\dev\flutter-build\streamer-aurora-apps`

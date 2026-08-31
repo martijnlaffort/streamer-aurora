@@ -175,6 +175,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       selected: Icons.video_library,
       label: 'Series'
     ),
+    (
+      icon: Icons.apps_outlined,
+      selected: Icons.apps,
+      label: 'Providers'
+    ),
     (icon: Icons.search, selected: Icons.search, label: 'Search'),
     (icon: Icons.settings_outlined, selected: Icons.settings, label: 'Settings'),
   ];

@@ -9,6 +9,8 @@ import '../../features/live/presentation/multi_view_screen.dart';
 import '../../features/movies/presentation/movie_category_screen.dart';
 import '../../features/movies/presentation/movie_detail_screen.dart';
 import '../../features/movies/presentation/movies_screen.dart';
+import '../../features/providers/presentation/provider_detail_screen.dart';
+import '../../features/providers/presentation/providers_screen.dart';
 import '../../features/player/player_request.dart';
 import '../../features/player/presentation/player_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
@@ -93,6 +95,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
+                path: '/providers',
+                name: 'providers',
+                builder: (context, state) => const ProvidersScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
                 path: '/search',
                 name: 'search',
                 builder: (context, state) => const SearchScreen()),
@@ -131,6 +139,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             state.extra is PlayerRequest ? null : '/',
         builder: (context, state) =>
             PlayerScreen(request: state.extra! as PlayerRequest),
+      ),
+      GoRoute(
+        path: '/providers/:id',
+        name: 'providerDetail',
+        builder: (context, state) => ProviderDetailScreen(
+          brandId: Uri.decodeComponent(state.pathParameters['id']!),
+        ),
       ),
       GoRoute(
         path: '/guide',

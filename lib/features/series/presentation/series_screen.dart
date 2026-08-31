@@ -51,7 +51,7 @@ class SeriesScreen extends ConsumerWidget {
           child: CategoryRailsView(
             categories: list,
             railBuilder: (context, category) =>
-                _SeriesCategoryRail(category: category),
+                SeriesCategoryRail(category: category),
           ),
         ),
       ),
@@ -59,15 +59,15 @@ class SeriesScreen extends ConsumerWidget {
   }
 }
 
-class _SeriesCategoryRail extends ConsumerWidget {
-  const _SeriesCategoryRail({required this.category});
+class SeriesCategoryRail extends ConsumerWidget {
+  const SeriesCategoryRail({super.key, required this.category});
 
   final Category category;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rail = ref.watch(seriesCategoryRailProvider(category.id));
-    // See _MovieCategoryRail: rendered from the retained value so a reload or a
+    // See MovieCategoryRail: rendered from the retained value so a reload or a
     // transient error can never collapse a rail that has already loaded.
     final series = rail.value;
     if (series == null) {

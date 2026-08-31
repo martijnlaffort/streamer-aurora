@@ -62,7 +62,7 @@ class MoviesScreen extends ConsumerWidget {
           child: CategoryRailsView(
             categories: list,
             railBuilder: (context, category) =>
-                _MovieCategoryRail(category: category),
+                MovieCategoryRail(category: category),
           ),
         ),
       ),
@@ -70,8 +70,8 @@ class MoviesScreen extends ConsumerWidget {
   }
 }
 
-class _MovieCategoryRail extends ConsumerWidget {
-  const _MovieCategoryRail({required this.category});
+class MovieCategoryRail extends ConsumerWidget {
+  const MovieCategoryRail({super.key, required this.category});
 
   final Category category;
 

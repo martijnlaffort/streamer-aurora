@@ -236,7 +236,13 @@ if ($path === '/player_api.php') {
                 ],
                 'server_info' => [
                     'url' => $_SERVER['HTTP_HOST'] ?? '127.0.0.1:8082',
-                    'server_protocol' => 'http', 'timezone' => 'UTC',
+                    // Behind Ploi's TLS the panel is https, and a client that
+                    // believed a hardcoded 'http' would build stream URLs the
+                    // reviewer's device refuses. X-Forwarded-Proto first, since
+                    // nginx terminates TLS in front of PHP-FPM.
+                    'server_protocol' => $_SERVER['HTTP_X_FORWARDED_PROTO']
+                        ?? (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off' ? 'http' : 'https'),
+                    'timezone' => 'UTC',
                     'timestamp_now' => time(),
                 ],
             ]);

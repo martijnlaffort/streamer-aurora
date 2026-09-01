@@ -1,0 +1,4 @@
+# A test panel for store reviewers. Nothing here is worth indexing, and a
+# crawler walking 200 films' worth of generated JSON is pure waste.
+User-agent: *
+Disallow: /

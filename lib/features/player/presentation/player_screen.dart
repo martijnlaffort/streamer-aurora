@@ -65,6 +65,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   late final WatchProgressRepository _progressRepo =
       ref.read(watchProgressRepositoryProvider);
 
+  /// Same reason as [_progressRepo]. Reading this through `ref` in [dispose]
+  /// throws once the element is being unmounted — and because it was the first
+  /// statement there, the throw took the rest of dispose with it: no progress
+  /// saved, the mpv player never released, and the orientation left locked to
+  /// landscape.
+  late final PlaybackActivity _playbackActivity =
+      ref.read(playbackActivityProvider);
+
   // Clamped: a caller can hand over a stale or -1 start index (an episode that
   // fell out of a refreshed list), and `queue[_index]` must never RangeError.
   late int _index =
@@ -179,7 +187,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     WidgetsBinding.instance.addObserver(this);
     // Keep background catalogue catch-up off the connection while we stream —
     // it is a big enough fetch to show up as buffering.
-    ref.read(playbackActivityProvider).enter();
+    _playbackActivity.enter();
     // PopScope's canPop depends on where focus currently sits, and focus
     // changes do not rebuild by themselves.
     _keyboardFocus.addListener(() {
@@ -303,7 +311,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   @override
   void dispose() {
     _castSub?.cancel();
-    ref.read(playbackActivityProvider).leave();
+    _playbackActivity.leave();
     WidgetsBinding.instance.removeObserver(this);
     // Save on exit (PRD §8.9) before the player goes away.
     if (_position > Duration.zero && _duration > Duration.zero) {

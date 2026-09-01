@@ -197,13 +197,20 @@ Future<void> _player(
   Account account,
 ) async {
   try {
-    final films =
-        await container.read(catalogRepositoryProvider).movies(account, limit: 1);
+    // Lowest id, not first alphabetically: the panel gives its first film the
+    // ten-minute one and alternates from there, and a 52-second trailer can run
+    // out from under a capture that arrives late.
+    final films = await container
+        .read(catalogRepositoryProvider)
+        .movies(account, limit: 50);
     if (films.isEmpty) {
       _log('no films cached — skipping the player shot');
       return;
     }
-    final film = films.first;
+    final film = films.reduce((a, b) =>
+        (int.tryParse(a.id) ?? 1 << 30) <= (int.tryParse(b.id) ?? 1 << 30)
+            ? a
+            : b);
     router.push(
       '/player',
       extra: PlayerRequest(
@@ -223,6 +230,10 @@ Future<void> _player(
             ),
           ),
         ],
+        // Films open on production logos over black. Starting forty seconds in
+        // lands on actual footage, and exercises resume — the thing the listing
+        // leads with — in the same frame.
+        resumeFromSeconds: 40,
       ),
     );
     // The device rotates, the stream opens, and mpv decodes a frame — in

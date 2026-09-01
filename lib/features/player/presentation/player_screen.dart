@@ -658,6 +658,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   // --- Overlay helpers -------------------------------------------------------
 
   void _scheduleHide() {
+    // A screenshot of the player with its controls faded out is a screenshot of
+    // a video, not of an app. Nothing taps this simulator, so the chrome would
+    // never come back.
+    if (screenshotTourEnabled) return;
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(milliseconds: 3200), () {
       if (mounted && _playing && _error == null) {

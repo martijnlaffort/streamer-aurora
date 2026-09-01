@@ -36,8 +36,13 @@ App Review, which is precisely what triggers **guideline 5.2.3** (proof of right
 
 `tool/mock_xtream.php` is a complete Xtream Codes panel whose stream URLs redirect only to legal,
 publicly available sources — Apple's multi-audio/subtitle HLS sample, DW English and Red Bull TV
-(both free-to-air), and Big Buck Bunny clips. It speaks enough of `player_api.php` for the app's
-full feature set: auth, categories, live, VOD, series, and short EPG.
+(both free-to-air), and the Blender Foundation's Big Buck Bunny and Sintel, both CC-BY. It speaks
+enough of `player_api.php` for the app's full feature set: auth, categories, live, VOD, series,
+and short EPG.
+
+The films are the full ten-minute Big Buck Bunny and the 52-second Sintel trailer, not the
+ten-second clips this started with. Length is not cosmetic: a "film" that ends before you have
+finished reading its title reads as a broken app to anyone reviewing it.
 
 Deploy it at a stable public URL, e.g. `https://demo.dawnplayer.com`, and give both stores:
 
@@ -288,8 +293,9 @@ DEMO ACCOUNT — LEGAL CONTENT ONLY
 
 The demo credentials below connect to a test panel we operate that serves only legal, publicly
 available streams: Apple's own sample HLS stream, DW English and Red Bull TV (both free-to-air),
-and Big Buck Bunny (Creative Commons). Nothing reachable through these credentials is
-copyrighted material we lack the right to make available.
+and the Blender Foundation's Big Buck Bunny and Sintel (both Creative Commons Attribution).
+Nothing reachable through these credentials is copyrighted material we lack the right to make
+available.
 
   Server:   https://demo.dawnplayer.com
   Username: aurora

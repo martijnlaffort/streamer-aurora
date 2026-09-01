@@ -42,7 +42,18 @@ and short EPG.
 
 The films are the full ten-minute Big Buck Bunny and the 52-second Sintel trailer, not the
 ten-second clips this started with. Length is not cosmetic: a "film" that ends before you have
-finished reading its title reads as a broken app to anyone reviewing it.
+finished reading its title reads as a broken app to anyone reviewing it. They are also *named*
+after themselves, so the catalogue says what it serves.
+
+**No real titles in the demo catalogue.** The panel has a `MOCK_CANON=1` mode that fills it with
+real award winners — `Oppenheimer 2023 4K`, `Breaking Bad` — so the discovery rails have something
+to resolve against. That is useful on a laptop and indefensible anywhere else: a demo library
+advertising those titles to App Review *is* the 5.2.3 accusation, made by us, on our own demo
+account. It is off by default, `deploy/demo/index.php` forces it off again, and it was caught in a
+store screenshot reading "Oppenheimer 2023 4K" over a cartoon rabbit.
+
+The cost is that the home screenshot has no Award Winners rails, because nothing in the demo
+catalogue is an award winner. Continue Watching carries that screen instead.
 
 Deploy it at a stable public URL, e.g. `https://demo.dawnplayer.com`, and give both stores:
 

@@ -122,10 +122,13 @@ Future<Account> _seed(ProviderContainer container) async {
     _log('guide failed: $error');
   }
 
-  // Three part-watched films. Positions sit inside the §8.9 resume window
-  // (5%–95%), because outside it the app is right to offer nothing.
+  // Part-watched films, at positions inside the §8.9 resume window (5%–95%),
+  // because outside it the app is right to offer nothing. Six rather than
+  // three: the discovery rails below need real award-winning titles to resolve
+  // against, and the demo panel deliberately has none, so Continue Watching is
+  // the whole of the home screenshot and a half-empty row would show it.
   final progress = container.read(watchProgressRepositoryProvider);
-  final films = await catalog.movies(account, limit: 3);
+  final films = await catalog.movies(account, limit: 6);
   for (final (index, film) in films.indexed) {
     await progress.savePosition(
       contentKey: contentKeyFor(

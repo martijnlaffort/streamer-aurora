@@ -105,7 +105,21 @@ function mock_channel(int $i): array
  * have something to resolve against. The generated `Silent Harbor 12` names
  * match nothing by design, which would make an empty rail look like a bug.
  * These occupy the first indices; everything after is generated as before.
+ *
+ * OFF BY DEFAULT, and it must stay off anywhere a stranger can see it — set
+ * `MOCK_CANON=1` for local work on the rails and nowhere else.
+ *
+ * The reason is the whole reason this panel exists. A catalogue listing
+ * "Oppenheimer 2023 4K" in front of App Review is the guideline 5.2.3
+ * accusation, made by us, on our own demo account — and it read exactly that
+ * way in a store screenshot before anyone noticed. What the panel actually
+ * streams is Big Buck Bunny; with this off, that is also what it says.
  */
+function canon_sample_enabled(): bool
+{
+    return getenv('MOCK_CANON') === '1';
+}
+
 const CANON_SAMPLE = [
     ['Oppenheimer 2023 4K', 2023],
     ['EN - Parasite (2019)', 2019],
@@ -129,11 +143,35 @@ const CANON_SAMPLE = [
     ['One Flew Over the Cuckoos Nest 1975', 1975],
 ];
 
+/**
+ * The two films the panel really serves, named after themselves. Honest, and it
+ * means the player screenshot says "Big Buck Bunny (2008)" over Big Buck Bunny
+ * rather than somebody else's title over a cartoon rabbit.
+ */
+const REAL_FILMS = [
+    ['Big Buck Bunny (2008)', 2008],
+    ['Sintel (2010)', 2010],
+];
+
 /** Movie by index (0-based). Ids start at 1001. */
 function mock_movie(int $i): array
 {
     $catCount = count($GLOBALS['VOD_CATEGORIES']);
-    if ($i < count(CANON_SAMPLE)) {
+    if ($i < count(REAL_FILMS)) {
+        [$name, $year] = REAL_FILMS[$i];
+        return [
+            'id'     => 1001 + $i,
+            'name'   => $name,
+            'cat'    => (string) (20 + $i % $catCount),
+            'year'   => $year,
+            'rating' => $i === 0 ? '8.2' : '7.9',
+            'added'  => time() - $i * 3600,
+            // Index 0 is the ten-minute film, and the screenshot tour asks for
+            // the lowest id on purpose. Keep them in this order.
+            'url'    => $GLOBALS['MOVIE_CLIP_URLS'][$i % 2],
+        ];
+    }
+    if (canon_sample_enabled() && $i < count(CANON_SAMPLE)) {
         [$realName, $realYear] = CANON_SAMPLE[$i];
         return [
             'id'     => 1001 + $i,
@@ -169,7 +207,10 @@ const CANON_SAMPLE_SERIES = [
 function mock_series(int $i): array
 {
     $catCount = count($GLOBALS['SERIES_CATEGORIES']);
-    if ($i < count(CANON_SAMPLE_SERIES)) {
+    // Same rule as the films: real titles only when MOCK_CANON=1, which is
+    // never true anywhere a reviewer or a screenshot can reach. A demo library
+    // advertising Breaking Bad is the 5.2.3 problem, not a demonstration of it.
+    if (canon_sample_enabled() && $i < count(CANON_SAMPLE_SERIES)) {
         [$realName, $realYear] = CANON_SAMPLE_SERIES[$i];
         return [
             'id'     => 15 + $i,

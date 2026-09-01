@@ -24,6 +24,13 @@ putenv('MOCK_SCOUNT=24');
 // is a free denial-of-service, so the overrides do not exist here.
 unset($_GET['count'], $_GET['scount'], $_GET['lcount']);
 
+// Belt and braces. MOCK_CANON fills the catalogue with real award-winning
+// titles so the discovery rails have something to resolve against, which is
+// useful on a laptop and indefensible here: a demo library advertising
+// Oppenheimer and Breaking Bad to App Review *is* the guideline 5.2.3 problem.
+// It defaults to off; this makes sure a stray server env cannot turn it on.
+putenv('MOCK_CANON=0');
+
 // Deployed from the repo (Ploi git deploy, web directory /deploy/demo) the
 // panel is two levels up. Uploaded by hand, it sits next to this file.
 $panel = dirname(__DIR__, 2) . '/tool/mock_xtream.php';

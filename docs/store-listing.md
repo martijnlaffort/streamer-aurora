@@ -423,6 +423,29 @@ Both `--validate-app` and `--upload-app` require the app record to exist first. 
 with `submit_to_testflight` unchecked until it does: that exercises the entire signing path and
 produces a signed IPA artifact without touching App Store Connect.
 
+### 4.5 Filling the listing without retyping it
+
+`tool/asc.mjs` writes the listing into App Store Connect over its API, from
+`tool/asc-listing.json` — the machine-readable mirror of §4.1 and §4.3 above. Change wording in one
+and change it in the other; the prose here is what a human reads, the JSON is what gets pushed.
+
+```powershell
+$env:ASC_ISSUER_ID = "<Users and Access → Integrations → Issuer ID>"
+node tool/asc.mjs status          # what ASC currently holds
+node tool/asc.mjs push --dry-run  # what would change
+node tool/asc.mjs push            # name, subtitle, description, keywords, urls,
+                                  # review notes, demo credentials, age rating
+node tool/asc.mjs shots build/screenshots   # upload the 6.9" set, in page order
+```
+
+It authenticates with the same `AuthKey_*.p8` the release workflow uses (`ASC_KEY_ID` defaults to
+`77QHZJDRNT`, the key file to `%USERPROFILE%\dawnplayer-ios\`). ES256 tokens must carry a raw r‖s
+signature — Node signs DER by default and Apple answers a DER-signed token with a bare 401, which
+is a long afternoon if you do not know it.
+
+It deliberately does **not** submit for review, set pricing, or accept agreements. Those carry legal
+attestations that belong to a person clicking them.
+
 #### Troubleshooting: "No development certificates available to code sign app"
 
 Hit on the first signed build, and misleading — it appears even with a valid Apple Distribution
@@ -462,46 +485,77 @@ None of these exist yet. Dimensions are exact requirements, not suggestions.
 
 | Asset | Spec | Notes |
 |---|---|---|
-| App icon | 1024×1024 PNG, no alpha, no rounded corners | From `assets/icon/dawn_icon.png` |
-| 6.9" iPhone | 1320×2868 or 2868×1320 | Required |
-| 6.5" iPhone | 1242×2688 or 2688×1242 | Required |
-| 13" iPad | 2064×2752 or 2752×2064 | Required only while `TARGETED_DEVICE_FAMILY = "1,2"`. Either produce them or drop iPad support — do not ship a stretched phone UI |
+| App icon | 1024×1024 PNG, no alpha, no rounded corners | Ships inside the binary from `assets/icon/dawn_icon.png`; App Store Connect reads it from there |
+| 6.9" iPhone | 1320×2868 or 2868×1320 | The only screenshot size still required. Produced by the workflow below |
+| 6.5" iPhone | 1242×2688 | No longer required — App Store Connect scales the 6.9" set down |
+| 13" iPad | 2064×2752 | Not applicable. `TARGETED_DEVICE_FAMILY = "1"`, so the app is iPhone-only and ASC does not ask |
 
 Screenshots need a running app on the right form factor, so they come after the emulator/device
 pass, not before. Use the mock panel from §2 to populate them — it gives a full, realistic
 catalogue with legal artwork, and it means no screenshot ever shows a real provider's channel list.
 
+### 5.1 How the iPhone screenshots are produced
+
+The development iPhone is a base iPhone 17 — 6.3", 1206×2622 — and the 6.9" slot takes only
+1320×2868. Rather than composite real captures into designed frames (artwork to redo by hand every
+release), `.github/workflows/ios-screenshots.yml` captures them on a simulator that is natively
+that size.
+
+It runs `tool/mock_xtream.php` on the runner itself, boots an iPhone Pro Max simulator, overrides
+the status bar to Apple's 9:41 convention, and launches the app with `--dart-define=DAWN_TOUR=true`.
+That switch turns on `lib/tour/screenshot_tour.dart`, which seeds the demo account, caches the
+catalogue and the guide, leaves three films part-watched so Continue Watching is not an empty row,
+then walks home → live → guide → films → a series → the player, printing a marker line at each stop.
+
+The capture itself happens outside Flutter, via `xcrun simctl io … screenshot`, because a
+Flutter-side screenshot renders only the Flutter layer — the player would come out as a black
+rectangle where the video is. The job then asserts every PNG is exactly 1320×2868 and fails if one
+is not, which is the check that would otherwise happen as a rejection.
+
+The tour is a capture harness, not a test suite: nothing asserts, and a stop that throws is logged
+and skipped so the rest of the run still yields its images. `screenshotTourEnabled` is a
+`const false` in every normal build, so all of it compiles out of a release.
+
+The player shot deliberately plays Big Buck Bunny rather than a live channel: it is Creative
+Commons, so the one screenshot containing video contains nothing anybody else owns, and a film also
+puts the seek bar in frame, which live playback hides.
+
 ---
 
 ## 6. Open items before submission
 
-- [ ] `support@dawnplayer.com` created and receiving mail. The domain is on Cloudflare with **no MX
-      records**, so Cloudflare Email Routing (free) forwards `support@` to a personal mailbox
-      without overwriting anything. Receiving is enough for both stores; sending needs a real mailbox
+- [x] `support@dawnplayer.com` — Cloudflare Email Routing configured 2026-09-01; `dawnplayer.com`
+      MX now answers `route1/2/3.mx.cloudflare.net`. Send it a test mail from outside and confirm it
+      lands before submitting; receiving is enough for both stores, sending needs a real mailbox
 - [x] `dawnplayer.com` DNS — already resolving to GitHub Pages (185.199.108-111.153) before any of
       this work; nothing to configure
 - [x] `site/` merged to `plexus/site` and deployed 2026-08-26 (run 32977270235). Verified live:
       `/privacy.html` and `/support.html` both 200, and `robots.txt` now serves the Allow rules.
       Worth noting the blanket `Disallow: /` had been live and effective on the custom domain, so
       Play's privacy-policy fetch would have failed had this not been caught
-- [ ] Mock panel deployed at `https://demo.dawnplayer.com`
+- [ ] Mock panel deployed at `https://demo.dawnplayer.com`. The web root and a click-by-click Ploi
+      runbook are in `deploy/demo/` — verified locally (60 live / 200 films / 24 series, the
+      `?count=` overrides stripped, streams redirecting to the real CDNs). What is left is the Ploi
+      site, the Cloudflare `A` record and Let's Encrypt, all of which are dashboard work
 - [ ] Play developer account registered (start the 12-tester clock early — §3.5)
 - [x] Apple Developer Program membership active (2026-08-31). Team `XTBG48BLG7`
 - [x] iOS signing works end to end. All 7 secrets loaded; run 33371032544 produced a **signed**
       IPA (31.5 MB) whose `embedded.mobileprovision` is `Dawn Player App Store` for
       `XTBG48BLG7.com.dawnplayer.app`, `get-task-allow false`, no provisioned devices —
       a genuine App Store distribution build. Certificate valid to 2027-08-31
-- [ ] **App Store Connect app record** — queried the API: the account currently has **0 apps**.
-      Create it (iOS, `Dawn Player`, `com.dawnplayer.app`, SKU `dawnplayer-ios`) before any upload
+- [x] **App Store Connect app record** created 2026-09-01
 - [ ] Note: the legacy `com.example.aurora` App ID still exists in the portal from sideloading days.
       Harmless; rename its description so it cannot be picked by mistake when issuing profiles
 - [x] iOS build verified on Xcode (run 32967296683, `plexus/apps`). The built `Info.plist` reads
       `com.dawnplayer.app`, `UIDeviceFamily [1]`, `ITSAppUsesNonExemptEncryption false`,
       `MinimumOSVersion 13.0`, version `1.0.0 (1)`; the app-level `PrivacyInfo.xcprivacy` is present
       in `Runner.app`, and all six bundled fonts plus both OFL texts ship in `flutter_assets`
-- [ ] iOS screenshots. The dev iPhone is a base iPhone 17 (6.3", 1206×2622) and the required 6.9"
-      slot takes only 1320×2868 / 1290×2796 / 1260×2736 — so raw captures from it are not accepted.
-      Either composite real captures into 1320×2868 designed screenshots, or borrow a 6.9" device
+- [ ] iOS screenshots. Harness built (§5.1): `ios-screenshots.yml` + `lib/tour/screenshot_tour.dart`
+      capture six 1320×2868 PNGs on a Pro Max simulator. What is outstanding is running it, looking
+      at what comes out, and uploading with `node tool/asc.mjs shots <dir>`
+- [ ] Listing text pushed to ASC — `tool/asc.mjs` is written and its auth path is verified against
+      Apple (a bogus issuer id gets a proper 401, so the ES256 signing is right). Needs the real
+      **Issuer ID**, and `contactPhone` filled in `tool/asc-listing.json` before review details push
 - [x] Minimum iOS raised 13.0 -> 15.0, clearing Apple warning 90068 (uploads below 15.0 are
       refused from Spring 2027). No reach lost: iOS 15 covers the same iPhone generations as 13
 - [x] Launch screen replaced. It was the Flutter placeholder — pure white background and a 1x1

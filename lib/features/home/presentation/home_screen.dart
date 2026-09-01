@@ -9,6 +9,7 @@ import '../../../core/platform/television.dart';
 import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/shell_actions.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../../data/providers.dart';
@@ -129,11 +130,21 @@ class _HomeContent extends ConsumerWidget {
         slivers: [
           // The featured hero used to fill the top, but it only ever spotlit an
           // unfamiliar recently-added title, so Home now opens straight into
-          // Continue Watching and the rails. This just clears the status bar /
-          // overscan the hero used to sit behind. (On TV the shell routes the
-          // first D-pad press into the content, so nothing needs autofocus.)
+          // Continue Watching and the rails, and this strip clears the status
+          // bar / overscan the hero used to sit behind.
+          //
+          // Home has no app bar, so the shared tools live in that strip rather
+          // than costing a whole bar of height. ShellActions draws nothing on a
+          // television, where the rail already carries both.
           SliverToBoxAdapter(
-            child: SizedBox(height: MediaQuery.paddingOf(context).top + 8),
+            child: Padding(
+              padding:
+                  EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+              child: const Align(
+                alignment: Alignment.centerRight,
+                child: ShellActions(),
+              ),
+            ),
           ),
           if (data.continueWatching.isNotEmpty)
             SliverToBoxAdapter(

@@ -184,6 +184,18 @@ class _AppShellState extends ConsumerState<AppShell> {
     (icon: Icons.settings_outlined, selected: Icons.settings, label: 'Settings'),
   ];
 
+  /// Which branches the PHONE's bottom bar carries.
+  ///
+  /// Search and Settings are deliberately absent: seven destinations is past
+  /// what a bottom bar can hold legibly, and those two are tools rather than
+  /// places — everything left in the bar is somewhere content lives. They move
+  /// to the app bar (see [ShellActions]), which is also where a phone user's
+  /// thumb expects a search icon.
+  ///
+  /// The television keeps all seven. A vertical rail has the room, and a
+  /// top-right icon is a long walk with a D-pad.
+  static const _phoneBarBranches = [0, 1, 2, 3, 4];
+
   void _go(int index) {
     shell.goBranch(
       index,
@@ -212,14 +224,19 @@ class _AppShellState extends ConsumerState<AppShell> {
       bottomNavigationBar: NavigationBar(
         backgroundColor: AppColors.surface,
         indicatorColor: AppColors.accent.withValues(alpha: 0.24),
-        selectedIndex: shell.currentIndex,
-        onDestinationSelected: _go,
+        // Search and Settings are branches the bar does not carry, so while one
+        // of them is showing there is no bar item to light up. Fall back to the
+        // first rather than leave the bar in an impossible state — the bar has
+        // to stay usable, since it is the only way back to the content tabs.
+        selectedIndex: _phoneBarBranches.indexOf(shell.currentIndex).clamp(0,
+            _phoneBarBranches.length - 1),
+        onDestinationSelected: (i) => _go(_phoneBarBranches[i]),
         destinations: [
-          for (final d in _destinations)
+          for (final branch in _phoneBarBranches)
             NavigationDestination(
-                icon: Icon(d.icon),
-                selectedIcon: Icon(d.selected),
-                label: d.label),
+                icon: Icon(_destinations[branch].icon),
+                selectedIcon: Icon(_destinations[branch].selected),
+                label: _destinations[branch].label),
         ],
       ),
     );

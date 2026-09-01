@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/shell_actions.dart';
 import '../providers_providers.dart';
 
 /// Browse by streaming service.
@@ -21,7 +22,10 @@ class ProvidersScreen extends ConsumerWidget {
     final shelves = ref.watch(providerShelvesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Providers')),
+      appBar: AppBar(
+        title: const Text('Providers'),
+        actions: const [ShellActions()],
+      ),
       body: shelves.when(
         // A background sync must never blank a screen that already has content.
         skipLoadingOnReload: true,

@@ -48,6 +48,15 @@ jobs:
       # 127.0.0.1 in the app. ATS already allows plain HTTP.
       - name: Serve the mock panel on the runner
         run: |
+          # The macOS runner images stopped shipping PHP. Installing it costs a
+          # couple of minutes and is still cheaper than porting the panel to a
+          # second language and keeping the two in step.
+          if ! command -v php > /dev/null; then
+            echo "no php on this image — installing"
+            brew install php
+          fi
+          php -v | head -n 1
+
           nohup php -S 127.0.0.1:8082 tool/mock_xtream.php > mock.log 2>&1 &
           for _ in $(seq 1 20); do
             if curl -sf "http://127.0.0.1:8082/player_api.php?username=aurora&password=test" | grep -q '"auth":1'; then

@@ -553,9 +553,19 @@ puts the seek bar in frame, which live playback hides.
 - [ ] iOS screenshots. Harness built (§5.1): `ios-screenshots.yml` + `lib/tour/screenshot_tour.dart`
       capture six 1320×2868 PNGs on a Pro Max simulator. What is outstanding is running it, looking
       at what comes out, and uploading with `node tool/asc.mjs shots <dir>`
-- [ ] Listing text pushed to ASC — `tool/asc.mjs` is written and its auth path is verified against
-      Apple (a bogus issuer id gets a proper 401, so the ES256 signing is right). Needs the real
-      **Issuer ID**, and `contactPhone` filled in `tool/asc-listing.json` before review details push
+- [x] Listing text pushed to ASC 2026-09-01 via `tool/asc.mjs push`, and read back: name, subtitle,
+      privacy URL, a 2305-character description, keywords, promotional text, support and marketing
+      URLs, and the age-rating questionnaire (`unrestrictedWebAccess: true`). Issuer ID
+      `9b8c74b9-d412-4772-8500-b5dde7e6b3d5`
+- [x] Version string corrected **1.0 → 1.0.0**. The record Apple created said `1.0` while both
+      binaries say `1.0.0`; a build is only offered for a version whose string matches its
+      `CFBundleShortVersionString`, so the build picker would have been empty with no explanation
+- [ ] **Review details** — blocked on a contact phone number. Fill `contactPhone` in
+      `tool/asc-listing.json` and re-run `node tool/asc.mjs push`; the script refuses to write a
+      half-filled review detail, because one that looks answered is worse than one that is empty
+- [ ] Left in the web UI by design, because they carry attestations a script should not make:
+      pricing (Free), availability, the App Privacy nutrition label (**Data Not Collected**),
+      attaching build 2, and Submit
 - [x] Minimum iOS raised 13.0 -> 15.0, clearing Apple warning 90068 (uploads below 15.0 are
       refused from Spring 2027). No reach lost: iOS 15 covers the same iPhone generations as 13
 - [x] Launch screen replaced. It was the Flutter placeholder — pure white background and a 1x1

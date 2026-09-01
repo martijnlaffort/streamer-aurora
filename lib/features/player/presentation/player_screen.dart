@@ -23,6 +23,7 @@ import '../../../data/sync/playback_activity.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart'
     show Preferences, StreamRef, StreamType, contentKeyFor;
+import '../../../tour/screenshot_tour.dart' show screenshotTourEnabled;
 import '../player_request.dart';
 import 'cast_picker.dart';
 
@@ -501,6 +502,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       final platform = _player.platform;
       if (platform is NativePlayer) {
         await platform.setProperty('user-agent', kStreamUserAgent);
+        // A CI runner has no sound card, so mpv fails to open an audio device
+        // and the stall that follows looks to us like a dropped stream — the
+        // screenshot of the player came back reading "Reconnecting…". Only the
+        // screenshot build takes this branch.
+        if (screenshotTourEnabled) {
+          await platform.setProperty('ao', 'null');
+        }
       }
       await _player.open(Media(url));
       if (!mounted) return;

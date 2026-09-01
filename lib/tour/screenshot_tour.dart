@@ -18,6 +18,7 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/widgets.dart' show WidgetsBinding;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -145,6 +146,14 @@ Future<Account> _seed(ProviderContainer container) async {
 Future<void> _walk(ProviderContainer container, Account account) async {
   final router = container.read(appRouterProvider);
   final catalog = container.read(catalogRepositoryProvider);
+
+  // Seeding can finish inside a second when the panel is on the same machine,
+  // which is sooner than a debug build rasterises its first frame — one run
+  // photographed the launch screen and called it the home screen. Waiting on an
+  // actual completed frame is the only honest signal that there is something on
+  // screen to photograph; the cushion covers the fonts and posters after it.
+  await WidgetsBinding.instance.endOfFrame;
+  await Future<void>.delayed(const Duration(seconds: 4));
 
   await _stop(router, '/', 'home');
   await _stop(router, '/live', 'live');

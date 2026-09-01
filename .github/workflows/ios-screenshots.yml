@@ -57,6 +57,10 @@ jobs:
           fi
           php -v | head -n 1
 
+          # A catalogue that looks like a real line rather than a test fixture.
+          # Live channels past the first three reuse those three real streams
+          # round-robin, so every row in the list still plays.
+          export MOCK_LCOUNT=60 MOCK_COUNT=200 MOCK_SCOUNT=24
           nohup php -S 127.0.0.1:8082 tool/mock_xtream.php > mock.log 2>&1 &
           for _ in $(seq 1 20); do
             if curl -sf "http://127.0.0.1:8082/player_api.php?username=aurora&password=test" | grep -q '"auth":1'; then
@@ -98,6 +102,10 @@ jobs:
             --dataNetwork wifi --wifiMode active --wifiBars 3 \
             --cellularMode notSupported \
             --batteryState charged --batteryLevel 100
+          # The first screenshot after a boot takes several seconds; every one
+          # after it takes about one. Spend that here rather than inside the
+          # window where the app is holding a screen still.
+          time xcrun simctl io "$udid" screenshot /tmp/warmup.png
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
       - name: Run the tour and capture each stop
@@ -119,12 +127,21 @@ jobs:
           ( tail -n +1 -f run.log & echo $! > tail.pid ) | while IFS= read -r line; do
             case "$line" in
               *DAWN_SHOT:*)
-                name="${line##*DAWN_SHOT:}"
-                name="${name%%[[:space:]]*}"
-                sleep 1.5
-                xcrun simctl io "$udid" screenshot --type=png "screenshots/${name}.png" \
-                  && echo "captured ${name}" \
-                  || echo "capture of ${name} failed"
+                rest="${line##*DAWN_SHOT:}"
+                name="${rest%%[[:space:]]*}"
+                sleep 0.5
+                if xcrun simctl io "$udid" screenshot --type=png "screenshots/${name}.png"; then
+                  # The player locks the device to landscape, but simctl
+                  # photographs the framebuffer in its physical orientation —
+                  # so that frame arrives portrait with the UI on its side.
+                  case "$rest" in
+                    *LANDSCAPE*) sips -r -90 "screenshots/${name}.png" > /dev/null
+                                 echo "captured ${name} (rotated to landscape)" ;;
+                    *)           echo "captured ${name}" ;;
+                  esac
+                else
+                  echo "capture of ${name} failed"
+                fi
                 ;;
               *DAWN_TOUR_LOG*) echo "$line" ;;
               *DAWN_TOUR_DONE*) echo "tour finished"; break ;;
@@ -150,8 +167,10 @@ jobs:
             w=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}')
             h=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}')
             echo "$f  ${w}x${h}"
-            if [ "$w" != "1320" ] || [ "$h" != "2868" ]; then
-              echo "  ^ not 1320x2868 — App Store Connect will refuse this"
+            # The 6.9" slot takes either orientation, and the player is
+            # landscape-only, so both shapes are correct — anything else is not.
+            if [ "${w}x${h}" != "1320x2868" ] && [ "${w}x${h}" != "2868x1320" ]; then
+              echo "  ^ neither 1320x2868 nor 2868x1320 — ASC will refuse this"
               fail=1
             fi
           done

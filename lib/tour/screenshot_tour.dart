@@ -44,18 +44,26 @@ const String _server = String.fromEnvironment(
 /// marker is printed.
 const Duration _settle = Duration(seconds: 5);
 
-/// How long the app then holds still. The watcher fires its capture about a
-/// second into this, so the margin absorbs a slow `simctl`.
-const Duration _hold = Duration(seconds: 4);
+/// How long the app then holds still.
+///
+/// Generous on purpose. The watcher reads markers out of a log the Flutter tool
+/// is still writing to, and `simctl io screenshot` itself takes seconds — the
+/// first one after boot took seven. A four-second hold meant the capture landed
+/// on the *next* screen, and the home shot came out as the live list.
+const Duration _hold = Duration(seconds: 12);
 
 void _log(String message) {
   // ignore: avoid_print
   print('DAWN_TOUR_LOG $message');
 }
 
-Future<void> _capture(String name) async {
+/// [landscape] tells the watcher to rotate the capture. The player locks the
+/// device to landscape, but `simctl` photographs the framebuffer in its
+/// physical orientation, so the frame comes back portrait with the UI on its
+/// side.
+Future<void> _capture(String name, {bool landscape = false}) async {
   // ignore: avoid_print
-  print('DAWN_SHOT:$name');
+  print('DAWN_SHOT:$name${landscape ? ' LANDSCAPE' : ''}');
   await Future<void>.delayed(_hold);
 }
 
@@ -200,10 +208,11 @@ Future<void> _player(
         ],
       ),
     );
-    // Longer than a normal stop: the stream has to open and decode a frame
-    // before there is anything worth photographing.
-    await Future<void>.delayed(const Duration(seconds: 9));
-    await _capture('player');
+    // Longer than a normal stop: the device rotates, the stream opens, and mpv
+    // decodes a frame — in software on a simulator, since videotoolbox has no
+    // hardware to hand — before there is anything worth photographing.
+    await Future<void>.delayed(const Duration(seconds: 14));
+    await _capture('player', landscape: true);
     router.pop();
   } catch (error) {
     _log('player stop failed: $error');

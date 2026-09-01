@@ -208,10 +208,12 @@ Future<void> _player(
         ],
       ),
     );
-    // Longer than a normal stop: the device rotates, the stream opens, and mpv
-    // decodes a frame — in software on a simulator, since videotoolbox has no
-    // hardware to hand — before there is anything worth photographing.
-    await Future<void>.delayed(const Duration(seconds: 14));
+    // The device rotates, the stream opens, and mpv decodes a frame — in
+    // software on a simulator, since videotoolbox has no hardware to hand.
+    // Measured at about five and a half seconds. Waiting much longer than that
+    // is not free: the demo clip runs ten seconds, and a screenshot taken at
+    // 0:09 of 0:10 shows a play button over a stopped film.
+    await Future<void>.delayed(const Duration(seconds: 11));
     await _capture('player', landscape: true);
     router.pop();
   } catch (error) {

@@ -274,8 +274,28 @@ async function push() {
   }
   say(`name, subtitle, privacy policy url  (${infoLoc.attributes.locale})`);
 
-  // 2. Description, keywords, promo text, URLs.
+  // 2. The version string itself. A build is only offered for a version whose
+  //    string matches its CFBundleShortVersionString exactly — an ASC record
+  //    saying "1.0" against binaries saying "1.0.0" shows an empty build picker
+  //    and no hint as to why.
   const version = await editableVersion(record.id);
+  if (version.attributes.versionString !== LISTING.versionString) {
+    if (!dry) {
+      await api('PATCH', `/v1/appStoreVersions/${version.id}`, {
+        data: {
+          type: 'appStoreVersions',
+          id: version.id,
+          attributes: { versionString: LISTING.versionString },
+        },
+      });
+    }
+    say(
+      `version string ${version.attributes.versionString} → ${LISTING.versionString}` +
+        ' (so the uploaded builds can be attached)',
+    );
+  }
+
+  // 3. Description, keywords, promo text, URLs.
   const verLocs = await api(
     'GET',
     `/v1/appStoreVersions/${version.id}/appStoreVersionLocalizations`,
@@ -310,7 +330,7 @@ async function push() {
     say(`description, keywords, promo text, urls  (${verLoc.attributes.locale})`);
   }
 
-  // 3. Review notes and the demo account. Apple requires a phone number, and a
+  // 4. Review notes and the demo account. Apple requires a phone number, and a
   //    half-filled review detail is worse than none — it looks answered.
   const detail = { ...LISTING.reviewDetail };
   delete detail._comment;
@@ -346,7 +366,7 @@ async function push() {
     say('review notes, demo credentials, review contact');
   }
 
-  // 4. Age rating. Apple has reshaped this questionnaire more than once, so a
+  // 5. Age rating. Apple has reshaped this questionnaire more than once, so a
   //    rejected field is reported rather than fatal — the rest still lands.
   const age = { ...LISTING.ageRating };
   delete age._comment;

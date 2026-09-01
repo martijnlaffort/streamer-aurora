@@ -1,0 +1,170 @@
+# App Store screenshots, captured on a simulator that is exactly the size the
+# 6.9" slot demands (1320x2868). The development iPhone is a 6.3", so its
+# captures are refused outright — and compositing them into designed frames
+# would mean redoing that artwork by hand on every release.
+#
+# The app drives itself: `--dart-define=DAWN_TOUR=true` turns on
+# lib/tour/screenshot_tour.dart, which seeds the demo account against a mock
+# panel running on this runner, walks the screens, and prints a marker line at
+# each stop. The capture happens out here via `simctl`, not inside Flutter,
+# because a Flutter-side screenshot renders only the Flutter layer — the player
+# would come out as a black rectangle where the video is.
+#
+# Nothing here touches demo.dawnplayer.com, and nothing can reach a real
+# provider, so no screenshot can ever show someone else's channel list.
+
+name: iOS Screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      device:
+        description: 'Simulator to shoot on — must be a Pro Max for the 6.9" slot'
+        default: 'iPhone 16 Pro Max'
+        required: false
+
+jobs:
+  screenshots:
+    runs-on: macos-15
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          # Pin = the locally installed version; bump both together.
+          flutter-version: '3.44.8'
+          cache: true
+
+      - run: flutter --version
+
+      - name: Assert iOS config (ATS + deployment target)
+        run: bash tool/patch_ios.sh
+
+      - run: flutter pub get
+
+      # The simulator shares the host's network stack, so 127.0.0.1 here is
+      # 127.0.0.1 in the app. ATS already allows plain HTTP.
+      - name: Serve the mock panel on the runner
+        run: |
+          nohup php -S 127.0.0.1:8082 tool/mock_xtream.php > mock.log 2>&1 &
+          for _ in $(seq 1 20); do
+            if curl -sf "http://127.0.0.1:8082/player_api.php?username=aurora&password=test" | grep -q '"auth":1'; then
+              echo "mock panel up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "mock panel never came up"
+          cat mock.log
+          exit 1
+
+      - name: Boot the simulator
+        id: sim
+        run: |
+          set -uo pipefail
+          udid=""
+          for name in "${{ inputs.device }}" "iPhone 17 Pro Max" "iPhone 16 Pro Max"; do
+            [ -z "$name" ] && continue
+            udid=$(xcrun simctl list devices available \
+                   | grep -F "$name (" | head -n1 \
+                   | sed -E 's/.*\(([0-9A-Fa-f-]{36})\).*/\1/')
+            if [ -n "$udid" ]; then
+              echo "shooting on $name ($udid)"
+              break
+            fi
+          done
+          if [ -z "$udid" ]; then
+            echo "No Pro Max simulator on this image. Available:"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          xcrun simctl boot "$udid" || true
+          xcrun simctl bootstatus "$udid" -b
+          # Apple's own convention for store screenshots: 9:41, full signal,
+          # full battery. Also keeps the runner's real clock out of the frame.
+          xcrun simctl status_bar "$udid" override \
+            --time "9:41" \
+            --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode notSupported \
+            --batteryState charged --batteryLevel 100
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Run the tour and capture each stop
+        timeout-minutes: 30
+        run: |
+          set -uo pipefail
+          udid="${{ steps.sim.outputs.udid }}"
+          mkdir -p screenshots
+
+          nohup flutter run -d "$udid" \
+            --dart-define=DAWN_TOUR=true \
+            --dart-define=DAWN_TOUR_SERVER=http://127.0.0.1:8082 \
+            > run.log 2>&1 &
+          run_pid=$!
+          echo "flutter run is pid $run_pid — building, this takes a few minutes"
+
+          # The tour holds each screen still for a few seconds after printing
+          # its marker, so a capture fired ~1.5s later lands on a settled frame.
+          ( tail -n +1 -f run.log & echo $! > tail.pid ) | while IFS= read -r line; do
+            case "$line" in
+              *DAWN_SHOT:*)
+                name="${line##*DAWN_SHOT:}"
+                name="${name%%[[:space:]]*}"
+                sleep 1.5
+                xcrun simctl io "$udid" screenshot --type=png "screenshots/${name}.png" \
+                  && echo "captured ${name}" \
+                  || echo "capture of ${name} failed"
+                ;;
+              *DAWN_TOUR_LOG*) echo "$line" ;;
+              *DAWN_TOUR_DONE*) echo "tour finished"; break ;;
+              *"Error:"*|*"Exception:"*) echo "$line" ;;
+            esac
+          done
+
+          kill "$(cat tail.pid)" 2>/dev/null || true
+          kill "$run_pid" 2>/dev/null || true
+
+      - name: Check every capture is the size the App Store accepts
+        run: |
+          set -uo pipefail
+          shopt -s nullglob
+          shots=(screenshots/*.png)
+          if [ ${#shots[@]} -eq 0 ]; then
+            echo "No screenshots were captured at all. Tail of the run log:"
+            tail -n 120 run.log
+            exit 1
+          fi
+          fail=0
+          for f in "${shots[@]}"; do
+            w=$(sips -g pixelWidth "$f" | awk '/pixelWidth/{print $2}')
+            h=$(sips -g pixelHeight "$f" | awk '/pixelHeight/{print $2}')
+            echo "$f  ${w}x${h}"
+            if [ "$w" != "1320" ] || [ "$h" != "2868" ]; then
+              echo "  ^ not 1320x2868 — App Store Connect will refuse this"
+              fail=1
+            fi
+          done
+          for want in home live guide movies series player; do
+            [ -f "screenshots/${want}.png" ] || { echo "missing: ${want}.png"; fail=1; }
+          done
+          exit $fail
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-screenshots
+          path: screenshots/
+          if-no-files-found: warn
+
+      # The run log is the only way to tell a tour that skipped a stop from one
+      # that never got past `pod install`.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshot-run-log
+          path: |
+            run.log
+            mock.log
+          if-no-files-found: warn

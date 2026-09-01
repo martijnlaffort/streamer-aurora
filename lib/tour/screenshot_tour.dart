@@ -62,10 +62,10 @@ void _log(String message) {
 /// device to landscape, but `simctl` photographs the framebuffer in its
 /// physical orientation, so the frame comes back portrait with the UI on its
 /// side.
-Future<void> _capture(String name, {bool landscape = false}) async {
+Future<void> _capture(String name, {bool landscape = false, Duration? hold}) async {
   // ignore: avoid_print
   print('DAWN_SHOT:$name${landscape ? ' LANDSCAPE' : ''}');
-  await Future<void>.delayed(_hold);
+  await Future<void>.delayed(hold ?? _hold);
 }
 
 /// Runs the whole tour and prints `DAWN_TOUR_DONE` when there is nothing more
@@ -155,7 +155,10 @@ Future<void> _walk(ProviderContainer container, Account account) async {
   await WidgetsBinding.instance.endOfFrame;
   await Future<void>.delayed(const Duration(seconds: 4));
 
-  await _stop(router, '/', 'home');
+  // Home gets longer than the rest: Continue Watching paints immediately, but
+  // the Award Winners rails are matched against the catalogue after it, and a
+  // run that photographed home too early got a screen with one row on it.
+  await _stop(router, '/', 'home', settle: const Duration(seconds: 12));
   await _stop(router, '/live', 'live');
   await _stop(router, '/guide', 'guide');
   await _stop(router, '/movies', 'movies');
@@ -170,10 +173,15 @@ Future<void> _walk(ProviderContainer container, Account account) async {
   await _player(router, container, account);
 }
 
-Future<void> _stop(GoRouter router, String location, String name) async {
+Future<void> _stop(
+  GoRouter router,
+  String location,
+  String name, {
+  Duration? settle,
+}) async {
   try {
     router.go(location);
-    await Future<void>.delayed(_settle);
+    await Future<void>.delayed(settle ?? _settle);
     await _capture(name);
   } catch (error) {
     _log('stop $name failed: $error');
@@ -223,7 +231,12 @@ Future<void> _player(
     // is not free: the demo clip runs ten seconds, and a screenshot taken at
     // 0:09 of 0:10 shows a play button over a stopped film.
     await Future<void>.delayed(const Duration(seconds: 11));
-    await _capture('player', landscape: true);
+    // The longest hold of the run. Grabbing the framebuffer while a video is
+    // compositing is markedly slower than grabbing a static screen — the
+    // player capture arrived seventeen seconds after its marker, by which time
+    // a twelve-second hold had already popped back to the series page and
+    // photographed that instead.
+    await _capture('player', landscape: true, hold: const Duration(seconds: 30));
     router.pop();
   } catch (error) {
     _log('player stop failed: $error');

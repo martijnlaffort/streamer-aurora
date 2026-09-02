@@ -550,10 +550,18 @@ puts the seek bar in frame, which live playback hides.
       `/privacy.html` and `/support.html` both 200, and `robots.txt` now serves the Allow rules.
       Worth noting the blanket `Disallow: /` had been live and effective on the custom domain, so
       Play's privacy-policy fetch would have failed had this not been caught
-- [ ] Mock panel deployed at `https://demo.dawnplayer.com`. The web root and a click-by-click Ploi
-      runbook are in `deploy/demo/` — verified locally (60 live / 200 films / 24 series, the
-      `?count=` overrides stripped, streams redirecting to the real CDNs). What is left is the Ploi
-      site, the Cloudflare `A` record and Let's Encrypt, all of which are dashboard work
+- [x] **Mock panel live at `https://demo.dawnplayer.com`** (2026-09-02, Ploi/`167.235.194.99`).
+      Verified end to end over HTTPS from outside: auth 1 with the demo credentials and auth 0 with
+      a wrong password, 10 live categories / 60 channels / 200 films / 24 series, films and episodes
+      302-ing to `media.w3.org`, the live HLS playlist proxied, and **no copyrighted title anywhere
+      in the catalogue**. Runbook in `deploy/demo/README.md`.
+
+      Two things cost an hour between "deployed" and "working", both worth knowing for next time.
+      The site was created with the default web directory `/public`, which this repo does not have —
+      that is what the Let's Encrypt failure (`/home/ploi/.../public does not exist`) was really
+      telling us, and the nginx root was wrong for the same reason. And Ploi's generated deploy
+      script pulls a branch into a checkout of the default branch, which fails outright once the two
+      diverge; a deploy target wants `git fetch` + `git reset --hard origin/<branch>`, not a merge
 - [ ] Play developer account registered (start the 12-tester clock early — §3.5)
 - [x] Apple Developer Program membership active (2026-08-31). Team `XTBG48BLG7`
 - [x] iOS signing works end to end. All 7 secrets loaded; run 33371032544 produced a **signed**

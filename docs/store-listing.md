@@ -567,9 +567,9 @@ puts the seek bar in frame, which live playback hides.
       `com.dawnplayer.app`, `UIDeviceFamily [1]`, `ITSAppUsesNonExemptEncryption false`,
       `MinimumOSVersion 13.0`, version `1.0.0 (1)`; the app-level `PrivacyInfo.xcprivacy` is present
       in `Runner.app`, and all six bundled fonts plus both OFL texts ship in `flutter_assets`
-- [ ] iOS screenshots. Harness built (§5.1): `ios-screenshots.yml` + `lib/tour/screenshot_tour.dart`
-      capture six 1320×2868 PNGs on a Pro Max simulator. What is outstanding is running it, looking
-      at what comes out, and uploading with `node tool/asc.mjs shots <dir>`
+- [x] iOS screenshots done 2026-09-02 — six captured (home, live, guide, films, series, player) and
+      uploaded in page order. Note there is **no `APP_IPHONE_69`** display type in the API: 6.9"
+      screenshots belong to `APP_IPHONE_67`, which the web UI labels *iPhone 6.9" Display*
 - [x] Listing text pushed to ASC 2026-09-01 via `tool/asc.mjs push`, and read back: name, subtitle,
       privacy URL, a 2305-character description, keywords, promotional text, support and marketing
       URLs, and the age-rating questionnaire (`unrestrictedWebAccess: true`). Issuer ID

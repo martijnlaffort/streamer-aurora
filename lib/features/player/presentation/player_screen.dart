@@ -419,6 +419,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       await session.configure(const AudioSessionConfiguration.music());
       await session.setActive(true);
       _audioSession = session;
+      // Pull the earphones out and the video stops - what Netflix and HBO do,
+      // and what the platform is asking for: Android's "audio becoming noisy"
+      // broadcast and iOS's route change to "old device unavailable" both
+      // exist so a film does not start blaring out of the phone speaker on a
+      // train. Pause only; never auto-resume when they come back, because the
+      // user may have put them away for a reason.
+      if (!mounted) return;
+      _subs.add(session.becomingNoisyEventStream.listen((_) {
+        if (!mounted || !_playing) return;
+        _player.pause();
+        // Show the controls so the pause is visibly deliberate, not a stall.
+        setState(() => _controlsVisible = true);
+        _scheduleHide();
+      }));
     } catch (_) {
       // Never fatal — playback still works; we just don't own the session.
     }

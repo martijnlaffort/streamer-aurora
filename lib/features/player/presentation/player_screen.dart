@@ -126,6 +126,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Timer? _upNextTimer;
   int? _upNextCountdown;
 
+  /// The pre-end "Next episode" prompt is showing. A button, never a countdown:
+  /// we are GUESSING where the credits start, and auto-advancing on a guess
+  /// would cut off the ending of anything we guessed wrong about.
+  bool _upNextEarly = false;
+  bool _earlyPrompted = false;
+
+  /// Where the file itself says the credits begin, when it carries chapters.
+  /// Exact when present; almost never present on IPTV.
+  Duration? _creditsStart;
+
+  /// Seconds before the end at which to offer the next episode when neither
+  /// chapters nor a learned value say otherwise. Television credits run
+  /// thirty to sixty seconds; this lands the prompt as they start rather than
+  /// as they end.
+  static const _defaultOutroSeconds = 45;
+  int? _learnedOutroSeconds;
+
   /// Automatic recovery from a dropped stream.
   ///
   /// IPTV transports drop constantly — a few seconds of bad wifi, a panel
@@ -377,6 +394,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               Duration(milliseconds: (seconds * 1000).round()));
         }).catchError((Object _) {}),
       );
+      // Chapters, for the rare file that carries them. A chapter called
+      // "Credits" is the one exact answer to "where does the outro start",
+      // and it costs nothing to look. Arrives as mpv's text form of the node,
+      // so it is read leniently rather than parsed as strict JSON.
+      unawaited(
+        platform.observeProperty('chapter-list', (value) async {
+          if (!mounted) return;
+          setState(() => _creditsStart = _creditsChapterStart(value));
+        }).catchError((Object _) {}),
+      );
     }
 
     _openCurrent(resumeFrom: widget.request.resumeFromSeconds);
@@ -474,6 +501,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         const Duration(seconds: 5)) {
       _saveProgress();
     }
+    _maybeOfferNext(position);
+  }
+
+  /// Offers the next episode as the credits start, not as the file ends.
+  ///
+  /// Where the credits start is, in order of trust: a chapter the file itself
+  /// names, what this show has taught us from earlier skips, and failing both a
+  /// default sized for television credits. Whatever the source, this is a
+  /// button and never a countdown — the moment is inferred, and auto-advancing
+  /// on an inference would cut off the ending of every episode it got wrong.
+  void _maybeOfferNext(Duration position) {
+    if (_earlyPrompted || _next == null || _current.isLive) return;
+    if (_current.streamRef.isCatchup) return;
+    final remaining = _duration - position;
+    // A TS file reports a small growing duration before the real one lands;
+    // a "remaining" computed from that would fire at the very start.
+    if (_duration < const Duration(minutes: 3)) return;
+
+    final Duration lead;
+    final credits = _creditsStart;
+    if (credits != null && credits < _duration) {
+      lead = _duration - credits;
+    } else {
+      lead = Duration(seconds: _learnedOutroSeconds ?? _defaultOutroSeconds);
+    }
+    if (remaining > lead) return;
+    _earlyPrompted = true;
+    setState(() => _upNextEarly = true);
   }
 
   /// The media just reported its length — this is the moment a pending
@@ -550,6 +605,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     setState(() {
       _error = null;
       _upNextCountdown = null;
+      _upNextEarly = false;
+      _earlyPrompted = false;
+      _creditsStart = null;
       _liveNow = null;
       // A new stream has a new buffer; keeping the old edge would report a
       // wildly wrong "behind live" until mpv next reported.
@@ -588,7 +646,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         }
       }
       _pendingResumeSeconds = resumeFrom;
-      if (!isRetry) await _buildCandidates(account);
+      if (!isRetry) {
+        await _buildCandidates(account);
+        // What this show has taught us about where its credits start.
+        final seriesId = _current.seriesId;
+        _learnedOutroSeconds = seriesId == null
+            ? null
+            : await ref
+                .read(outroHintsRepositoryProvider)
+                .secondsBeforeEnd(account.id, seriesId);
+      }
       if (!mounted) return;
       final candidate = _candidates.isEmpty
           ? _StreamCandidate(
@@ -618,6 +685,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (platform is NativePlayer) {
         await platform.setProperty(
             'user-agent', account.userAgent ?? kStreamUserAgent);
+        // Sound was running a frame or two ahead of the picture. mpv renders
+        // into a Flutter texture that Flutter then composites on ITS schedule,
+        // and mpv's A/V clock counts the frame as shown the moment it finished
+        // rendering — so it never delays the audio to match. Positive
+        // `audio-delay` holds the sound back by that much. See
+        // _audioDelaySeconds for why this is safe to apply everywhere.
+        try {
+          await platform.setProperty(
+              'audio-delay', _audioDelaySeconds().toStringAsFixed(3));
+        } on Object {
+          // An older libmpv without the property: no compensation, not no
+          // playback.
+        }
         await _configureCache(platform, live: _current.isLive);
       }
       await _player.open(Media(url));
@@ -745,6 +825,67 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         // Best-effort: forgetting which stream won costs one extra failover.
       }
     }());
+  }
+
+  /// Remembers how far before the end the user moved on, for this show.
+  ///
+  /// Only when it plausibly WAS the credits: inside the repository's bounds,
+  /// and only for series episodes — a film has no next episode to learn for.
+  void _recordOutroHint() {
+    final seriesId = _current.seriesId;
+    if (seriesId == null || _current.isLive || _duration == Duration.zero) {
+      return;
+    }
+    final remaining = (_duration - _position).inSeconds;
+    final accountId = _current.streamRef.accountId;
+    unawaited(ref.read(outroHintsRepositoryProvider).record(
+          accountId: accountId,
+          seriesId: seriesId,
+          secondsBeforeEnd: remaining,
+        ));
+  }
+
+  /// The start of a chapter that names itself as the credits, or null.
+  ///
+  /// [raw] is mpv's string rendering of `chapter-list`, a JSON-ish list of
+  /// `{"title":"...","time":123.4}` nodes. Read with two small patterns rather
+  /// than a JSON parser: the exact quoting has varied between mpv builds, and a
+  /// chapter list that fails to parse should mean "no chapters", never a crash
+  /// on open.
+  static Duration? _creditsChapterStart(String raw) {
+    final entries = RegExp(r'\{[^{}]*\}').allMatches(raw);
+    final title = RegExp(r'"title"\s*:\s*"([^"]*)"');
+    final time = RegExp(r'"time"\s*:\s*([0-9.]+)');
+    final credits = RegExp(r'credit|outro|end\s*card|closing', caseSensitive: false);
+    for (final e in entries) {
+      final chunk = e.group(0)!;
+      final t = title.firstMatch(chunk)?.group(1);
+      if (t == null || !credits.hasMatch(t)) continue;
+      final seconds = double.tryParse(time.firstMatch(chunk)?.group(1) ?? '');
+      if (seconds == null) continue;
+      return Duration(milliseconds: (seconds * 1000).round());
+    }
+    return null;
+  }
+
+  /// How long to hold the audio back, in seconds.
+  ///
+  /// Two parts. The first is the app's own latency, computed rather than
+  /// guessed: mpv renders into a texture that Flutter composites one to two
+  /// frames later, so two frame periods at the display's actual refresh rate
+  /// — 33 ms at 60 Hz, 40 ms at 50 Hz. The second is the user's per-screen
+  /// adjustment for what the app cannot see (the TV's own processing).
+  ///
+  /// Applying the first part everywhere is safe because human perception is
+  /// lopsided (ITU-R BT.1359): sound running AHEAD is noticed from about 45 ms,
+  /// sound running BEHIND not until about 125 ms. Our texture path put us on
+  /// the wrong side of that line; two frames of delay moves us to the tolerant
+  /// side, where even a device that was already in sync sits far below the
+  /// threshold.
+  double _audioDelaySeconds() {
+    final hz = View.of(context).display.refreshRate;
+    final frame = hz > 1 ? 1 / hz : 1 / 60;
+    return 2 * frame + _prefs.audioDelayMs / 1000;
   }
 
   /// Points [url] at the account's [attempt]-th fallback host.
@@ -925,7 +1066,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         setState(() => _controlsVisible = true);
         return;
       }
-      setState(() => _upNextCountdown = 5);
+      // The end arrived: the early offer hands over to the countdown rather
+      // than the two cards sitting on top of each other.
+      setState(() {
+        _upNextEarly = false;
+        _upNextCountdown = 5;
+      });
       _upNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (!mounted) return;
         final remaining = (_upNextCountdown ?? 1) - 1;
@@ -943,6 +1089,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _playNext() {
     if (_next == null) return;
+    // Moving on with time still to play is the signal this whole feature
+    // learns from: it says where THIS show's credits start. Recorded before
+    // anything about the current item is cleared.
+    _recordOutroHint();
     // Manual skip: save where we left the current item first (PRD §8.9).
     _saveProgress();
     _upNextTimer?.cancel();
@@ -1613,7 +1763,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       style: AppTypography.body),
                 ),
               ),
-            if (_upNextCountdown != null && _next != null) _upNextCard(),
+            if ((_upNextCountdown != null || _upNextEarly) && _next != null)
+              _upNextCard(),
             if (_shouldShowNextEpisode()) _nextEpisodeButton(),
             _controlsOverlay(),
           ],
@@ -1925,7 +2076,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Up next in $_upNextCountdown…',
+            // Two moments, two cards. Before the end we are guessing where the
+            // credits start, so it is an offer with no clock on it. At the end
+            // the episode is over and the countdown is the right thing.
+            Text(
+                _upNextCountdown != null
+                    ? 'Up next in $_upNextCountdown…'
+                    : 'Up next',
                 style: AppTypography.label
                     .copyWith(color: AppColors.accentAlt)),
             const SizedBox(height: 6),
@@ -1937,16 +2094,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             Row(
               children: [
                 FilledButton(
+                  // Takes focus when the early card appears, so on a
+                  // television one OK press is enough - the whole point of
+                  // showing it as the credits start.
+                  autofocus: _upNextCountdown == null,
                   onPressed: _playNext,
-                  child: const Text('Play now'),
+                  child: Text(
+                      _upNextCountdown != null ? 'Play now' : 'Next episode'),
                 ),
                 const SizedBox(width: 8),
                 TextButton(
                   onPressed: () {
                     _upNextTimer?.cancel();
-                    setState(() => _upNextCountdown = null);
+                    setState(() {
+                      _upNextCountdown = null;
+                      _upNextEarly = false;
+                    });
                   },
-                  child: const Text('Cancel'),
+                  child: Text(
+                      _upNextCountdown != null ? 'Cancel' : 'Keep watching'),
                 ),
               ],
             ),

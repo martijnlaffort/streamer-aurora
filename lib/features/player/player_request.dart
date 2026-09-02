@@ -8,6 +8,7 @@ class PlayerItem {
     required this.contentKey,
     this.subtitle,
     this.isLive = false,
+    this.seriesId,
   });
 
   final StreamRef streamRef;
@@ -22,6 +23,10 @@ class PlayerItem {
   /// Live streams have no meaningful duration: the player hides the seek bar,
   /// shows a LIVE badge, and skips resume/progress tracking.
   final bool isLive;
+
+  /// For an episode, the series it belongs to - the key the player learns a
+  /// show's credits timing under. Null for films and live.
+  final String? seriesId;
 }
 
 /// Where a live channel sits in the list the user was browsing, so the player

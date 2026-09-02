@@ -15,6 +15,7 @@ import 'repositories/catalog_repository.dart';
 import 'repositories/discovery_repository.dart';
 import 'repositories/epg_repository.dart';
 import 'repositories/favorites_repository.dart';
+import 'repositories/outro_hints_repository.dart';
 import 'repositories/preferences_repository.dart';
 import 'repositories/reminders_repository.dart';
 import 'repositories/search_history_repository.dart';
@@ -187,6 +188,9 @@ final groupChannelVariantsProvider = Provider<bool>((ref) =>
 
 final streamChoiceRepositoryProvider = Provider<StreamChoiceRepository>(
     (ref) => StreamChoiceRepository(db: ref.watch(appDatabaseProvider)));
+
+final outroHintsRepositoryProvider = Provider<OutroHintsRepository>(
+    (ref) => OutroHintsRepository(db: ref.watch(appDatabaseProvider)));
 
 final remindersRepositoryProvider = Provider<RemindersRepository>(
     (ref) => RemindersRepository(db: ref.watch(appDatabaseProvider)));

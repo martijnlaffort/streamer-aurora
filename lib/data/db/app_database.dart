@@ -229,6 +229,9 @@ class PreferencesTable extends Table {
   /// Null → the on-by-default in [Preferences].
   BoolColumn get groupChannelVariants => boolean().nullable()();
 
+  /// Extra audio delay in ms for this device's display (schema v18).
+  IntColumn get audioDelayMs => integer().nullable()();
+
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
 
@@ -260,6 +263,21 @@ class StreamChoicesTable extends Table {
 
   @override
   Set<Column> get primaryKey => {accountId, variantKey};
+}
+
+@DataClassName('OutroHintRow')
+class OutroHintsTable extends Table {
+  @override
+  String get tableName => 'outro_hints';
+
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get accountId => text()();
+  TextColumn get seriesId => text()();
+
+  /// How far before the end the user chose to move on. Outros are consistent
+  /// within a show, so a few of these converge on where its credits start.
+  IntColumn get secondsBeforeEnd => integer()();
+  IntColumn get observedAtMillisUtc => integer()();
 }
 
 @DataClassName('ReminderRow')
@@ -502,6 +520,7 @@ class SearchHistoryTable extends Table {
   CatalogOverridesTable,
   RemindersTable,
   StreamChoicesTable,
+  OutroHintsTable,
   EpgCacheTable,
   CatalogMetaTable,
   CatalogCategoryMetaTable,
@@ -521,7 +540,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -632,6 +651,12 @@ class AppDatabase extends _$AppDatabase {
             await customStatement(
                 'UPDATE catalog_overrides SET updated_at_millis_utc = ?',
                 [DateTime.now().toUtc().millisecondsSinceEpoch]);
+          }
+          // v18: per-device audio delay, and where each series' credits start
+          // as learned from when the user skipped ahead.
+          if (from < 18) {
+            await m.addColumn(preferencesTable, preferencesTable.audioDelayMs);
+            await m.createTable(outroHintsTable);
           }
         },
         beforeOpen: (details) async {

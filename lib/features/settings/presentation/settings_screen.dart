@@ -147,6 +147,99 @@ Future<void> _editDiscovery(
   regionController.dispose();
 }
 
+/// Fine-tune for the part of an A/V offset the app cannot see.
+///
+/// The player already compensates for its own video latency automatically.
+/// What is left is the screen's: a television's picture processing, a soundbar
+/// over ARC. That differs per display and cannot be measured from inside the
+/// app, so it is a control — steps rather than a slider, because a slider is
+/// miserable with a remote and 10 ms is below what anyone can hear anyway.
+Future<void> _editAudioDelay(
+  BuildContext context,
+  Preferences prefs,
+  Future<void> Function(Preferences) savePrefs,
+) async {
+  var value = prefs.audioDelayMs;
+  await showDialog<void>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Audio sync'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'If the sound runs ahead of the picture, delay it. If it lags '
+              'behind, bring it forward. Applies to this screen only.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton.filledTonal(
+                  tooltip: 'Sound earlier',
+                  onPressed: value > -300
+                      ? () => setState(() => value -= 10)
+                      : null,
+                  icon: const Icon(Icons.remove),
+                ),
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    value == 0
+                        ? 'Automatic'
+                        : '${value > 0 ? '+' : ''}$value ms',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                IconButton.filledTonal(
+                  tooltip: 'Sound later',
+                  onPressed: value < 300
+                      ? () => setState(() => value += 10)
+                      : null,
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              value > 0
+                  ? 'Sound delayed'
+                  : value < 0
+                      ? 'Sound brought forward'
+                      : 'Only the app\'s own latency is corrected',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          if (value != 0)
+            TextButton(
+              onPressed: () => setState(() => value = 0),
+              child: const Text('Reset'),
+            ),
+          FilledButton(
+            autofocus: true,
+            onPressed: () async {
+              await savePrefs(prefs.copyWith(audioDelayMs: value));
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 String _languageLabel(String? code) {
   if (code == null) return 'No preference';
   if (code == Preferences.subsOff) return 'Off';
@@ -583,6 +676,18 @@ class SettingsScreen extends ConsumerWidget {
               if (picked == null) return;
               await savePrefs(prefs.copyWith(uiScale: picked.scale));
             },
+          ),
+          ListTile(
+            leading: const Icon(Icons.speaker_notes_outlined),
+            title: const Text('Audio sync'),
+            subtitle: Text(
+              prefs.audioDelayMs == 0
+                  ? 'Automatic — adjust if sound runs ahead of the picture'
+                  : 'Sound delayed ${prefs.audioDelayMs} ms on this screen',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _editAudioDelay(context, prefs, savePrefs),
           ),
           if (kDebugMode) ...[
             const Divider(),

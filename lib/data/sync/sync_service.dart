@@ -230,6 +230,7 @@ class SyncService {
         themeMode: local.themeMode,
         uiScale: local.uiScale,
         groupChannelVariants: local.groupChannelVariants,
+        audioDelayMs: local.audioDelayMs,
       ));
       await _configStore.setPreferencesChangedAt(winner.updatedAt);
       return true;

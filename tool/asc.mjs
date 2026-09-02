@@ -421,12 +421,16 @@ async function shots(dir) {
     'GET',
     `/v1/appStoreVersionLocalizations/${verLoc.id}/appScreenshotSets`,
   );
-  let set = sets.data.find((s) => s.attributes.screenshotDisplayType === 'APP_IPHONE_69');
+  // There is no APP_IPHONE_69 in the API. Apple never added a display type for
+  // the 6.9" devices — their 1320x2868 screenshots go into the 6.7" set, which
+  // is what App Store Connect labels "iPhone 6.9\" Display" in the web UI.
+  const DISPLAY_TYPE = 'APP_IPHONE_67';
+  let set = sets.data.find((s) => s.attributes.screenshotDisplayType === DISPLAY_TYPE);
   if (!set) {
     const created = await api('POST', '/v1/appScreenshotSets', {
       data: {
         type: 'appScreenshotSets',
-        attributes: { screenshotDisplayType: 'APP_IPHONE_69' },
+        attributes: { screenshotDisplayType: DISPLAY_TYPE },
         relationships: {
           appStoreVersionLocalization: {
             data: { type: 'appStoreVersionLocalizations', id: verLoc.id },

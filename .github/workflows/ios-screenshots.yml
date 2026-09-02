@@ -26,7 +26,7 @@ on:
 jobs:
   screenshots:
     runs-on: macos-15
-    timeout-minutes: 50
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
 
@@ -61,6 +61,15 @@ jobs:
           # Live channels past the first three reuse those three real streams
           # round-robin, so every row in the list still plays.
           export MOCK_LCOUNT=60 MOCK_COUNT=200 MOCK_SCOUNT=24
+
+          # Deliberate divergence from demo.dawnplayer.com, which forces this
+          # OFF: real award-winning titles here so the store screenshots show
+          # the discovery rails, which have nothing to resolve against
+          # otherwise. Martijn's call, made knowing that screenshots are the
+          # more public of the two artefacts and that a reviewer compares them
+          # against the app. The film the player shot plays is id 1001, which is
+          # genuinely Big Buck Bunny either way — the hero shot stays honest.
+          export MOCK_CANON=1
           nohup php -S 127.0.0.1:8082 tool/mock_xtream.php > mock.log 2>&1 &
           for _ in $(seq 1 20); do
             if curl -sf "http://127.0.0.1:8082/player_api.php?username=aurora&password=test" | grep -q '"auth":1'; then
@@ -109,48 +118,77 @@ jobs:
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
 
       - name: Run the tour and capture each stop
-        timeout-minutes: 30
+        timeout-minutes: 40
         run: |
           set -uo pipefail
           udid="${{ steps.sim.outputs.udid }}"
           mkdir -p screenshots
 
-          nohup flutter run -d "$udid" \
-            --dart-define=DAWN_TOUR=true \
-            --dart-define=DAWN_TOUR_SERVER=http://127.0.0.1:8082 \
-            > run.log 2>&1 &
-          run_pid=$!
-          echo "flutter run is pid $run_pid — building, this takes a few minutes"
+          # The tour holds each screen still for a while after printing its
+          # marker, so a capture fired half a second later lands on a settled
+          # frame even when simctl takes several seconds to answer.
+          capture_loop() {
+            ( tail -n +1 -f run.log & echo $! > tail.pid ) | while IFS= read -r line; do
+              case "$line" in
+                *DAWN_SHOT:*)
+                  rest="${line##*DAWN_SHOT:}"
+                  name="${rest%%[[:space:]]*}"
+                  sleep 0.5
+                  if xcrun simctl io "$udid" screenshot --type=png "screenshots/${name}.png"; then
+                    # The player locks the device to landscape, but simctl
+                    # photographs the framebuffer in its physical orientation —
+                    # so that frame arrives portrait with the UI on its side.
+                    case "$rest" in
+                      *LANDSCAPE*) sips -r -90 "screenshots/${name}.png" > /dev/null
+                                   echo "captured ${name} (rotated to landscape)" ;;
+                      *)           echo "captured ${name}" ;;
+                    esac
+                  else
+                    echo "capture of ${name} failed"
+                  fi
+                  ;;
+                *DAWN_TOUR_LOG*) echo "$line" ;;
+                *DAWN_TOUR_DONE*) echo "tour finished"; break ;;
+                # Without these the loop waits on markers that will never come.
+                # A simulator that refused to launch the app ("unknown to
+                # FrontBoard", which is a known flake) once burned the entire
+                # thirty-minute step timeout and produced nothing.
+                *"Unable to launch"*|*"Error launching application"*|*"unknown to FrontBoard"*|*"Lost connection to device"*|*"Application finished"*)
+                  echo "!! $line"
+                  touch launch_failed
+                  break
+                  ;;
+              esac
+            done
+            kill "$(cat tail.pid)" 2>/dev/null || true
+          }
 
-          # The tour holds each screen still for a few seconds after printing
-          # its marker, so a capture fired ~1.5s later lands on a settled frame.
-          ( tail -n +1 -f run.log & echo $! > tail.pid ) | while IFS= read -r line; do
-            case "$line" in
-              *DAWN_SHOT:*)
-                rest="${line##*DAWN_SHOT:}"
-                name="${rest%%[[:space:]]*}"
-                sleep 0.5
-                if xcrun simctl io "$udid" screenshot --type=png "screenshots/${name}.png"; then
-                  # The player locks the device to landscape, but simctl
-                  # photographs the framebuffer in its physical orientation —
-                  # so that frame arrives portrait with the UI on its side.
-                  case "$rest" in
-                    *LANDSCAPE*) sips -r -90 "screenshots/${name}.png" > /dev/null
-                                 echo "captured ${name} (rotated to landscape)" ;;
-                    *)           echo "captured ${name}" ;;
-                  esac
-                else
-                  echo "capture of ${name} failed"
-                fi
-                ;;
-              *DAWN_TOUR_LOG*) echo "$line" ;;
-              *DAWN_TOUR_DONE*) echo "tour finished"; break ;;
-              *"Error:"*|*"Exception:"*) echo "$line" ;;
-            esac
+          for attempt in 1 2; do
+            rm -f launch_failed run.log
+            echo "=== attempt ${attempt} ==="
+            nohup flutter run -d "$udid" \
+              --dart-define=DAWN_TOUR=true \
+              --dart-define=DAWN_TOUR_SERVER=http://127.0.0.1:8082 \
+              > run.log 2>&1 &
+            run_pid=$!
+            echo "flutter run is pid ${run_pid} — building, this takes a few minutes"
+            capture_loop
+            kill "$run_pid" 2>/dev/null || true
+            [ -f launch_failed ] || break
+
+            echo "The simulator would not run the app. Erasing it and trying once more."
+            xcrun simctl shutdown "$udid" || true
+            xcrun simctl erase "$udid" || true
+            xcrun simctl boot "$udid"
+            xcrun simctl bootstatus "$udid" -b
+            # erase throws away the status bar override and the warm-up.
+            xcrun simctl status_bar "$udid" override \
+              --time "9:41" \
+              --dataNetwork wifi --wifiMode active --wifiBars 3 \
+              --cellularMode notSupported \
+              --batteryState charged --batteryLevel 100
+            xcrun simctl io "$udid" screenshot /tmp/warmup.png || true
           done
-
-          kill "$(cat tail.pid)" 2>/dev/null || true
-          kill "$run_pid" 2>/dev/null || true
 
       - name: Check every capture is the size the App Store accepts
         run: |

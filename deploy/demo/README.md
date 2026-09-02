@@ -32,28 +32,94 @@ carries no meaningful bandwidth.
 
 ## Deploying on Ploi
 
-1. **Cloudflare DNS** — add an `A` record for `demo` pointing at the laffort server's IP.
-   Leave it **DNS only** (grey cloud). Proxying buys nothing here and complicates the Let's Encrypt
-   HTTP-01 challenge.
-2. **Ploi → Sites → New site**
-   - Domain: `demo.dawnplayer.com`
-   - Project directory / web directory: `/deploy/demo`
-   - PHP version: 8.3 or 8.4
-   - Do **not** pick the Laravel installer.
-3. **Ploi → the new site → Repository** — install `martijnlaffort/streamer-aurora`, branch
-   `plexus/apps`. The whole repo is checked out and `index.php` finds the panel at `tool/`.
-   Updating the demo later is then one click on *Deploy*.
+The whole thing is five small files and a git checkout — 3.5 MB of repo, no database, no queue, no
+build step. Most of the work is making sure Ploi does not try to do more than that.
 
-   If Ploi's GitHub connection cannot see the private repo, upload by hand instead: copy the four
-   files in this directory **plus `tool/mock_xtream.php`** into the site's web root, all in one
-   flat directory. `index.php` falls back to `./mock_xtream.php` when the repo layout is absent.
-4. **Ploi → SSL → Let's Encrypt** for `demo.dawnplayer.com`.
-5. Leave the site's deploy script alone — there is nothing to build, no composer install, no
-   artisan. It is four PHP files.
+### 1. Cloudflare DNS
+
+Add an `A` record: name `demo`, value the laffort server's IPv4 (Ploi shows it on the server page).
+**Proxy status: DNS only** — the grey cloud, not the orange one. Proxying buys nothing here, it
+complicates the Let's Encrypt HTTP-01 challenge, and Cloudflare's terms are unfriendly to video
+through the proxy.
+
+Wait for `nslookup demo.dawnplayer.com` to answer before asking Ploi for a certificate.
+
+### 2. Create the site
+
+Ploi → your server → **Sites** → **Add site**:
+
+| Field | Value |
+|---|---|
+| Domain | `demo.dawnplayer.com` |
+| Project type | **PHP** — not Laravel, not Static HTML (see note below) |
+| Web directory | `/deploy/demo` |
+| PHP version | 8.3 or 8.4 |
+| System user | leave as default |
+
+**Project type matters.** The PHP template's nginx `location /` is
+`try_files $uri $uri/ /index.php?$query_string;`, which is what routes `/playlist.m3u` and the
+`/live/…`, `/movie/…`, `/series/…` stream URLs to `index.php`. The Static HTML template ends that
+line in `=404` and every stream URL would 404. Check it under **Manage → NGINX configuration** if
+in doubt.
+
+Do not create a database, a queue worker, or a cron entry. There is nothing to schedule.
+
+### 3. Install the repository
+
+Site → **Repository**: provider GitHub, repository `martijnlaffort/streamer-aurora`, branch
+`plexus/apps`. If Ploi offers "install composer dependencies", **untick it**.
+
+The repo is private, so Ploi's GitHub integration has to be authorised for it. If it cannot see the
+repo, Ploi shows a **deploy key** — paste that into GitHub → the repo → Settings → Deploy keys
+(read access is enough).
+
+### 4. Fix the deploy script before deploying
+
+This is the step that bites. Ploi's generated script for a PHP site ends with something like
+`composer install --no-interaction --prefer-dist --optimize-autoloader`, and this repo has no
+`composer.json` — it is a Flutter app with a PHP file in it. Composer fails, and Ploi marks every
+deploy as failed even though the files are fine.
+
+Replace the whole script with:
+
+```bash
+cd /home/ploi/demo.dawnplayer.com
+git pull origin plexus/apps
+echo "demo panel deployed"
+```
+
+Then hit **Deploy**. Updating the demo later is that one button.
+
+### 5. Certificate
+
+Site → **SSL** → **Let's Encrypt** → request for `demo.dawnplayer.com`. It should issue in seconds
+now the A record is live and unproxied.
+
+### If Ploi cannot reach the private repo
+
+Upload by hand instead. Copy into the site's web root, all in one flat directory:
+
+```
+index.php
+player_api.php
+xmltv.php
+robots.txt
+mock_xtream.php      <- copied from tool/mock_xtream.php
+```
+
+`index.php` looks for the panel two directories up first (the repo layout) and falls back to
+`./mock_xtream.php`, so a flat directory works with no edits. The cost is that updating it means
+uploading again.
+
+### Notes on the server itself
 
 This is a new site on a box that already serves live sites. Ploi isolates sites per nginx server
-block and per pool, so adding one changes nothing about the others — but the click path is yours,
-per the standing rule about that server.
+block and per PHP-FPM pool, so adding one changes nothing about the others — but the click path is
+yours, per the standing rule about that server.
+
+Two PHP settings the panel depends on, both defaults: `allow_url_fopen=On` (it proxies HLS
+*playlists* so a player resolves variant URLs against the real CDN) and PHP **8.0 or newer** (it
+uses `match` and `str_contains`).
 
 ## Verifying it before you put the credentials in front of a reviewer
 

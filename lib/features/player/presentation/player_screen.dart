@@ -24,6 +24,7 @@ import '../../../data/sync/playback_activity.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart'
     show Account, Preferences, StreamRef, StreamType, contentKeyFor;
+import '../../../tour/screenshot_tour.dart' show screenshotTourEnabled;
 import '../player_request.dart';
 import 'cast_picker.dart';
 
@@ -65,6 +66,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// Grabbed once so dispose-time saving never touches `ref` late.
   late final WatchProgressRepository _progressRepo =
       ref.read(watchProgressRepositoryProvider);
+
+  /// Same reason as [_progressRepo]. Reading this through `ref` in [dispose]
+  /// throws once the element is being unmounted — and because it was the first
+  /// statement there, the throw took the rest of dispose with it: no progress
+  /// saved, the mpv player never released, and the orientation left locked to
+  /// landscape.
+  late final PlaybackActivity _playbackActivity =
+      ref.read(playbackActivityProvider);
 
   // Clamped: a caller can hand over a stale or -1 start index (an episode that
   // fell out of a refreshed list), and `queue[_index]` must never RangeError.
@@ -222,7 +231,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     WidgetsBinding.instance.addObserver(this);
     // Keep background catalogue catch-up off the connection while we stream —
     // it is a big enough fetch to show up as buffering.
-    ref.read(playbackActivityProvider).enter();
+    _playbackActivity.enter();
     // PopScope's canPop depends on where focus currently sits, and focus
     // changes do not rebuild by themselves.
     _keyboardFocus.addListener(() {
@@ -362,7 +371,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   @override
   void dispose() {
     _castSub?.cancel();
-    ref.read(playbackActivityProvider).leave();
+    _playbackActivity.leave();
     WidgetsBinding.instance.removeObserver(this);
     // Save on exit (PRD §8.9) before the player goes away.
     if (_position > Duration.zero && _duration > Duration.zero) {
@@ -564,9 +573,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // property overrides libmpv's default and avoids duplicate headers.
       final platform = _player.platform;
       if (platform is NativePlayer) {
-        await platform.setProperty(
-            'user-agent', account.userAgent ?? kStreamUserAgent);
-        await _configureCache(platform, live: _current.isLive);
+        await platform.setProperty('user-agent', kStreamUserAgent);
       }
       await _player.open(Media(url));
       if (!mounted) return;
@@ -821,6 +828,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   // --- Overlay helpers -------------------------------------------------------
 
   void _scheduleHide() {
+    // A screenshot of the player with its controls faded out is a screenshot of
+    // a video, not of an app. Nothing taps this simulator, so the chrome would
+    // never come back.
+    if (screenshotTourEnabled) return;
     _hideTimer?.cancel();
     _hideTimer = Timer(const Duration(milliseconds: 3200), () {
       if (mounted && _playing && _error == null) {

@@ -10,8 +10,9 @@
  * Speaks enough of player_api.php for Aurora: auth, categories, live/VOD/series
  * lists, VOD/series info, short EPG. Stream URLs (/live, /movie, /series)
  * redirect to legal, publicly available streams: Apple's multi-audio/subtitle
- * HLS sample, DW English and Red Bull TV (free-to-air live), and
- * test-videos.co.uk Big Buck Bunny clips. No real provider needed.
+ * HLS sample, DW English and Red Bull TV (free-to-air live), and the Blender
+ * Foundation's Big Buck Bunny and Sintel (both CC-BY, served by W3C's public
+ * media host). No real provider needed.
  */
 
 const MOCK_USER = 'aurora';
@@ -29,9 +30,18 @@ $REAL_LIVE = [
      'url' => 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8'],
 ];
 
+// Films. Both are Creative Commons Attribution, both from the Blender
+// Foundation, both served by W3C's public media host with range requests, so
+// seeking works.
+//
+// Length matters here. These used to be ten-second clips, which made the demo
+// panel look broken to anyone actually using it — a "film" that ends before you
+// have finished reading its title — and made the store screenshot of the player
+// land on 0:09 of 0:10 with a play button over a stopped film. First in the list
+// is the ten-minute one, because it is the film a reviewer opens first.
 $MOVIE_CLIP_URLS = [
-    'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4',
-    'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4',
+    'https://media.w3.org/2010/05/bunny/movie.mp4',        // Big Buck Bunny, ~10 min
+    'https://media.w3.org/2010/05/sintel/trailer.mp4',     // Sintel trailer, 52s
 ];
 
 // Category names. Ids: live 1..N, VOD 20..39, series 300..307 (types are stored
@@ -95,7 +105,21 @@ function mock_channel(int $i): array
  * have something to resolve against. The generated `Silent Harbor 12` names
  * match nothing by design, which would make an empty rail look like a bug.
  * These occupy the first indices; everything after is generated as before.
+ *
+ * OFF BY DEFAULT, and it must stay off anywhere a stranger can see it — set
+ * `MOCK_CANON=1` for local work on the rails and nowhere else.
+ *
+ * The reason is the whole reason this panel exists. A catalogue listing
+ * "Oppenheimer 2023 4K" in front of App Review is the guideline 5.2.3
+ * accusation, made by us, on our own demo account — and it read exactly that
+ * way in a store screenshot before anyone noticed. What the panel actually
+ * streams is Big Buck Bunny; with this off, that is also what it says.
  */
+function canon_sample_enabled(): bool
+{
+    return getenv('MOCK_CANON') === '1';
+}
+
 const CANON_SAMPLE = [
     ['Oppenheimer 2023 4K', 2023],
     ['EN - Parasite (2019)', 2019],
@@ -119,11 +143,35 @@ const CANON_SAMPLE = [
     ['One Flew Over the Cuckoos Nest 1975', 1975],
 ];
 
+/**
+ * The two films the panel really serves, named after themselves. Honest, and it
+ * means the player screenshot says "Big Buck Bunny (2008)" over Big Buck Bunny
+ * rather than somebody else's title over a cartoon rabbit.
+ */
+const REAL_FILMS = [
+    ['Big Buck Bunny (2008)', 2008],
+    ['Sintel (2010)', 2010],
+];
+
 /** Movie by index (0-based). Ids start at 1001. */
 function mock_movie(int $i): array
 {
     $catCount = count($GLOBALS['VOD_CATEGORIES']);
-    if ($i < count(CANON_SAMPLE)) {
+    if ($i < count(REAL_FILMS)) {
+        [$name, $year] = REAL_FILMS[$i];
+        return [
+            'id'     => 1001 + $i,
+            'name'   => $name,
+            'cat'    => (string) (20 + $i % $catCount),
+            'year'   => $year,
+            'rating' => $i === 0 ? '8.2' : '7.9',
+            'added'  => time() - $i * 3600,
+            // Index 0 is the ten-minute film, and the screenshot tour asks for
+            // the lowest id on purpose. Keep them in this order.
+            'url'    => $GLOBALS['MOVIE_CLIP_URLS'][$i % 2],
+        ];
+    }
+    if (canon_sample_enabled() && $i < count(CANON_SAMPLE)) {
         [$realName, $realYear] = CANON_SAMPLE[$i];
         return [
             'id'     => 1001 + $i,
@@ -159,7 +207,10 @@ const CANON_SAMPLE_SERIES = [
 function mock_series(int $i): array
 {
     $catCount = count($GLOBALS['SERIES_CATEGORIES']);
-    if ($i < count(CANON_SAMPLE_SERIES)) {
+    // Same rule as the films: real titles only when MOCK_CANON=1, which is
+    // never true anywhere a reviewer or a screenshot can reach. A demo library
+    // advertising Breaking Bad is the 5.2.3 problem, not a demonstration of it.
+    if (canon_sample_enabled() && $i < count(CANON_SAMPLE_SERIES)) {
         [$realName, $realYear] = CANON_SAMPLE_SERIES[$i];
         return [
             'id'     => 15 + $i,
@@ -195,11 +246,13 @@ function mock_indexes(?string $want, int $count, int $firstCatId, int $catCount)
     for ($i = $offset; $i < $count; $i += $catCount) { yield $i; }
 }
 
+// Episodes get the shorter of the two, so autoplay-next is reachable without
+// sitting through ten minutes.
 $EPISODES = [
     5001 => ['title' => 'S01E01 - First Hop', 'season' => 1, 'num' => 1,
-             'url' => 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4'],
+             'url' => 'https://media.w3.org/2010/05/sintel/trailer.mp4'],
     5002 => ['title' => 'S01E02 - The Meadow', 'season' => 1, 'num' => 2,
-             'url' => 'https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4'],
+             'url' => 'https://media.w3.org/2010/05/sintel/trailer.mp4'],
 ];
 
 function json_out($data): void
@@ -236,7 +289,13 @@ if ($path === '/player_api.php') {
                 ],
                 'server_info' => [
                     'url' => $_SERVER['HTTP_HOST'] ?? '127.0.0.1:8082',
-                    'server_protocol' => 'http', 'timezone' => 'UTC',
+                    // Behind Ploi's TLS the panel is https, and a client that
+                    // believed a hardcoded 'http' would build stream URLs the
+                    // reviewer's device refuses. X-Forwarded-Proto first, since
+                    // nginx terminates TLS in front of PHP-FPM.
+                    'server_protocol' => $_SERVER['HTTP_X_FORWARDED_PROTO']
+                        ?? (empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off' ? 'http' : 'https'),
+                    'timezone' => 'UTC',
                     'timestamp_now' => time(),
                 ],
             ]);

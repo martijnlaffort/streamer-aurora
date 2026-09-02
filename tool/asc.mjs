@@ -225,7 +225,12 @@ async function status() {
   const r = review?.data?.attributes;
   console.log(`\nReview     notes        ${r?.notes ? `${r.notes.length} chars` : '— empty —'}`);
   console.log(`           demo account ${r?.demoAccountName || '— empty —'}`);
-  console.log(`           contact      ${r?.contactEmail || '— empty —'} ${r?.contactPhone || ''}`);
+  // Deliberately does not print the phone number. It is a personal mobile that
+  // only App Review needs, and `status` output gets pasted into places.
+  console.log(
+    `           contact      ${r?.contactEmail || '— empty —'}` +
+      `  phone ${r?.contactPhone ? 'set' : '— empty —'}`,
+  );
 
   try {
     const age = await api('GET', `/v1/appInfos/${info.id}/ageRatingDeclaration`);

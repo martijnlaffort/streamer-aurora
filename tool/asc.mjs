@@ -330,22 +330,46 @@ async function push() {
     say(`description, keywords, promo text, urls  (${verLoc.attributes.locale})`);
   }
 
-  // 4. Review notes and the demo account. Apple requires a phone number, and a
-  //    half-filled review detail is worse than none — it looks answered.
+  // 4. Review notes and the demo account.
+  //
+  //    Apple requires a contact phone number: without it the API answers 409
+  //    ENTITY_ERROR.ATTRIBUTE.REQUIRED and stores nothing at all, so the notes
+  //    and demo credentials cannot land on their own.
+  //
+  //    Three ways to supply it, in order of preference, none of which require
+  //    the number to sit in a committed file:
+  //      1. $env:ASC_CONTACT_PHONE — used if set, and never written anywhere.
+  //      2. Typed into App Store Connect by hand. If a phone is already stored
+  //         there, this keeps it and fills in everything around it.
+  //      3. contactPhone in tool/asc-listing.json.
+  //    Format is '+' then a country code, e.g. +31 6 12345678, or Apple
+  //    rejects it a second time on format.
   const detail = { ...LISTING.reviewDetail };
   delete detail._comment;
+
+  let existing = null;
+  try {
+    existing = await api('GET', `/v1/appStoreVersions/${version.id}/appStoreReviewDetail`);
+  } catch {
+    /* not created yet */
+  }
+
+  const storedPhone = existing?.data?.attributes?.contactPhone;
+  if (process.env.ASC_CONTACT_PHONE) {
+    detail.contactPhone = process.env.ASC_CONTACT_PHONE;
+  } else if (!detail.contactPhone && storedPhone) {
+    detail.contactPhone = storedPhone;
+    console.log('note  keeping the contact phone already in App Store Connect');
+  }
+
   if (!detail.contactPhone) {
     console.log(
-      'skip  review details — contactPhone is empty in tool/asc-listing.json.\n' +
-        '      Apple requires it; fill it in and run push again.',
+      'skip  review details — no contact phone, and Apple stores nothing without one.\n' +
+        '      Either set $env:ASC_CONTACT_PHONE = "+31 6 12345678" and run push again,\n' +
+        '      or type it into App Store Connect → the 1.0.0 version → App Review\n' +
+        '      Information → Contact Information, and run push again to fill in the rest.',
     );
   } else {
-    let existing = null;
-    try {
-      existing = await api('GET', `/v1/appStoreVersions/${version.id}/appStoreReviewDetail`);
-    } catch {
-      /* not created yet */
-    }
     if (!dry) {
       if (existing?.data) {
         await api('PATCH', `/v1/appStoreReviewDetails/${existing.data.id}`, {

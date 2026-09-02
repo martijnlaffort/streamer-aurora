@@ -587,7 +587,13 @@ puts the seek bar in frame, which live playback hides.
       `CFBundleShortVersionString`, so the build picker would have been empty with no explanation
 - [ ] **Review details** — blocked on a contact phone number. Fill `contactPhone` in
       `tool/asc-listing.json` and re-run `node tool/asc.mjs push`; the script refuses to write a
-      half-filled review detail, because one that looks answered is worse than one that is empty
+      half-filled review detail, because one that looks answered is worse than one that is empty.
+
+      Not optional, and tested rather than assumed: posting review details without it returns
+      `409 ENTITY_ERROR.ATTRIBUTE.REQUIRED`, so the notes and demo credentials cannot be stored at
+      all until it is there. It must begin with `+` and a country code — `+31 6 12345678` — or a
+      second 409 rejects the format. It reaches App Review only and is not shown on the product
+      page, unlike Play's developer contact email
 - [ ] Left in the web UI by design, because they carry attestations a script should not make:
       pricing (Free), availability, the App Privacy nutrition label (**Data Not Collected**),
       attaching build 2, and Submit

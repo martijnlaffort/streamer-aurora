@@ -23,21 +23,25 @@ class PairDeviceScreen extends ConsumerStatefulWidget {
 }
 
 class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
-  /// Where to open the pairing session, so a television never has to type a URL.
+  /// Where to open the pairing session.
   ///
-  /// The default is the project's own sync backend, and it has to be a real
-  /// value rather than empty: pairing exists precisely so that nothing is typed
-  /// with a remote, and a fresh install has no sync config to fall back on — so
-  /// an empty default put a URL text field in front of the one screen that must
-  /// never need one. Overridable at build time
-  /// (`--dart-define=DAWN_SYNC_URL=...`) for a different backend; the manual
-  /// field below remains as the last resort.
+  /// **Empty by default, and it must stay that way in anything shipped.** This
+  /// used to default to the project's own backend so a television never had to
+  /// type a URL — which meant a store build opened a session on a server the
+  /// developer runs, before the user had chosen any server at all. The privacy
+  /// policy says "no server of ours in the data path" and lists every
+  /// destination as one the user configured; a silent relay is neither, and no
+  /// amount of "it is only an IP address and a session row" makes that sentence
+  /// true again.
   ///
-  /// Only the pairing endpoints are reached with this, and those are
-  /// unauthenticated by design (the TV has no token yet) and guarded by the
-  /// per-session secret and the code's 10-minute expiry.
-  static const _bakedBaseUrl = String.fromEnvironment('DAWN_SYNC_URL',
-      defaultValue: 'https://aurora.laffort.nl');
+  /// It also produced a dead end: a stranger opening this screen got a code
+  /// their phone could never claim, because the phone posts to *its* configured
+  /// server, not to ours.
+  ///
+  /// Still overridable at build time — `--dart-define=DAWN_SYNC_URL=...` — for
+  /// personal builds against a known backend. Do not add it to
+  /// `ios-release.yml`.
+  static const _bakedBaseUrl = String.fromEnvironment('DAWN_SYNC_URL');
 
   final _baseUrl = TextEditingController();
   PairingSession? _session;

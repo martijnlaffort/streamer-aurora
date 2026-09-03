@@ -601,8 +601,18 @@ puts the seek bar in frame, which live playback hides.
       and reaches only what the user supplies — the same relationship a browser has to a website.
       The alternative attests that *we* hold rights to that content, which we do not and must not
       claim; saying so would hand a reviewer the 5.2.3 case in our own words
-- [x] **Build 3 attached to 1.0.0** (2026-09-03), built from `plexus/apps` so it carries the
-      `player_screen.dart` dispose fix that builds 1 and 2 lack
+- [x] **Build 4 attached to 1.0.0** (2026-09-03). Build 3 carried the `player_screen.dart` dispose
+      fix but still baked `https://aurora.laffort.nl` into the pairing screen, so do not attach it.
+
+      That one is worth remembering. `PairDeviceScreen` defaulted to the project's own backend and
+      opened a session the moment the screen appeared, so a store build contacted a
+      developer-operated server before the user had chosen any server — while `site/privacy.html`
+      says "no server of ours in the data path" and lists every destination as one the user
+      configured. Credentials never actually leaked (the phone refuses to send a payload without a
+      sync server the user configured), but the sentence was untrue, and a stranger opening the
+      screen got a pairing code their phone could never claim. The default is now empty;
+      `DAWN_SYNC_URL` still overrides it for personal builds and **must not** be added to
+      `ios-release.yml`. The app's destinations now match the published policy exactly
 - [ ] **App Privacy → Data Not Collected**, and availability. Web UI only, and not for want of
       trying: there is no App Privacy resource in the App Store Connect API at all
       (`PATH_ERROR: The resource 'v1/appDataUsages' does not exist`), and availability answers

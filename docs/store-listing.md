@@ -594,9 +594,25 @@ puts the seek bar in frame, which live playback hides.
       all until it is there. It must begin with `+` and a country code — `+31 6 12345678` — or a
       second 409 rejects the format. It reaches App Review only and is not shown on the product
       page, unlike Play's developer contact email
-- [ ] Left in the web UI by design, because they carry attestations a script should not make:
-      pricing (Free), availability, the App Privacy nutrition label (**Data Not Collected**),
-      attaching build 2, and Submit
+- [x] Review details written 2026-09-03 — notes (2587 chars), demo credentials, contact. The phone
+      was typed into the web UI rather than committed; `push` now takes `ASC_CONTACT_PHONE` from the
+      environment or keeps whatever ASC already holds, and `status` prints only whether one is set
+- [x] **Content rights: `DOES_NOT_USE_THIRD_PARTY_CONTENT`** (2026-09-03). The app ships no content
+      and reaches only what the user supplies — the same relationship a browser has to a website.
+      The alternative attests that *we* hold rights to that content, which we do not and must not
+      claim; saying so would hand a reviewer the 5.2.3 case in our own words
+- [x] **Build 3 attached to 1.0.0** (2026-09-03), built from `plexus/apps` so it carries the
+      `player_screen.dart` dispose fix that builds 1 and 2 lack
+- [ ] **App Privacy → Data Not Collected**, and availability. Web UI only, and not for want of
+      trying: there is no App Privacy resource in the App Store Connect API at all
+      (`PATH_ERROR: The resource 'v1/appDataUsages' does not exist`), and availability answers
+      `NOT_FOUND` on every documented shape. The answer is No to *"do you or your third-party
+      partners collect data from this app?"*, which ends the questionnaire in one question —
+      credentials go only to the user's own provider, history stays on device or on a server the
+      user runs, there is no analytics/crash/ads SDK, and `NSPrivacyCollectedDataTypes` in the
+      binary is already an empty array, which Apple cross-checks the label against
+- [ ] **Submit for Review** — deliberately not scripted. It is irreversible and carries attestations
+      that belong to a person
 - [x] Minimum iOS raised 13.0 -> 15.0, clearing Apple warning 90068 (uploads below 15.0 are
       refused from Spring 2027). No reach lost: iOS 15 covers the same iPhone generations as 13
 - [x] Launch screen replaced. It was the Flutter placeholder — pure white background and a 1x1

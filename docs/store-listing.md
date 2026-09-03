@@ -550,10 +550,18 @@ puts the seek bar in frame, which live playback hides.
       `/privacy.html` and `/support.html` both 200, and `robots.txt` now serves the Allow rules.
       Worth noting the blanket `Disallow: /` had been live and effective on the custom domain, so
       Play's privacy-policy fetch would have failed had this not been caught
-- [ ] Mock panel deployed at `https://demo.dawnplayer.com`. The web root and a click-by-click Ploi
-      runbook are in `deploy/demo/` — verified locally (60 live / 200 films / 24 series, the
-      `?count=` overrides stripped, streams redirecting to the real CDNs). What is left is the Ploi
-      site, the Cloudflare `A` record and Let's Encrypt, all of which are dashboard work
+- [x] **Mock panel live at `https://demo.dawnplayer.com`** (2026-09-02, Ploi/`167.235.194.99`).
+      Verified end to end over HTTPS from outside: auth 1 with the demo credentials and auth 0 with
+      a wrong password, 10 live categories / 60 channels / 200 films / 24 series, films and episodes
+      302-ing to `media.w3.org`, the live HLS playlist proxied, and **no copyrighted title anywhere
+      in the catalogue**. Runbook in `deploy/demo/README.md`.
+
+      Two things cost an hour between "deployed" and "working", both worth knowing for next time.
+      The site was created with the default web directory `/public`, which this repo does not have —
+      that is what the Let's Encrypt failure (`/home/ploi/.../public does not exist`) was really
+      telling us, and the nginx root was wrong for the same reason. And Ploi's generated deploy
+      script pulls a branch into a checkout of the default branch, which fails outright once the two
+      diverge; a deploy target wants `git fetch` + `git reset --hard origin/<branch>`, not a merge
 - [ ] Play developer account registered (start the 12-tester clock early — §3.5)
 - [x] Apple Developer Program membership active (2026-08-31). Team `XTBG48BLG7`
 - [x] iOS signing works end to end. All 7 secrets loaded; run 33371032544 produced a **signed**
@@ -579,10 +587,42 @@ puts the seek bar in frame, which live playback hides.
       `CFBundleShortVersionString`, so the build picker would have been empty with no explanation
 - [ ] **Review details** — blocked on a contact phone number. Fill `contactPhone` in
       `tool/asc-listing.json` and re-run `node tool/asc.mjs push`; the script refuses to write a
-      half-filled review detail, because one that looks answered is worse than one that is empty
-- [ ] Left in the web UI by design, because they carry attestations a script should not make:
-      pricing (Free), availability, the App Privacy nutrition label (**Data Not Collected**),
-      attaching build 2, and Submit
+      half-filled review detail, because one that looks answered is worse than one that is empty.
+
+      Not optional, and tested rather than assumed: posting review details without it returns
+      `409 ENTITY_ERROR.ATTRIBUTE.REQUIRED`, so the notes and demo credentials cannot be stored at
+      all until it is there. It must begin with `+` and a country code — `+31 6 12345678` — or a
+      second 409 rejects the format. It reaches App Review only and is not shown on the product
+      page, unlike Play's developer contact email
+- [x] Review details written 2026-09-03 — notes (2587 chars), demo credentials, contact. The phone
+      was typed into the web UI rather than committed; `push` now takes `ASC_CONTACT_PHONE` from the
+      environment or keeps whatever ASC already holds, and `status` prints only whether one is set
+- [x] **Content rights: `DOES_NOT_USE_THIRD_PARTY_CONTENT`** (2026-09-03). The app ships no content
+      and reaches only what the user supplies — the same relationship a browser has to a website.
+      The alternative attests that *we* hold rights to that content, which we do not and must not
+      claim; saying so would hand a reviewer the 5.2.3 case in our own words
+- [x] **Build 4 attached to 1.0.0** (2026-09-03). Build 3 carried the `player_screen.dart` dispose
+      fix but still baked `https://aurora.laffort.nl` into the pairing screen, so do not attach it.
+
+      That one is worth remembering. `PairDeviceScreen` defaulted to the project's own backend and
+      opened a session the moment the screen appeared, so a store build contacted a
+      developer-operated server before the user had chosen any server — while `site/privacy.html`
+      says "no server of ours in the data path" and lists every destination as one the user
+      configured. Credentials never actually leaked (the phone refuses to send a payload without a
+      sync server the user configured), but the sentence was untrue, and a stranger opening the
+      screen got a pairing code their phone could never claim. The default is now empty;
+      `DAWN_SYNC_URL` still overrides it for personal builds and **must not** be added to
+      `ios-release.yml`. The app's destinations now match the published policy exactly
+- [ ] **App Privacy → Data Not Collected**, and availability. Web UI only, and not for want of
+      trying: there is no App Privacy resource in the App Store Connect API at all
+      (`PATH_ERROR: The resource 'v1/appDataUsages' does not exist`), and availability answers
+      `NOT_FOUND` on every documented shape. The answer is No to *"do you or your third-party
+      partners collect data from this app?"*, which ends the questionnaire in one question —
+      credentials go only to the user's own provider, history stays on device or on a server the
+      user runs, there is no analytics/crash/ads SDK, and `NSPrivacyCollectedDataTypes` in the
+      binary is already an empty array, which Apple cross-checks the label against
+- [ ] **Submit for Review** — deliberately not scripted. It is irreversible and carries attestations
+      that belong to a person
 - [x] Minimum iOS raised 13.0 -> 15.0, clearing Apple warning 90068 (uploads below 15.0 are
       refused from Spring 2027). No reach lost: iOS 15 covers the same iPhone generations as 13
 - [x] Launch screen replaced. It was the Flutter placeholder — pure white background and a 1x1

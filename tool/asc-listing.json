@@ -19,7 +19,7 @@
   },
 
   "reviewDetail": {
-    "_comment": "Apple requires a contact phone number. Fill contactPhone before pushing — the script refuses to write review details while it is empty.",
+    "_comment": "contactPhone is REQUIRED — verified, not assumed: the API answers 409 ENTITY_ERROR.ATTRIBUTE.REQUIRED and refuses to store review details at all without it. It must start with '+' and a country code (a second 409 says so), e.g. +31 6 12345678. These contact details go to App Review only; they are not shown on the product page, unlike Play's public developer contact.",
     "contactFirstName": "Martijn",
     "contactLastName": "Laffort",
     "contactPhone": "",

@@ -160,8 +160,10 @@ class EpgRepository {
   /// guide; falls back to the source's per-channel short EPG (Xtream) when no
   /// XMLTV exists for the account.
   Future<List<EpgEntry>> nowNext(Account account, Channel channel,
-      {int limit = 2}) async {
-    final key = _channelKey(channel);
+      {int limit = 2, String? epgKeyOverride}) async {
+    // A hand-set mapping wins over whatever the playlist claimed — that is the
+    // whole point of setting one.
+    final key = epgKeyOverride ?? _channelKey(channel);
     final source = _sourceFactory(account);
 
     if (source.xmltvUrl != null) {
@@ -313,6 +315,61 @@ class EpgRepository {
   }
 
   /// Whether any EPG is cached for this account (drives guide empty-states).
+  /// How much of the channel list the guide actually covers.
+  ///
+  /// Silent degradation is what earns the one-star review: an empty grid row
+  /// reads as "this app's guide is broken" when the truth is that the playlist
+  /// and the XMLTV feed disagree about a channel's id. Counting it is the first
+  /// step to saying so.
+  ///
+  /// "Covered" means the channel's guide key appears in the EPG cache at all —
+  /// not that it has a programme on right now, which would make the number
+  /// flicker with the schedule.
+  Future<({int total, int covered})> guideCoverage(Account account) async {
+    final counted = await _db.customSelect(
+      'SELECT COUNT(*) AS total, '
+      'SUM(CASE WHEN EXISTS (SELECT 1 FROM epg_cache e '
+      '  WHERE e.account_id = c.account_id '
+      '    AND e.channel_id = COALESCE(c.epg_channel_id, c.id)) '
+      ' THEN 1 ELSE 0 END) AS covered '
+      'FROM channels c WHERE c.account_id = ?',
+      variables: [Variable<String>(account.id)],
+      readsFrom: {_db.channelsTable, _db.epgCacheTable},
+    ).getSingle();
+    return (
+      total: counted.read<int>('total'),
+      covered: counted.read<int?>('covered') ?? 0,
+    );
+  }
+
+  /// Channels the guide has nothing for, so they can be mapped by hand.
+  Future<List<Channel>> channelsWithoutEpg(Account account,
+      {int limit = 200}) async {
+    final rows = await _db.customSelect(
+      'SELECT c.* FROM channels c WHERE c.account_id = ? '
+      'AND NOT EXISTS (SELECT 1 FROM epg_cache e '
+      '  WHERE e.account_id = c.account_id '
+      '    AND e.channel_id = COALESCE(c.epg_channel_id, c.id)) '
+      'ORDER BY c.sort_order ASC LIMIT ?',
+      variables: [Variable<String>(account.id), Variable<int>(limit)],
+      readsFrom: {_db.channelsTable, _db.epgCacheTable},
+    ).get();
+    return [
+      for (final r in rows) _db.channelsTable.map(r.data).toModel(),
+    ];
+  }
+
+  /// Distinct guide keys the EPG holds, for the manual mapping picker.
+  Future<List<String>> knownEpgKeys(Account account, {int limit = 500}) async {
+    final rows = await _db.customSelect(
+      'SELECT DISTINCT channel_id FROM epg_cache WHERE account_id = ? '
+      'ORDER BY channel_id ASC LIMIT ?',
+      variables: [Variable<String>(account.id), Variable<int>(limit)],
+      readsFrom: {_db.epgCacheTable},
+    ).get();
+    return [for (final r in rows) r.read<String>('channel_id')];
+  }
+
   Future<bool> hasEpg(Account account) async {
     final row = await (_db.epgCacheTable.select()
           ..where((t) => t.accountId.equals(account.id))

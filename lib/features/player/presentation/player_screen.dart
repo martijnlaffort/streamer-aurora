@@ -39,6 +39,17 @@ const bool _forceSoftwareDecode = bool.fromEnvironment('DAWN_SW_DECODE');
 /// Present as VLC, which panels accept almost universally.
 const String kStreamUserAgent = 'VLC/3.0.21 LibVLC/3.0.21';
 
+/// One thing worth trying for a channel: a specific stream, reached through a
+/// specific one of the account's hosts.
+class _StreamCandidate {
+  const _StreamCandidate({required this.streamId, required this.hostAttempt});
+
+  final String streamId;
+
+  /// 0 is the account's own `serverUrl`; 1..n index into its fallback hosts.
+  final int hostAttempt;
+}
+
 /// The player (PRD §8.8): media_kit playback with a custom HBO-style
 /// controls overlay, audio/subtitle selection, gestures, and an
 /// autoplay-next queue.
@@ -124,6 +135,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Timer? _upNextTimer;
   int? _upNextCountdown;
 
+  /// The pre-end "Next episode" prompt is showing. A button, never a countdown:
+  /// we are GUESSING where the credits start, and auto-advancing on a guess
+  /// would cut off the ending of anything we guessed wrong about.
+  bool _upNextEarly = false;
+  bool _earlyPrompted = false;
+
+  /// Where the file itself says the credits begin, when it carries chapters.
+  /// Exact when present; almost never present on IPTV.
+  Duration? _creditsStart;
+
+  /// Seconds before the end at which to offer the next episode when neither
+  /// chapters nor a learned value say otherwise. Television credits run
+  /// thirty to sixty seconds; this lands the prompt as they start rather than
+  /// as they end.
+  static const _defaultOutroSeconds = 45;
+  int? _learnedOutroSeconds;
+
   /// Automatic recovery from a dropped stream.
   ///
   /// IPTV transports drop constantly — a few seconds of bad wifi, a panel
@@ -142,13 +170,33 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// stream that never opened at all.
   bool _everPlayed = false;
 
-  /// Which of the account's hosts is being tried: 0 is the account's own
-  /// `serverUrl`, 1..n index into its fallbacks.
-  int _hostAttempt = 0;
+  /// Everything worth trying for the current item, best first.
+  ///
+  /// A channel is an ordered set of streams, not a URL: a line ships the same
+  /// channel two to five times (4K/FHD/HD, backup rows) and they are not
+  /// equally healthy. Walking that list silently is the difference between
+  /// "reconnects on its own", which is a retry loop against a dead source, and
+  /// a channel that simply plays.
+  List<_StreamCandidate> _candidates = const [];
+  int _candidateIndex = 0;
 
-  /// How many fallbacks the active account has, cached from the last open so
-  /// the error path can decide without another async read.
-  int _altHostCount = 0;
+  /// The logical channel the candidates belong to, for remembering the winner.
+  String? _variantKey;
+
+  /// True while walking the candidate list, as opposed to recovering a stream
+  /// that had been playing — the two look identical to the code and completely
+  /// different to the viewer.
+  bool _switchingFeed = false;
+
+  /// Fires when a candidate connects but never starts playing. See
+  /// [_watchdogBudget].
+  Timer? _watchdog;
+
+  /// Cached channel count for the current zap scope, and the scope it belongs
+  /// to. Recomputing it per press is what made channel-up wait on a GROUP BY
+  /// over the whole channel table.
+  int? _zapTotal;
+  String? _zapScopeKey;
 
   /// Focus node for remote/keyboard input. The player is the one screen where
   /// the entire UI is a video surface, so it owns key handling directly rather
@@ -286,6 +334,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           _reconnecting = false;
         }
       });
+      if (v) {
+        // This candidate works: stand the watchdog down and remember it, so
+        // the next tune-in does not repeat the walk that found it.
+        _watchdog?.cancel();
+        _switchingFeed = false;
+        _rememberWinner();
+      }
       // Save on pause (PRD §8.9).
       if (!v && _position > Duration.zero && _duration > Duration.zero) {
         _saveProgress();
@@ -348,6 +403,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               Duration(milliseconds: (seconds * 1000).round()));
         }).catchError((Object _) {}),
       );
+      // Chapters, for the rare file that carries them. A chapter called
+      // "Credits" is the one exact answer to "where does the outro start",
+      // and it costs nothing to look. Arrives as mpv's text form of the node,
+      // so it is read leniently rather than parsed as strict JSON.
+      unawaited(
+        platform.observeProperty('chapter-list', (value) async {
+          if (!mounted) return;
+          setState(() => _creditsStart = _creditsChapterStart(value));
+        }).catchError((Object _) {}),
+      );
     }
 
     _openCurrent(resumeFrom: widget.request.resumeFromSeconds);
@@ -363,6 +428,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       await session.configure(const AudioSessionConfiguration.music());
       await session.setActive(true);
       _audioSession = session;
+      // Pull the earphones out and the video stops - what Netflix and HBO do,
+      // and what the platform is asking for: Android's "audio becoming noisy"
+      // broadcast and iOS's route change to "old device unavailable" both
+      // exist so a film does not start blaring out of the phone speaker on a
+      // train. Pause only; never auto-resume when they come back, because the
+      // user may have put them away for a reason.
+      if (!mounted) return;
+      _subs.add(session.becomingNoisyEventStream.listen((_) {
+        if (!mounted || !_playing) return;
+        _player.pause();
+        // Show the controls so the pause is visibly deliberate, not a stall.
+        setState(() => _controlsVisible = true);
+        _scheduleHide();
+      }));
     } catch (_) {
       // Never fatal — playback still works; we just don't own the session.
     }
@@ -382,6 +461,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _upNextTimer?.cancel();
     _liveEpgTimer?.cancel();
     _reconnectTimer?.cancel();
+    _watchdog?.cancel();
     _zapToastTimer?.cancel();
     _keyboardFocus.dispose();
     _playPauseFocus.dispose();
@@ -444,6 +524,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         const Duration(seconds: 5)) {
       _saveProgress();
     }
+    _maybeOfferNext(position);
+  }
+
+  /// Offers the next episode as the credits start, not as the file ends.
+  ///
+  /// Where the credits start is, in order of trust: a chapter the file itself
+  /// names, what this show has taught us from earlier skips, and failing both a
+  /// default sized for television credits. Whatever the source, this is a
+  /// button and never a countdown — the moment is inferred, and auto-advancing
+  /// on an inference would cut off the ending of every episode it got wrong.
+  void _maybeOfferNext(Duration position) {
+    if (_earlyPrompted || _next == null || _current.isLive) return;
+    if (_current.streamRef.isCatchup) return;
+    final remaining = _duration - position;
+    // A TS file reports a small growing duration before the real one lands;
+    // a "remaining" computed from that would fire at the very start.
+    if (_duration < const Duration(minutes: 3)) return;
+
+    final Duration lead;
+    final credits = _creditsStart;
+    if (credits != null && credits < _duration) {
+      lead = _duration - credits;
+    } else {
+      lead = Duration(seconds: _learnedOutroSeconds ?? _defaultOutroSeconds);
+    }
+    if (remaining > lead) return;
+    _earlyPrompted = true;
+    setState(() => _upNextEarly = true);
   }
 
   /// The media just reported its length — this is the moment a pending
@@ -520,6 +628,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     setState(() {
       _error = null;
       _upNextCountdown = null;
+      _upNextEarly = false;
+      _earlyPrompted = false;
+      _creditsStart = null;
       _liveNow = null;
       // A new stream has a new buffer; keeping the old edge would report a
       // wildly wrong "behind live" until mpv next reported.
@@ -530,9 +641,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _reconnectAttempt = 0;
         _reconnecting = false;
         _everPlayed = false;
-        // A different item starts from the provider's primary host again: the
-        // fallback that rescued the last channel says nothing about this one.
-        _hostAttempt = 0;
+        // A different item starts its own walk: the backup that rescued the
+        // last channel says nothing about this one.
+        _candidateIndex = 0;
+        _switchingFeed = false;
       }
     });
     _upNextTimer?.cancel();
@@ -557,13 +669,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         }
       }
       _pendingResumeSeconds = resumeFrom;
-      _altHostCount = account.altHosts.length;
+      if (!isRetry) {
+        await _buildCandidates(account);
+        // What this show has taught us about where its credits start.
+        final seriesId = _current.seriesId;
+        _learnedOutroSeconds = seriesId == null
+            ? null
+            : await ref
+                .read(outroHintsRepositoryProvider)
+                .secondsBeforeEnd(account.id, seriesId);
+      }
+      if (!mounted) return;
+      final candidate = _candidates.isEmpty
+          ? _StreamCandidate(
+              streamId: _current.streamRef.streamId, hostAttempt: 0)
+          : _candidates[_candidateIndex.clamp(0, _candidates.length - 1)];
       final url = _withAltHost(
-        await ref
-            .read(sourceFactoryProvider)(account)
-            .buildStreamUrl(_current.streamRef),
+        await ref.read(sourceFactoryProvider)(account).buildStreamUrl(
+              StreamRef(
+                accountId: _current.streamRef.accountId,
+                type: _current.streamRef.type,
+                streamId: candidate.streamId,
+                containerExt: _current.streamRef.containerExt,
+                catchupStart: _current.streamRef.catchupStart,
+                catchupMinutes: _current.streamRef.catchupMinutes,
+              ),
+            ),
         account,
-        _hostAttempt,
+        candidate.hostAttempt,
       );
       if (!mounted) return;
       // Present a player User-Agent panels accept. Per account, because which
@@ -573,10 +706,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // property overrides libmpv's default and avoids duplicate headers.
       final platform = _player.platform;
       if (platform is NativePlayer) {
-        await platform.setProperty('user-agent', kStreamUserAgent);
+        await platform.setProperty(
+            'user-agent', account.userAgent ?? kStreamUserAgent);
+        // Sound was running a frame or two ahead of the picture. mpv renders
+        // into a Flutter texture that Flutter then composites on ITS schedule,
+        // and mpv's A/V clock counts the frame as shown the moment it finished
+        // rendering — so it never delays the audio to match. Positive
+        // `audio-delay` holds the sound back by that much. See
+        // _audioDelaySeconds for why this is safe to apply everywhere.
+        try {
+          await platform.setProperty(
+              'audio-delay', _audioDelaySeconds().toStringAsFixed(3));
+        } on Object {
+          // An older libmpv without the property: no compensation, not no
+          // playback.
+        }
+        await _configureCache(platform, live: _current.isLive);
       }
       await _player.open(Media(url));
       if (!mounted) return;
+      _armWatchdog();
       _scheduleHide();
       if (_current.isLive) {
         _refreshLiveEpg();
@@ -588,6 +737,178 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // transient reasons too, and a reconnect in progress should keep trying.
       _onStreamError('$e');
     }
+  }
+
+  /// How long a candidate gets to actually start playing before it is written
+  /// off and the next one tried.
+  ///
+  /// Only applied while there is something else to try: the LAST candidate
+  /// waits indefinitely. That is what makes an aggressive budget safe — a
+  /// healthy-but-slow line walks its list quickly and then sits patiently on
+  /// the final entry, rather than being abandoned with nothing playing.
+  ///
+  /// Four seconds rather than the two a stopwatch would suggest: below that,
+  /// a line that is merely slow gets silently demoted to its lowest-quality
+  /// row, and the user has no idea why the picture got worse.
+  static const _watchdogBudget = Duration(seconds: 4);
+
+  /// Builds the ordered list of things to try for [_current].
+  ///
+  /// Sources first, then hosts. Walking every source against every host would
+  /// be a combinatorial crawl through a dozen dead ends; a stream that is gone
+  /// is gone on all of the provider's hostnames, and a blocked host blocks all
+  /// of them, so the two failures are independent and one pass each finds them.
+  Future<void> _buildCandidates(Account account) async {
+    _variantKey = null;
+    final ref0 = _current.streamRef;
+    // Only live channels have variants. A film has exactly one stream, and a
+    // catch-up request is tied to the specific channel that recorded it.
+    if (_current.isLive && !ref0.isCatchup) {
+      final channel = await ref
+          .read(catalogRepositoryProvider)
+          .channelById(account, ref0.streamId);
+      final key = channel?.variantKey;
+      if (key != null) {
+        final variants =
+            await ref.read(catalogRepositoryProvider).channelVariants(account, key);
+        if (variants.length > 1) {
+          _variantKey = key;
+          final preferred = await ref
+              .read(streamChoiceRepositoryProvider)
+              .preferred(account.id, key);
+          final ids = [for (final v in variants) v.id];
+          // The one that worked last time leads; everything else keeps its
+          // quality order behind it.
+          if (preferred != null && ids.remove(preferred)) {
+            ids.insert(0, preferred);
+          }
+          _candidates = [
+            for (final id in ids)
+              _StreamCandidate(streamId: id, hostAttempt: 0),
+            for (var h = 1; h <= account.altHosts.length; h++)
+              _StreamCandidate(streamId: ids.first, hostAttempt: h),
+          ];
+          return;
+        }
+      }
+    }
+    _candidates = [
+      _StreamCandidate(streamId: ref0.streamId, hostAttempt: 0),
+      for (var h = 1; h <= account.altHosts.length; h++)
+        _StreamCandidate(streamId: ref0.streamId, hostAttempt: h),
+    ];
+  }
+
+  /// Moves to the next candidate, if there is one. Returns false when the list
+  /// is exhausted and the failure is real.
+  bool _tryNextCandidate() {
+    if (_candidateIndex + 1 >= _candidates.length) return false;
+    setState(() {
+      _candidateIndex++;
+      _reconnecting = true;
+      _switchingFeed = true;
+      _error = null;
+    });
+    _openCurrent(isRetry: true);
+    return true;
+  }
+
+  /// Arms the "connected but nothing is playing" watchdog.
+  ///
+  /// A source that accepts the connection and then delivers nothing is the
+  /// silent failure this whole feature exists for: without it the player sits
+  /// on a black screen forever, because as far as it is concerned nothing has
+  /// gone wrong.
+  void _armWatchdog() {
+    _watchdog?.cancel();
+    if (_candidateIndex + 1 >= _candidates.length) return; // nothing to switch to
+    _watchdog = Timer(_watchdogBudget, () {
+      if (!mounted || _everPlayed) return;
+      debugPrint('Candidate $_candidateIndex produced no playback; switching.');
+      _tryNextCandidate();
+    });
+  }
+
+  /// Records the stream that actually played, so the next tune-in starts there.
+  void _rememberWinner() {
+    final key = _variantKey;
+    if (key == null || _candidates.isEmpty) return;
+    final candidate =
+        _candidates[_candidateIndex.clamp(0, _candidates.length - 1)];
+    unawaited(() async {
+      try {
+        final account = await ref.read(activeAccountProvider.future);
+        if (account == null) return;
+        await ref.read(streamChoiceRepositoryProvider).remember(
+              accountId: account.id,
+              variantKey: key,
+              streamId: candidate.streamId,
+            );
+      } on Object {
+        // Best-effort: forgetting which stream won costs one extra failover.
+      }
+    }());
+  }
+
+  /// Remembers how far before the end the user moved on, for this show.
+  ///
+  /// Only when it plausibly WAS the credits: inside the repository's bounds,
+  /// and only for series episodes — a film has no next episode to learn for.
+  void _recordOutroHint() {
+    final seriesId = _current.seriesId;
+    if (seriesId == null || _current.isLive || _duration == Duration.zero) {
+      return;
+    }
+    final remaining = (_duration - _position).inSeconds;
+    final accountId = _current.streamRef.accountId;
+    unawaited(ref.read(outroHintsRepositoryProvider).record(
+          accountId: accountId,
+          seriesId: seriesId,
+          secondsBeforeEnd: remaining,
+        ));
+  }
+
+  /// The start of a chapter that names itself as the credits, or null.
+  ///
+  /// [raw] is mpv's string rendering of `chapter-list`, a JSON-ish list of
+  /// `{"title":"...","time":123.4}` nodes. Read with two small patterns rather
+  /// than a JSON parser: the exact quoting has varied between mpv builds, and a
+  /// chapter list that fails to parse should mean "no chapters", never a crash
+  /// on open.
+  static Duration? _creditsChapterStart(String raw) {
+    final entries = RegExp(r'\{[^{}]*\}').allMatches(raw);
+    final title = RegExp(r'"title"\s*:\s*"([^"]*)"');
+    final time = RegExp(r'"time"\s*:\s*([0-9.]+)');
+    final credits = RegExp(r'credit|outro|end\s*card|closing', caseSensitive: false);
+    for (final e in entries) {
+      final chunk = e.group(0)!;
+      final t = title.firstMatch(chunk)?.group(1);
+      if (t == null || !credits.hasMatch(t)) continue;
+      final seconds = double.tryParse(time.firstMatch(chunk)?.group(1) ?? '');
+      if (seconds == null) continue;
+      return Duration(milliseconds: (seconds * 1000).round());
+    }
+    return null;
+  }
+
+  /// How long to hold the audio back, in seconds.
+  ///
+  /// Two parts. The first is the app's own latency, computed rather than
+  /// guessed: mpv renders into a texture that Flutter composites one to two
+  /// frames later, so two frame periods at the display's actual refresh rate
+  /// — 33 ms at 60 Hz, 40 ms at 50 Hz. The second is the user's per-screen
+  /// adjustment for what the app cannot see (the TV's own processing).
+  ///
+  /// Applying the first part everywhere is safe because human perception is
+  /// lopsided (ITU-R BT.1359): sound running AHEAD is noticed from about 45 ms,
+  /// sound running BEHIND not until about 125 ms. Our texture path put us on
+  /// the wrong side of that line; two frames of delay moves us to the tolerant
+  /// side, where even a device that was already in sync sits far below the
+  /// threshold.
+  double _audioDelaySeconds() {
+    final hz = View.of(context).display.refreshRate;
+    final frame = hz > 1 ? 1 / hz : 1 / 60;
+    return 2 * frame + _prefs.audioDelayMs / 1000;
   }
 
   /// Points [url] at the account's [attempt]-th fallback host.
@@ -700,20 +1021,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// see [_maxReconnectAttempts].
   void _onStreamError(String message) {
     if (!mounted) return;
-    // A stream that never opened may be nothing worse than this hostname.
-    // Providers hand out several and they are not interchangeable in practice:
-    // one can be blocked or badly routed from the current exit IP while the
-    // next answers immediately. Walk them before reporting a failure — trying
-    // them by hand is exactly the debugging session this is meant to end.
-    if (!_everPlayed && _hostAttempt < _altHostCount) {
-      setState(() {
-        _hostAttempt++;
-        _reconnecting = true;
-        _error = null;
-      });
-      _openCurrent(isRetry: true);
-      return;
-    }
+    // A stream that never opened may be nothing worse than this particular
+    // row of the channel, or this particular hostname. Walk the rest before
+    // reporting a failure — doing that by hand is the debugging session this
+    // is meant to end.
+    if (!_everPlayed && _tryNextCandidate()) return;
     // A stream that never opened is usually a real problem (wrong URL, denied,
     // offline) and retrying it just delays a useful message. A stream that was
     // playing and stopped is a drop, and is worth reopening.
@@ -777,7 +1089,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         setState(() => _controlsVisible = true);
         return;
       }
-      setState(() => _upNextCountdown = 5);
+      // The end arrived: the early offer hands over to the countdown rather
+      // than the two cards sitting on top of each other.
+      setState(() {
+        _upNextEarly = false;
+        _upNextCountdown = 5;
+      });
       _upNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (!mounted) return;
         final remaining = (_upNextCountdown ?? 1) - 1;
@@ -795,6 +1112,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   void _playNext() {
     if (_next == null) return;
+    // Moving on with time still to play is the signal this whole feature
+    // learns from: it says where THIS show's credits start. Recorded before
+    // anything about the current item is cleared.
+    _recordOutroHint();
     // Manual skip: save where we left the current item first (PRD §8.9).
     _saveProgress();
     _upNextTimer?.cancel();
@@ -874,6 +1195,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final zap = _zap;
     if (zap == null || _zapping) return;
     _zapping = true;
+    // Paint BEFORE any I/O. A remote press has to produce visible feedback
+    // immediately — Roku certifies 250 ms for it — and the banner used to wait
+    // on a channel count, an overrides read and a row lookup first. On a 25k
+    // line that count is a GROUP BY over the whole table, so the one
+    // interaction people repeat all evening was the one that waited longest.
+    //
+    // The position is predicted from the cached total; if there isn't one yet
+    // the direction is still something, and both are corrected below the
+    // moment the real row arrives.
+    final knownTotal = _zapTotal;
+    _showZapToast(knownTotal != null && knownTotal > 0
+        ? '${(zap.index + delta) % knownTotal + 1}/$knownTotal · …'
+        : (delta > 0 ? 'Channel up…' : 'Channel down…'));
     try {
       final account = await ref.read(activeAccountProvider.future);
       if (!mounted || account == null) return;
@@ -881,12 +1215,32 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // Grouping has to match the list the index came from, or channel-up steps
       // through per-quality duplicates the user cannot see on the Live tab.
       final grouped = ref.read(groupChannelVariantsProvider);
-      final total = await catalog.channelCount(
-        account,
-        categoryId: zap.categoryId,
-        categoryIds: zap.categoryIds,
-        groupVariants: grouped,
-      );
+      // Hidden channels have to come out here too. channelCount's own comment
+      // says the list, the count and zapping must match exactly — and this call
+      // site was the one that did not, so channel-up walked into channels the
+      // user had explicitly hidden and could not see on the Live tab. Read
+      // fresh rather than carried on ZapContext: the set is the user's current
+      // curation, which now also arrives from other devices mid-session.
+      final overrides = await ref.read(catalogOverridesProvider.future);
+      if (!mounted) return;
+      final hidden = overrides.hiddenChannels;
+      // Counting is the expensive half — grouped, it is a GROUP BY over every
+      // channel — and the answer only moves when the scope or the hidden set
+      // does. Cache it so holding channel-up costs one indexed row read per
+      // press instead of a full recount.
+      final scopeKey = '${zap.categoryId}|${zap.categoryIds?.length}'
+          '|$grouped|${hidden.length}';
+      if (_zapTotal == null || _zapScopeKey != scopeKey) {
+        _zapTotal = await catalog.channelCount(
+          account,
+          categoryId: zap.categoryId,
+          categoryIds: zap.categoryIds,
+          excludeIds: hidden,
+          groupVariants: grouped,
+        );
+        _zapScopeKey = scopeKey;
+      }
+      final total = _zapTotal!;
       if (total <= 1) {
         _showZapToast('No other channels in this list');
         return;
@@ -897,6 +1251,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         nextIndex,
         categoryId: zap.categoryId,
         categoryIds: zap.categoryIds,
+        excludeIds: hidden,
         groupVariants: grouped,
       );
       if (channel == null || !mounted) return;
@@ -918,7 +1273,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           isLive: true,
         );
       });
-      _showZapToast('${nextIndex + 1}/$total · ${channel.name}');
+      // The name the LIVE LIST shows: its base name when qualities are grouped,
+      // and any rename the user gave it. Announcing the raw provider row here
+      // ("NL | NPO 1 FHD") after they renamed it to "NPO 1" reads as landing on
+      // a different channel.
+      final label = overrides.channelName(
+          channel.id, grouped ? channel.displayName : channel.name);
+      _showZapToast('${nextIndex + 1}/$total · $label');
       await _openCurrent();
     } finally {
       _zapping = false;
@@ -1429,7 +1790,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       style: AppTypography.body),
                 ),
               ),
-            if (_upNextCountdown != null && _next != null) _upNextCard(),
+            if ((_upNextCountdown != null || _upNextEarly) && _next != null)
+              _upNextCard(),
             if (_shouldShowNextEpisode()) _nextEpisodeButton(),
             _controlsOverlay(),
           ],
@@ -1551,13 +1913,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 color: AppColors.accent, strokeWidth: 3),
           ),
           const SizedBox(height: 14),
+          // Walking the channel's other streams is not the same event as
+          // recovering a dropped one, and saying "Attempt 0 of 3" during a
+          // failover was both wrong and alarming. What the viewer needs to
+          // know is that something is being tried, never which provider error
+          // came back.
           Text(
-            'Reconnecting…',
+            _switchingFeed ? 'Switching to backup feed…' : 'Reconnecting…',
             style: AppTypography.body,
           ),
           const SizedBox(height: 4),
           Text(
-            'Attempt $_reconnectAttempt of $_maxReconnectAttempts',
+            _switchingFeed
+                ? 'Feed ${_candidateIndex + 1} of ${_candidates.length}'
+                : 'Attempt $_reconnectAttempt of $_maxReconnectAttempts',
             style: TextStyle(
                 color: AppColors.textSecondary, fontSize: 12),
           ),
@@ -1734,7 +2103,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Up next in $_upNextCountdown…',
+            // Two moments, two cards. Before the end we are guessing where the
+            // credits start, so it is an offer with no clock on it. At the end
+            // the episode is over and the countdown is the right thing.
+            Text(
+                _upNextCountdown != null
+                    ? 'Up next in $_upNextCountdown…'
+                    : 'Up next',
                 style: AppTypography.label
                     .copyWith(color: AppColors.accentAlt)),
             const SizedBox(height: 6),
@@ -1746,16 +2121,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             Row(
               children: [
                 FilledButton(
+                  // Takes focus when the early card appears, so on a
+                  // television one OK press is enough - the whole point of
+                  // showing it as the credits start.
+                  autofocus: _upNextCountdown == null,
                   onPressed: _playNext,
-                  child: const Text('Play now'),
+                  child: Text(
+                      _upNextCountdown != null ? 'Play now' : 'Next episode'),
                 ),
                 const SizedBox(width: 8),
                 TextButton(
                   onPressed: () {
                     _upNextTimer?.cancel();
-                    setState(() => _upNextCountdown = null);
+                    setState(() {
+                      _upNextCountdown = null;
+                      _upNextEarly = false;
+                    });
                   },
-                  child: const Text('Cancel'),
+                  child: Text(
+                      _upNextCountdown != null ? 'Cancel' : 'Keep watching'),
                 ),
               ],
             ),

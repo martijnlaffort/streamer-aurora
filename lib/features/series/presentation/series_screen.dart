@@ -6,6 +6,7 @@ import '../../../core/matching/category_label.dart';
 import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/shell_actions.dart';
 import '../../../core/widgets/category_rails_view.dart';
 import '../../../core/widgets/poster_card.dart';
 import '../../../core/matching/title_label.dart';
@@ -27,11 +28,13 @@ class SeriesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Series'),
         actions: [
-          TextButton.icon(
-            icon: const Icon(Icons.grid_view_outlined, size: 18),
-            label: const Text('All'),
-            onPressed: () => context.push('/series/category/$allCategoryId'),
-          ),
+          ShellActions(extra: [
+            TextButton.icon(
+              icon: const Icon(Icons.grid_view_outlined, size: 18),
+              label: const Text('All'),
+              onPressed: () => context.push('/series/category/$allCategoryId'),
+            ),
+          ]),
         ],
       ),
       body: categories.when(
@@ -51,7 +54,7 @@ class SeriesScreen extends ConsumerWidget {
           child: CategoryRailsView(
             categories: list,
             railBuilder: (context, category) =>
-                _SeriesCategoryRail(category: category),
+                SeriesCategoryRail(category: category),
           ),
         ),
       ),
@@ -59,15 +62,15 @@ class SeriesScreen extends ConsumerWidget {
   }
 }
 
-class _SeriesCategoryRail extends ConsumerWidget {
-  const _SeriesCategoryRail({required this.category});
+class SeriesCategoryRail extends ConsumerWidget {
+  const SeriesCategoryRail({super.key, required this.category});
 
   final Category category;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rail = ref.watch(seriesCategoryRailProvider(category.id));
-    // See _MovieCategoryRail: rendered from the retained value so a reload or a
+    // See MovieCategoryRail: rendered from the retained value so a reload or a
     // transient error can never collapse a rail that has already loaded.
     final series = rail.value;
     if (series == null) {

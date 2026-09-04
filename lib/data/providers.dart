@@ -15,9 +15,11 @@ import 'repositories/catalog_repository.dart';
 import 'repositories/discovery_repository.dart';
 import 'repositories/epg_repository.dart';
 import 'repositories/favorites_repository.dart';
+import 'repositories/outro_hints_repository.dart';
 import 'repositories/preferences_repository.dart';
 import 'repositories/reminders_repository.dart';
 import 'repositories/search_history_repository.dart';
+import 'repositories/stream_choice_repository.dart';
 import 'repositories/watch_progress_repository.dart';
 import 'sources/canon_source.dart';
 import 'sources/m3u_source.dart';
@@ -25,6 +27,7 @@ import 'sources/playlist_source.dart';
 import 'sources/tmdb_source.dart';
 import 'sources/xtream_source.dart';
 import 'db/account_id_migration.dart';
+import 'sync/server_clock.dart';
 import 'sync/sync_trigger.dart';
 
 /// Riverpod wiring for the data layer. The UI depends on these providers and
@@ -156,6 +159,7 @@ class ArtworkQuery {
 final watchProgressRepositoryProvider = Provider<WatchProgressRepository>(
     (ref) => WatchProgressRepository(
           db: ref.watch(appDatabaseProvider),
+          clock: ref.watch(serverClockProvider).now,
           onChanged: () => ref.read(syncTriggerProvider).ping(),
         ));
 
@@ -165,6 +169,7 @@ final preferencesRepositoryProvider = Provider<PreferencesRepository>(
 final favoritesRepositoryProvider = Provider<FavoritesRepository>(
     (ref) => FavoritesRepository(
           db: ref.watch(appDatabaseProvider),
+          clock: ref.watch(serverClockProvider).now,
           onChanged: () => ref.read(syncTriggerProvider).ping(),
         ));
 
@@ -180,6 +185,12 @@ final uiScaleProvider = Provider<double>(
 /// steps through rows the user cannot see.
 final groupChannelVariantsProvider = Provider<bool>((ref) =>
     ref.watch(preferencesProvider).value?.groupChannelVariants ?? true);
+
+final streamChoiceRepositoryProvider = Provider<StreamChoiceRepository>(
+    (ref) => StreamChoiceRepository(db: ref.watch(appDatabaseProvider)));
+
+final outroHintsRepositoryProvider = Provider<OutroHintsRepository>(
+    (ref) => OutroHintsRepository(db: ref.watch(appDatabaseProvider)));
 
 final remindersRepositoryProvider = Provider<RemindersRepository>(
     (ref) => RemindersRepository(db: ref.watch(appDatabaseProvider)));
@@ -205,9 +216,22 @@ final hasReminderProvider =
   return ref.watch(remindersRepositoryProvider).exists(id);
 });
 
+/// The clock every cross-device timestamp is written against.
+///
+/// One instance for the whole app: the correction is learned once per sync and
+/// has to apply to every repository that stamps something another device will
+/// compare, or the devices disagree among themselves.
+final serverClockProvider = Provider<ServerClock>((ref) => ServerClock());
+
 final catalogOverridesRepositoryProvider =
-    Provider<CatalogOverridesRepository>((ref) =>
-        CatalogOverridesRepository(db: ref.watch(appDatabaseProvider)));
+    Provider<CatalogOverridesRepository>((ref) => CatalogOverridesRepository(
+          db: ref.watch(appDatabaseProvider),
+          clock: ref.watch(serverClockProvider).now,
+          // Pings the sync coordinator only. Invalidating the overrides
+          // provider from here is what created a top-level provider cycle
+          // before; call sites still do that themselves.
+          onChanged: () => ref.read(syncTriggerProvider).ping(),
+        ));
 
 /// The active account's hidden / renamed / reordered categories and channels.
 final catalogOverridesProvider = FutureProvider<CatalogOverrides>((ref) async {

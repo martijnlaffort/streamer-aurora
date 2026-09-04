@@ -229,6 +229,9 @@ class PreferencesTable extends Table {
   /// Null → the on-by-default in [Preferences].
   BoolColumn get groupChannelVariants => boolean().nullable()();
 
+  /// Extra audio delay in ms for this device's display (schema v18).
+  IntColumn get audioDelayMs => integer().nullable()();
+
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
 
@@ -244,6 +247,39 @@ class PreferencesTable extends Table {
 /// names and the order; this table is how the user overrules that without
 /// touching the cached catalogue itself — a refresh replaces catalogue rows
 /// wholesale, so anything editable has to live beside them rather than in them.
+@DataClassName('StreamChoiceRow')
+class StreamChoicesTable extends Table {
+  @override
+  String get tableName => 'stream_choices';
+
+  TextColumn get accountId => text()();
+
+  /// The logical channel (see `channels.variant_key`), not one of its streams.
+  TextColumn get variantKey => text()();
+
+  /// The stream that last actually played for that channel.
+  TextColumn get streamId => text()();
+  IntColumn get chosenAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {accountId, variantKey};
+}
+
+@DataClassName('OutroHintRow')
+class OutroHintsTable extends Table {
+  @override
+  String get tableName => 'outro_hints';
+
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get accountId => text()();
+  TextColumn get seriesId => text()();
+
+  /// How far before the end the user chose to move on. Outros are consistent
+  /// within a show, so a few of these converge on where its credits start.
+  IntColumn get secondsBeforeEnd => integer()();
+  IntColumn get observedAtMillisUtc => integer()();
+}
+
 @DataClassName('ReminderRow')
 class RemindersTable extends Table {
   @override
@@ -282,12 +318,21 @@ class CatalogOverridesTable extends Table {
   /// placed, keeping the panel's order among themselves.
   IntColumn get sortIndex => integer().nullable()();
 
+  /// Last-write-wins key for sync (schema v17). Curating twelve thousand
+  /// channels once is tolerable; doing it again on the next device is not.
+  IntColumn get updatedAtMillisUtc => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {accountId, scope, targetId};
 }
 
 /// What a [CatalogOverridesTable] row applies to.
-enum OverrideScope { category, channel }
+/// What an override row applies to.
+///
+/// [epg] is a mapping rather than a presentation edit: its `customName` column
+/// holds the XMLTV channel id the user pointed this channel at, which is how a
+/// guide that matched nothing gets fixed by hand.
+enum OverrideScope { category, channel, epg }
 
 @DataClassName('FavoriteRow')
 class FavoritesTable extends Table {
@@ -474,6 +519,8 @@ class SearchHistoryTable extends Table {
   FavoritesTable,
   CatalogOverridesTable,
   RemindersTable,
+  StreamChoicesTable,
+  OutroHintsTable,
   EpgCacheTable,
   CatalogMetaTable,
   CatalogCategoryMetaTable,
@@ -493,7 +540,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -587,6 +634,29 @@ class AppDatabase extends _$AppDatabase {
           if (from < 15) {
             await m.addColumn(accountsTable, accountsTable.userAgent);
             await m.addColumn(accountsTable, accountsTable.altHosts);
+          }
+          // v16: which of a channel's streams last actually played, so failover
+          // does not start from the top every time. Local and disposable —
+          // losing it costs one extra failover and nothing else.
+          if (from < 16) {
+            await m.createTable(streamChoicesTable);
+          }
+          // v17: curation becomes syncable, which needs a per-row LWW stamp.
+          // Existing rows are stamped NOW rather than 0: they are the user's
+          // real, current curation and should win over an empty server, not
+          // lose to it.
+          if (from < 17) {
+            await m.addColumn(
+                catalogOverridesTable, catalogOverridesTable.updatedAtMillisUtc);
+            await customStatement(
+                'UPDATE catalog_overrides SET updated_at_millis_utc = ?',
+                [DateTime.now().toUtc().millisecondsSinceEpoch]);
+          }
+          // v18: per-device audio delay, and where each series' credits start
+          // as learned from when the user skipped ahead.
+          if (from < 18) {
+            await m.addColumn(preferencesTable, preferencesTable.audioDelayMs);
+            await m.createTable(outroHintsTable);
           }
         },
         beforeOpen: (details) async {

@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/category_chips.dart';
 import '../../../core/widgets/focus_highlight.dart';
+import '../../../core/widgets/shell_actions.dart';
 import '../../../data/db/app_database.dart' show OverrideScope;
 import '../../../data/providers.dart';
 import '../../../data/repositories/catalog_overrides_repository.dart';
@@ -206,24 +207,27 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       appBar: AppBar(
         title: const Text('Live TV'),
         actions: [
-          IconButton(
-            icon: Icon(_byName ? Icons.sort_by_alpha : Icons.format_list_numbered),
-            tooltip: _byName ? 'Sorted A–Z' : 'Playlist order',
-            onPressed: () {
-              setState(() {
-                _byName = !_byName;
-                // The letter index only means anything alphabetically.
-                if (!_byName) _letter = null;
-              });
-              _reload();
-            },
-          ),
-          if (hasEpg)
+          ShellActions(extra: [
             IconButton(
-              icon: const Icon(Icons.calendar_month_outlined),
-              tooltip: 'TV Guide',
-              onPressed: () => context.push('/guide'),
+              icon: Icon(
+                  _byName ? Icons.sort_by_alpha : Icons.format_list_numbered),
+              tooltip: _byName ? 'Sorted A–Z' : 'Playlist order',
+              onPressed: () {
+                setState(() {
+                  _byName = !_byName;
+                  // The letter index only means anything alphabetically.
+                  if (!_byName) _letter = null;
+                });
+                _reload();
+              },
             ),
+            if (hasEpg)
+              IconButton(
+                icon: const Icon(Icons.calendar_month_outlined),
+                tooltip: 'TV Guide',
+                onPressed: () => context.push('/guide'),
+              ),
+          ]),
         ],
       ),
       body: Column(

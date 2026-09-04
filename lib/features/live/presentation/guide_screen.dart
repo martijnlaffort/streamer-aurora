@@ -116,6 +116,81 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
     );
   }
 
+  /// What OK on a grid cell does, decided by where the cell sits in time.
+  ///
+  /// The semantics the whole category has converged on, and what people arrive
+  /// expecting: a past cell plays it back, the current cell tunes the channel,
+  /// a future cell sets a reminder. Everything else stays one hold away, so the
+  /// common case is one press rather than a press and a menu.
+  Future<void> _activateCell(EpgEntry e, Channel channel) async {
+    final now = DateTime.now().toUtc();
+    if (!now.isBefore(e.start) && now.isBefore(e.stop)) {
+      _playChannel(channel, nowTitle: e.title);
+      return;
+    }
+    if (e.stop.isBefore(now)) {
+      if (_canCatchUp(e, channel)) {
+        _playCatchUp(e, channel);
+      } else {
+        // Say why rather than doing nothing: "already finished" is information,
+        // an unresponsive cell is a bug report.
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(channel.hasArchive
+                ? 'That is older than this channel\'s catch-up window.'
+                : 'This channel has no catch-up.')));
+      }
+      return;
+    }
+    if (!ReminderService.isSupported) {
+      _showProgramme(e, channel);
+      return;
+    }
+    await _toggleReminder(e, channel);
+  }
+
+  /// Sets or clears a reminder for a future cell, and says which it did.
+  Future<void> _toggleReminder(EpgEntry e, Channel channel) async {
+    final id = Reminder.idFor(
+        accountId: channel.accountId,
+        channelId: channel.id,
+        startsAt: e.start);
+    final repo = ref.read(remindersRepositoryProvider);
+    final service = ref.read(reminderServiceProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    final reminder = Reminder(
+      id: id,
+      accountId: channel.accountId,
+      channelId: channel.id,
+      channelName: channel.displayName,
+      title: e.title,
+      startsAt: e.start,
+      notificationId: Reminder.notificationIdFor(id),
+    );
+
+    if (await repo.exists(id)) {
+      await service.cancel(reminder);
+      await repo.remove(id);
+      ref.invalidate(upcomingRemindersProvider);
+      messenger.showSnackBar(
+          const SnackBar(content: Text('Reminder removed.')));
+      return;
+    }
+    if (!await service.requestPermission()) {
+      messenger.showSnackBar(const SnackBar(
+          content: Text('Allow notifications to be reminded.')));
+      return;
+    }
+    if (!await service.schedule(reminder)) {
+      messenger.showSnackBar(
+          const SnackBar(content: Text('That programme starts too soon.')));
+      return;
+    }
+    await repo.save(reminder);
+    ref.invalidate(upcomingRemindersProvider);
+    messenger.showSnackBar(SnackBar(
+        content: Text('Reminder set for ${e.title}.')));
+  }
+
   void _showProgramme(EpgEntry e, Channel channel) {
     showModalBottomSheet<void>(
       context: context,
@@ -180,9 +255,24 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
   Widget build(BuildContext context) {
     final guide = ref.watch(guideProvider);
 
+    final coverage = ref.watch(guideCoverageProvider).value;
+    final unmatched =
+        coverage == null ? 0 : coverage.total - coverage.covered;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('TV Guide'),
+        actions: [
+          // Silent degradation is what earns the one-star review: without this
+          // a guide missing a thousand channels looks exactly like a guide that
+          // works. Says the number, and routes to the fix.
+          if (unmatched > 0)
+            TextButton.icon(
+              icon: const Icon(Icons.report_gmailerrorred_outlined, size: 18),
+              label: Text('$unmatched without guide'),
+              onPressed: () => context.push('/guide/coverage'),
+            ),
+        ],
         // Say so when the grid is bounded, rather than quietly omitting rows.
         bottom: (guide.value?.truncated ?? false)
             ? PreferredSize(
@@ -299,10 +389,26 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                                 ),
                               ),
                               alignment: Alignment.centerLeft,
-                              child: Text(c.name,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.label),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(c.displayName,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.label),
+                                  // How far back this channel can be replayed,
+                                  // stated on the row so the edge of catch-up
+                                  // is legible before someone walks into it.
+                                  if (c.hasArchive)
+                                    Text(
+                                      '↺ ${c.archiveDays ?? 2}d',
+                                      style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 11),
+                                    ),
+                                ],
+                              ),
                             ),
                           );
                         },
@@ -324,7 +430,9 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                                 itemBuilder: (context, i) {
                                   final c = data.channels[i];
                                   final progs =
-                                      data.programmes[c.epgChannelId ?? c.id] ??
+                                      data.programmes[data.epgIds[c.id] ??
+                                              c.epgChannelId ??
+                                              c.id] ??
                                           const [];
                                   return _ChannelRow(
                                     programmes: progs,
@@ -332,7 +440,9 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                                     windowEnd: data.windowEnd,
                                     pxPerMin: _pxPerMin,
                                     rowHeight: _rowHeight,
-                                    onTap: (e) => _showProgramme(e, c),
+                                    onTap: (e) => _activateCell(e, c),
+                                    onLongPress: (e) => _showProgramme(e, c),
+                                    hasArchive: c.hasArchive,
                                   );
                                 },
                               ),
@@ -477,6 +587,8 @@ class _ChannelRow extends StatelessWidget {
     required this.pxPerMin,
     required this.rowHeight,
     required this.onTap,
+    required this.onLongPress,
+    required this.hasArchive,
   });
 
   final List<EpgEntry> programmes;
@@ -485,11 +597,57 @@ class _ChannelRow extends StatelessWidget {
   final double pxPerMin;
   final double rowHeight;
   final void Function(EpgEntry) onTap;
+  final void Function(EpgEntry) onLongPress;
+
+  /// Whether the panel keeps a recording of this channel. Decides whether a
+  /// past cell is playable or merely history.
+  final bool hasArchive;
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now().toUtc();
     final blocks = <Widget>[];
+
+    // Fill the gaps first, so the row is continuous. An empty stretch of grid
+    // looks like the app failed to draw something; a labelled "No information"
+    // block says what is actually true — the provider's guide stops here.
+    var cursor = windowStart;
+    final sorted = [...programmes]..sort((a, b) => a.start.compareTo(b.start));
+    for (final e in [...sorted, null]) {
+      final gapEnd = e == null
+          ? windowEnd
+          : (e.start.isAfter(windowEnd) ? windowEnd : e.start);
+      if (gapEnd.isAfter(cursor)) {
+        final left = cursor.difference(windowStart).inMinutes * pxPerMin;
+        final width = gapEnd.difference(cursor).inMinutes * pxPerMin;
+        // Below a few minutes it is listing noise, not a gap worth naming.
+        if (width > 8) {
+          blocks.add(Positioned(
+            left: left,
+            width: width,
+            top: 4,
+            bottom: 4,
+            child: Container(
+              margin: const EdgeInsets.only(right: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.surface),
+              ),
+              alignment: Alignment.centerLeft,
+              child: Text('No information',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: AppColors.textSecondary, fontSize: 12)),
+            ),
+          ));
+        }
+      }
+      if (e == null) break;
+      if (e.stop.isAfter(cursor)) cursor = e.stop;
+    }
+
     for (final e in programmes) {
       final startClamped = e.start.isBefore(windowStart) ? windowStart : e.start;
       final stopClamped = e.stop.isAfter(windowEnd) ? windowEnd : e.stop;
@@ -498,6 +656,11 @@ class _ChannelRow extends StatelessWidget {
           stopClamped.difference(startClamped).inMinutes * pxPerMin;
       if (width <= 0) continue;
       final isNow = !now.isBefore(e.start) && now.isBefore(e.stop);
+      final isPast = e.stop.isBefore(now);
+      // A past cell on a channel the panel does not record is history, not a
+      // thing you can play. Dimmed so the boundary is legible BEFORE you press
+      // it — a cell that looks identical and then does nothing reads as broken.
+      final dead = isPast && !hasArchive;
       blocks.add(Positioned(
         left: left,
         width: width,
@@ -507,21 +670,29 @@ class _ChannelRow extends StatelessWidget {
         // takes focus on a TV and then ignores it.
         child: InkWell(
           onTap: () => onTap(e),
+          // Hold for the full sheet, the convention the whole category shares:
+          // OK does the obvious thing, hold opens everything else.
+          onLongPress: () => onLongPress(e),
           borderRadius: BorderRadius.circular(6),
-          child: Container(
-            margin: const EdgeInsets.only(right: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            decoration: BoxDecoration(
-              color: isNow ? AppColors.accent.withValues(alpha: 0.28) : AppColors.surface,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                  color: isNow ? AppColors.accent : AppColors.surfaceElevated),
+          child: Opacity(
+            opacity: dead ? 0.45 : 1,
+            child: Container(
+              margin: const EdgeInsets.only(right: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: isNow
+                    ? AppColors.accent.withValues(alpha: 0.28)
+                    : AppColors.surface,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                    color: isNow ? AppColors.accent : AppColors.surfaceElevated),
+              ),
+              alignment: Alignment.centerLeft,
+              child: Text(e.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.label),
             ),
-            alignment: Alignment.centerLeft,
-            child: Text(e.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.label),
           ),
         ),
       ));

@@ -62,6 +62,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             seriesName: detail.series.name,
           ),
           contentKey: _episodeKey(accountId, e),
+          seriesId: detail.series.id,
         ),
     ];
     await context.push('/player',

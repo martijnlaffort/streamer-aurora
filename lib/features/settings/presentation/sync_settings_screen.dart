@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../data/providers.dart' show serverClockProvider;
 import '../../../data/sync/sync_config.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../home/home_providers.dart';
@@ -18,6 +19,19 @@ class SyncSettingsScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<SyncSettingsScreen> createState() =>
       _SyncSettingsScreenState();
+}
+
+/// "3 hours ahead of" / "12 minutes behind" — the shape that reads as a
+/// sentence where a signed duration would not.
+String _describeSkew(Duration offset) {
+  // The offset is server-minus-device, so a POSITIVE offset means the device
+  // is behind.
+  final behind = offset.isNegative == false;
+  final abs = offset.abs();
+  final amount = abs.inHours >= 1
+      ? '${abs.inHours} hour${abs.inHours == 1 ? '' : 's'}'
+      : '${abs.inMinutes} minute${abs.inMinutes == 1 ? '' : 's'}';
+  return '$amount ${behind ? 'behind' : 'ahead of'}';
 }
 
 class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
@@ -148,6 +162,31 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
             const SizedBox(height: 16),
             Text(_status!,
                 style: TextStyle(color: AppColors.textSecondary)),
+          ],
+          // A wrong clock is invisible and does real damage: sync resolves
+          // every conflict by comparing timestamps, so a device hours ahead
+          // wins them all and quietly overwrites the others. Stamps are
+          // corrected automatically; this is here so the cause is findable if
+          // something still looks wrong.
+          if (ref.watch(serverClockProvider).isSkewed) ...[
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.schedule, size: 18, color: AppColors.accentAlt),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "This device's clock is "
+                    '${_describeSkew(ref.watch(serverClockProvider).offset!)} '
+                    'the server. Timestamps are being corrected, but setting '
+                    'the clock automatically is worth doing.',
+                    style: TextStyle(
+                        color: AppColors.textSecondary, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
           ],
         ],
       ),

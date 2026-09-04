@@ -15,6 +15,7 @@ class CatalogOverrides {
     this.categoryNames = const {},
     this.channelNames = const {},
     this.categoryOrder = const {},
+    this.epgIds = const {},
   });
 
   static const empty = CatalogOverrides();
@@ -27,12 +28,22 @@ class CatalogOverrides {
   /// Category id → the position the user put it in.
   final Map<String, int> categoryOrder;
 
+  /// Channel id → the XMLTV channel id the user pointed it at, when the
+  /// automatic match found nothing or found the wrong thing.
+  final Map<String, String> epgIds;
+
   bool get isEmpty =>
       hiddenCategories.isEmpty &&
       hiddenChannels.isEmpty &&
       categoryNames.isEmpty &&
       channelNames.isEmpty &&
-      categoryOrder.isEmpty;
+      categoryOrder.isEmpty &&
+      epgIds.isEmpty;
+
+  /// Which guide key to read a channel's programmes under: the user's mapping
+  /// if they set one, otherwise whatever the playlist claimed.
+  String epgKey(String channelId, String fallback) =>
+      epgIds[channelId] ?? fallback;
 
   String categoryName(String id, String fallback) =>
       categoryNames[id] ?? fallback;
@@ -68,9 +79,20 @@ class CatalogOverrides {
 
 /// Reads and writes the user's catalogue edits (schema v11).
 class CatalogOverridesRepository {
-  CatalogOverridesRepository({required this._db});
+  CatalogOverridesRepository({
+    required this._db,
+    DateTime Function()? clock,
+    this.onChanged,
+  }) : _clock = clock ?? (() => DateTime.now().toUtc());
 
   final AppDatabase _db;
+  final DateTime Function() _clock;
+
+  /// Fired after any local edit so the sync coordinator can push promptly.
+  ///
+  /// Deliberately NOT an invalidate of the overrides provider — that is what
+  /// created a top-level provider cycle last time. Callers still invalidate.
+  final void Function()? onChanged;
   Future<CatalogOverrides> forAccount(String accountId) async {
     final rows = await (_db.catalogOverridesTable.select()
           ..where((t) => t.accountId.equals(accountId)))
@@ -82,17 +104,27 @@ class CatalogOverridesRepository {
     final categoryNames = <String, String>{};
     final channelNames = <String, String>{};
     final categoryOrder = <String, int>{};
+    final epgIds = <String, String>{};
     for (final r in rows) {
-      final isCategory = r.scope == OverrideScope.category.name;
-      if (r.hidden) {
-        (isCategory ? hiddenCategories : hiddenChannels).add(r.targetId);
-      }
+      // Explicitly three-way. This used to be "category or else channel", so
+      // adding a third scope would have filed every EPG mapping as a channel
+      // RENAME and put an XMLTV id on screen as the channel's name.
+      final scope = OverrideScope.values
+          .where((s) => s.name == r.scope)
+          .firstOrNull;
       final name = r.customName;
-      if (name != null && name.isNotEmpty) {
-        (isCategory ? categoryNames : channelNames)[r.targetId] = name;
-      }
-      if (isCategory && r.sortIndex != null) {
-        categoryOrder[r.targetId] = r.sortIndex!;
+      switch (scope) {
+        case OverrideScope.category:
+          if (r.hidden) hiddenCategories.add(r.targetId);
+          if (name != null && name.isNotEmpty) categoryNames[r.targetId] = name;
+          if (r.sortIndex != null) categoryOrder[r.targetId] = r.sortIndex!;
+        case OverrideScope.channel:
+          if (r.hidden) hiddenChannels.add(r.targetId);
+          if (name != null && name.isNotEmpty) channelNames[r.targetId] = name;
+        case OverrideScope.epg:
+          if (name != null && name.isNotEmpty) epgIds[r.targetId] = name;
+        case null:
+          break; // A scope written by a newer build; ignore rather than guess.
       }
     }
     return CatalogOverrides(
@@ -101,6 +133,7 @@ class CatalogOverridesRepository {
       categoryNames: categoryNames,
       channelNames: channelNames,
       categoryOrder: categoryOrder,
+      epgIds: epgIds,
     );
   }
 
@@ -139,10 +172,46 @@ class CatalogOverridesRepository {
   }
 
   /// Everything back to what the panel says, for one account.
+  ///
+  /// Resets the rows in place rather than deleting them. A delete is invisible
+  /// to last-write-wins — the other device still holds its copies, so the next
+  /// sync would hand every hidden channel straight back.
   Future<void> clearAll(String accountId) async {
-    await (_db.catalogOverridesTable.delete()
+    await (_db.catalogOverridesTable.update()
           ..where((t) => t.accountId.equals(accountId)))
-        .go();
+        .write(CatalogOverridesTableCompanion(
+      hidden: const Value(false),
+      customName: const Value(null),
+      sortIndex: const Value(null),
+      updatedAtMillisUtc: Value(_clock().millisecondsSinceEpoch),
+    ));
+    onChanged?.call();
+  }
+
+  /// Every row for [accountId], for the sync push.
+  Future<List<CatalogOverrideRow>> records(String accountId) =>
+      (_db.catalogOverridesTable.select()
+            ..where((t) => t.accountId.equals(accountId)))
+          .get();
+
+  /// Applies a row pulled from another device. Returns whether it changed
+  /// anything here — the caller only rebuilds the UI when something did.
+  Future<bool> applyRemote(CatalogOverrideRow remote) async {
+    final existing = await (_db.catalogOverridesTable.select()
+          ..where((t) =>
+              t.accountId.equals(remote.accountId) &
+              t.scope.equals(remote.scope) &
+              t.targetId.equals(remote.targetId)))
+        .getSingleOrNull();
+    // Ties go to the local row: re-applying an edit we already have would
+    // churn the providers on every sync for no visible change.
+    if (existing != null &&
+        (existing.updatedAtMillisUtc ?? 0) >=
+            (remote.updatedAtMillisUtc ?? 0)) {
+      return false;
+    }
+    await _db.catalogOverridesTable.insertOnConflictUpdate(remote);
+    return true;
   }
 
   Future<void> _upsert(
@@ -161,6 +230,7 @@ class CatalogOverridesRepository {
               t.scope.equals(scope.name) &
               t.targetId.equals(targetId)))
         .getSingleOrNull();
+    final stamp = Value(_clock().millisecondsSinceEpoch);
     if (existing == null) {
       await _db.catalogOverridesTable.insertOne(
         CatalogOverridesTableCompanion.insert(
@@ -170,6 +240,7 @@ class CatalogOverridesRepository {
           hidden: hidden.present ? Value(hidden.value) : const Value.absent(),
           customName: customName,
           sortIndex: sortIndex,
+          updatedAtMillisUtc: stamp,
         ),
       );
     } else {
@@ -182,7 +253,9 @@ class CatalogOverridesRepository {
         hidden: hidden,
         customName: customName,
         sortIndex: sortIndex,
+        updatedAtMillisUtc: stamp,
       ));
     }
+    onChanged?.call();
   }
 }

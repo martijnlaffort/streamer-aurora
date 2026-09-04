@@ -4688,6 +4688,17 @@ class $PreferencesTableTable extends PreferencesTable
       'CHECK ("group_channel_variants" IN (0, 1))',
     ),
   );
+  static const VerificationMeta _audioDelayMsMeta = const VerificationMeta(
+    'audioDelayMs',
+  );
+  @override
+  late final GeneratedColumn<int> audioDelayMs = GeneratedColumn<int>(
+    'audio_delay_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _activeAccountIdMeta = const VerificationMeta(
     'activeAccountId',
   );
@@ -4712,6 +4723,7 @@ class $PreferencesTableTable extends PreferencesTable
     themeMode,
     uiScale,
     groupChannelVariants,
+    audioDelayMs,
     activeAccountId,
   ];
   @override
@@ -4813,6 +4825,15 @@ class $PreferencesTableTable extends PreferencesTable
         ),
       );
     }
+    if (data.containsKey('audio_delay_ms')) {
+      context.handle(
+        _audioDelayMsMeta,
+        audioDelayMs.isAcceptableOrUnknown(
+          data['audio_delay_ms']!,
+          _audioDelayMsMeta,
+        ),
+      );
+    }
     if (data.containsKey('active_account_id')) {
       context.handle(
         _activeAccountIdMeta,
@@ -4875,6 +4896,10 @@ class $PreferencesTableTable extends PreferencesTable
         DriftSqlType.bool,
         data['${effectivePrefix}group_channel_variants'],
       ),
+      audioDelayMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}audio_delay_ms'],
+      ),
       activeAccountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}active_account_id'],
@@ -4925,6 +4950,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
   /// Null → the on-by-default in [Preferences].
   final bool? groupChannelVariants;
 
+  /// Extra audio delay in ms for this device's display (schema v18).
+  final int? audioDelayMs;
+
   /// App state, not a user preference — which account the UI is showing.
   final String? activeAccountId;
   const PreferencesRow({
@@ -4939,6 +4967,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     this.themeMode,
     this.uiScale,
     this.groupChannelVariants,
+    this.audioDelayMs,
     this.activeAccountId,
   });
   @override
@@ -4970,6 +4999,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     }
     if (!nullToAbsent || groupChannelVariants != null) {
       map['group_channel_variants'] = Variable<bool>(groupChannelVariants);
+    }
+    if (!nullToAbsent || audioDelayMs != null) {
+      map['audio_delay_ms'] = Variable<int>(audioDelayMs);
     }
     if (!nullToAbsent || activeAccountId != null) {
       map['active_account_id'] = Variable<String>(activeAccountId);
@@ -5006,6 +5038,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       groupChannelVariants: groupChannelVariants == null && nullToAbsent
           ? const Value.absent()
           : Value(groupChannelVariants),
+      audioDelayMs: audioDelayMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(audioDelayMs),
       activeAccountId: activeAccountId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeAccountId),
@@ -5035,6 +5070,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       groupChannelVariants: serializer.fromJson<bool?>(
         json['groupChannelVariants'],
       ),
+      audioDelayMs: serializer.fromJson<int?>(json['audioDelayMs']),
       activeAccountId: serializer.fromJson<String?>(json['activeAccountId']),
     );
   }
@@ -5055,6 +5091,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       'themeMode': serializer.toJson<String?>(themeMode),
       'uiScale': serializer.toJson<double?>(uiScale),
       'groupChannelVariants': serializer.toJson<bool?>(groupChannelVariants),
+      'audioDelayMs': serializer.toJson<int?>(audioDelayMs),
       'activeAccountId': serializer.toJson<String?>(activeAccountId),
     };
   }
@@ -5071,6 +5108,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     Value<String?> themeMode = const Value.absent(),
     Value<double?> uiScale = const Value.absent(),
     Value<bool?> groupChannelVariants = const Value.absent(),
+    Value<int?> audioDelayMs = const Value.absent(),
     Value<String?> activeAccountId = const Value.absent(),
   }) => PreferencesRow(
     id: id ?? this.id,
@@ -5094,6 +5132,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     groupChannelVariants: groupChannelVariants.present
         ? groupChannelVariants.value
         : this.groupChannelVariants,
+    audioDelayMs: audioDelayMs.present ? audioDelayMs.value : this.audioDelayMs,
     activeAccountId: activeAccountId.present
         ? activeAccountId.value
         : this.activeAccountId,
@@ -5127,6 +5166,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       groupChannelVariants: data.groupChannelVariants.present
           ? data.groupChannelVariants.value
           : this.groupChannelVariants,
+      audioDelayMs: data.audioDelayMs.present
+          ? data.audioDelayMs.value
+          : this.audioDelayMs,
       activeAccountId: data.activeAccountId.present
           ? data.activeAccountId.value
           : this.activeAccountId,
@@ -5147,6 +5189,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           ..write('themeMode: $themeMode, ')
           ..write('uiScale: $uiScale, ')
           ..write('groupChannelVariants: $groupChannelVariants, ')
+          ..write('audioDelayMs: $audioDelayMs, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -5165,6 +5208,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     themeMode,
     uiScale,
     groupChannelVariants,
+    audioDelayMs,
     activeAccountId,
   );
   @override
@@ -5182,6 +5226,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           other.themeMode == this.themeMode &&
           other.uiScale == this.uiScale &&
           other.groupChannelVariants == this.groupChannelVariants &&
+          other.audioDelayMs == this.audioDelayMs &&
           other.activeAccountId == this.activeAccountId);
 }
 
@@ -5197,6 +5242,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
   final Value<String?> themeMode;
   final Value<double?> uiScale;
   final Value<bool?> groupChannelVariants;
+  final Value<int?> audioDelayMs;
   final Value<String?> activeAccountId;
   const PreferencesTableCompanion({
     this.id = const Value.absent(),
@@ -5210,6 +5256,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.themeMode = const Value.absent(),
     this.uiScale = const Value.absent(),
     this.groupChannelVariants = const Value.absent(),
+    this.audioDelayMs = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   PreferencesTableCompanion.insert({
@@ -5224,6 +5271,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.themeMode = const Value.absent(),
     this.uiScale = const Value.absent(),
     this.groupChannelVariants = const Value.absent(),
+    this.audioDelayMs = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   static Insertable<PreferencesRow> custom({
@@ -5238,6 +5286,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Expression<String>? themeMode,
     Expression<double>? uiScale,
     Expression<bool>? groupChannelVariants,
+    Expression<int>? audioDelayMs,
     Expression<String>? activeAccountId,
   }) {
     return RawValuesInsertable({
@@ -5255,6 +5304,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       if (uiScale != null) 'ui_scale': uiScale,
       if (groupChannelVariants != null)
         'group_channel_variants': groupChannelVariants,
+      if (audioDelayMs != null) 'audio_delay_ms': audioDelayMs,
       if (activeAccountId != null) 'active_account_id': activeAccountId,
     });
   }
@@ -5271,6 +5321,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Value<String?>? themeMode,
     Value<double?>? uiScale,
     Value<bool?>? groupChannelVariants,
+    Value<int?>? audioDelayMs,
     Value<String?>? activeAccountId,
   }) {
     return PreferencesTableCompanion(
@@ -5286,6 +5337,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       themeMode: themeMode ?? this.themeMode,
       uiScale: uiScale ?? this.uiScale,
       groupChannelVariants: groupChannelVariants ?? this.groupChannelVariants,
+      audioDelayMs: audioDelayMs ?? this.audioDelayMs,
       activeAccountId: activeAccountId ?? this.activeAccountId,
     );
   }
@@ -5330,6 +5382,9 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
         groupChannelVariants.value,
       );
     }
+    if (audioDelayMs.present) {
+      map['audio_delay_ms'] = Variable<int>(audioDelayMs.value);
+    }
     if (activeAccountId.present) {
       map['active_account_id'] = Variable<String>(activeAccountId.value);
     }
@@ -5350,6 +5405,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
           ..write('themeMode: $themeMode, ')
           ..write('uiScale: $uiScale, ')
           ..write('groupChannelVariants: $groupChannelVariants, ')
+          ..write('audioDelayMs: $audioDelayMs, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -5767,6 +5823,16 @@ class $CatalogOverridesTableTable extends CatalogOverridesTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _updatedAtMillisUtcMeta =
+      const VerificationMeta('updatedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> updatedAtMillisUtc = GeneratedColumn<int>(
+    'updated_at_millis_utc',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     accountId,
@@ -5775,6 +5841,7 @@ class $CatalogOverridesTableTable extends CatalogOverridesTable
     hidden,
     customName,
     sortIndex,
+    updatedAtMillisUtc,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5830,6 +5897,15 @@ class $CatalogOverridesTableTable extends CatalogOverridesTable
         sortIndex.isAcceptableOrUnknown(data['sort_index']!, _sortIndexMeta),
       );
     }
+    if (data.containsKey('updated_at_millis_utc')) {
+      context.handle(
+        _updatedAtMillisUtcMeta,
+        updatedAtMillisUtc.isAcceptableOrUnknown(
+          data['updated_at_millis_utc']!,
+          _updatedAtMillisUtcMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5863,6 +5939,10 @@ class $CatalogOverridesTableTable extends CatalogOverridesTable
         DriftSqlType.int,
         data['${effectivePrefix}sort_index'],
       ),
+      updatedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_millis_utc'],
+      ),
     );
   }
 
@@ -5887,6 +5967,10 @@ class CatalogOverrideRow extends DataClass
   /// Position in the user's ordering; null sorts after everything explicitly
   /// placed, keeping the panel's order among themselves.
   final int? sortIndex;
+
+  /// Last-write-wins key for sync (schema v17). Curating twelve thousand
+  /// channels once is tolerable; doing it again on the next device is not.
+  final int? updatedAtMillisUtc;
   const CatalogOverrideRow({
     required this.accountId,
     required this.scope,
@@ -5894,6 +5978,7 @@ class CatalogOverrideRow extends DataClass
     required this.hidden,
     this.customName,
     this.sortIndex,
+    this.updatedAtMillisUtc,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5907,6 +5992,9 @@ class CatalogOverrideRow extends DataClass
     }
     if (!nullToAbsent || sortIndex != null) {
       map['sort_index'] = Variable<int>(sortIndex);
+    }
+    if (!nullToAbsent || updatedAtMillisUtc != null) {
+      map['updated_at_millis_utc'] = Variable<int>(updatedAtMillisUtc);
     }
     return map;
   }
@@ -5923,6 +6011,9 @@ class CatalogOverrideRow extends DataClass
       sortIndex: sortIndex == null && nullToAbsent
           ? const Value.absent()
           : Value(sortIndex),
+      updatedAtMillisUtc: updatedAtMillisUtc == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAtMillisUtc),
     );
   }
 
@@ -5938,6 +6029,7 @@ class CatalogOverrideRow extends DataClass
       hidden: serializer.fromJson<bool>(json['hidden']),
       customName: serializer.fromJson<String?>(json['customName']),
       sortIndex: serializer.fromJson<int?>(json['sortIndex']),
+      updatedAtMillisUtc: serializer.fromJson<int?>(json['updatedAtMillisUtc']),
     );
   }
   @override
@@ -5950,6 +6042,7 @@ class CatalogOverrideRow extends DataClass
       'hidden': serializer.toJson<bool>(hidden),
       'customName': serializer.toJson<String?>(customName),
       'sortIndex': serializer.toJson<int?>(sortIndex),
+      'updatedAtMillisUtc': serializer.toJson<int?>(updatedAtMillisUtc),
     };
   }
 
@@ -5960,6 +6053,7 @@ class CatalogOverrideRow extends DataClass
     bool? hidden,
     Value<String?> customName = const Value.absent(),
     Value<int?> sortIndex = const Value.absent(),
+    Value<int?> updatedAtMillisUtc = const Value.absent(),
   }) => CatalogOverrideRow(
     accountId: accountId ?? this.accountId,
     scope: scope ?? this.scope,
@@ -5967,6 +6061,9 @@ class CatalogOverrideRow extends DataClass
     hidden: hidden ?? this.hidden,
     customName: customName.present ? customName.value : this.customName,
     sortIndex: sortIndex.present ? sortIndex.value : this.sortIndex,
+    updatedAtMillisUtc: updatedAtMillisUtc.present
+        ? updatedAtMillisUtc.value
+        : this.updatedAtMillisUtc,
   );
   CatalogOverrideRow copyWithCompanion(CatalogOverridesTableCompanion data) {
     return CatalogOverrideRow(
@@ -5978,6 +6075,9 @@ class CatalogOverrideRow extends DataClass
           ? data.customName.value
           : this.customName,
       sortIndex: data.sortIndex.present ? data.sortIndex.value : this.sortIndex,
+      updatedAtMillisUtc: data.updatedAtMillisUtc.present
+          ? data.updatedAtMillisUtc.value
+          : this.updatedAtMillisUtc,
     );
   }
 
@@ -5989,14 +6089,22 @@ class CatalogOverrideRow extends DataClass
           ..write('targetId: $targetId, ')
           ..write('hidden: $hidden, ')
           ..write('customName: $customName, ')
-          ..write('sortIndex: $sortIndex')
+          ..write('sortIndex: $sortIndex, ')
+          ..write('updatedAtMillisUtc: $updatedAtMillisUtc')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(accountId, scope, targetId, hidden, customName, sortIndex);
+  int get hashCode => Object.hash(
+    accountId,
+    scope,
+    targetId,
+    hidden,
+    customName,
+    sortIndex,
+    updatedAtMillisUtc,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6006,7 +6114,8 @@ class CatalogOverrideRow extends DataClass
           other.targetId == this.targetId &&
           other.hidden == this.hidden &&
           other.customName == this.customName &&
-          other.sortIndex == this.sortIndex);
+          other.sortIndex == this.sortIndex &&
+          other.updatedAtMillisUtc == this.updatedAtMillisUtc);
 }
 
 class CatalogOverridesTableCompanion
@@ -6017,6 +6126,7 @@ class CatalogOverridesTableCompanion
   final Value<bool> hidden;
   final Value<String?> customName;
   final Value<int?> sortIndex;
+  final Value<int?> updatedAtMillisUtc;
   final Value<int> rowid;
   const CatalogOverridesTableCompanion({
     this.accountId = const Value.absent(),
@@ -6025,6 +6135,7 @@ class CatalogOverridesTableCompanion
     this.hidden = const Value.absent(),
     this.customName = const Value.absent(),
     this.sortIndex = const Value.absent(),
+    this.updatedAtMillisUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CatalogOverridesTableCompanion.insert({
@@ -6034,6 +6145,7 @@ class CatalogOverridesTableCompanion
     this.hidden = const Value.absent(),
     this.customName = const Value.absent(),
     this.sortIndex = const Value.absent(),
+    this.updatedAtMillisUtc = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : accountId = Value(accountId),
        scope = Value(scope),
@@ -6045,6 +6157,7 @@ class CatalogOverridesTableCompanion
     Expression<bool>? hidden,
     Expression<String>? customName,
     Expression<int>? sortIndex,
+    Expression<int>? updatedAtMillisUtc,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6054,6 +6167,8 @@ class CatalogOverridesTableCompanion
       if (hidden != null) 'hidden': hidden,
       if (customName != null) 'custom_name': customName,
       if (sortIndex != null) 'sort_index': sortIndex,
+      if (updatedAtMillisUtc != null)
+        'updated_at_millis_utc': updatedAtMillisUtc,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6065,6 +6180,7 @@ class CatalogOverridesTableCompanion
     Value<bool>? hidden,
     Value<String?>? customName,
     Value<int?>? sortIndex,
+    Value<int?>? updatedAtMillisUtc,
     Value<int>? rowid,
   }) {
     return CatalogOverridesTableCompanion(
@@ -6074,6 +6190,7 @@ class CatalogOverridesTableCompanion
       hidden: hidden ?? this.hidden,
       customName: customName ?? this.customName,
       sortIndex: sortIndex ?? this.sortIndex,
+      updatedAtMillisUtc: updatedAtMillisUtc ?? this.updatedAtMillisUtc,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6099,6 +6216,9 @@ class CatalogOverridesTableCompanion
     if (sortIndex.present) {
       map['sort_index'] = Variable<int>(sortIndex.value);
     }
+    if (updatedAtMillisUtc.present) {
+      map['updated_at_millis_utc'] = Variable<int>(updatedAtMillisUtc.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6114,6 +6234,7 @@ class CatalogOverridesTableCompanion
           ..write('hidden: $hidden, ')
           ..write('customName: $customName, ')
           ..write('sortIndex: $sortIndex, ')
+          ..write('updatedAtMillisUtc: $updatedAtMillisUtc, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6643,6 +6764,711 @@ class RemindersTableCompanion extends UpdateCompanion<ReminderRow> {
           ..write('leadMinutes: $leadMinutes, ')
           ..write('notificationId: $notificationId, ')
           ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $StreamChoicesTableTable extends StreamChoicesTable
+    with TableInfo<$StreamChoicesTableTable, StreamChoiceRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StreamChoicesTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _variantKeyMeta = const VerificationMeta(
+    'variantKey',
+  );
+  @override
+  late final GeneratedColumn<String> variantKey = GeneratedColumn<String>(
+    'variant_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _streamIdMeta = const VerificationMeta(
+    'streamId',
+  );
+  @override
+  late final GeneratedColumn<String> streamId = GeneratedColumn<String>(
+    'stream_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _chosenAtMillisUtcMeta = const VerificationMeta(
+    'chosenAtMillisUtc',
+  );
+  @override
+  late final GeneratedColumn<int> chosenAtMillisUtc = GeneratedColumn<int>(
+    'chosen_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    accountId,
+    variantKey,
+    streamId,
+    chosenAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'stream_choices';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StreamChoiceRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('variant_key')) {
+      context.handle(
+        _variantKeyMeta,
+        variantKey.isAcceptableOrUnknown(data['variant_key']!, _variantKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_variantKeyMeta);
+    }
+    if (data.containsKey('stream_id')) {
+      context.handle(
+        _streamIdMeta,
+        streamId.isAcceptableOrUnknown(data['stream_id']!, _streamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_streamIdMeta);
+    }
+    if (data.containsKey('chosen_at_millis_utc')) {
+      context.handle(
+        _chosenAtMillisUtcMeta,
+        chosenAtMillisUtc.isAcceptableOrUnknown(
+          data['chosen_at_millis_utc']!,
+          _chosenAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_chosenAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {accountId, variantKey};
+  @override
+  StreamChoiceRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StreamChoiceRow(
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      variantKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}variant_key'],
+      )!,
+      streamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}stream_id'],
+      )!,
+      chosenAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}chosen_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $StreamChoicesTableTable createAlias(String alias) {
+    return $StreamChoicesTableTable(attachedDatabase, alias);
+  }
+}
+
+class StreamChoiceRow extends DataClass implements Insertable<StreamChoiceRow> {
+  final String accountId;
+
+  /// The logical channel (see `channels.variant_key`), not one of its streams.
+  final String variantKey;
+
+  /// The stream that last actually played for that channel.
+  final String streamId;
+  final int chosenAtMillisUtc;
+  const StreamChoiceRow({
+    required this.accountId,
+    required this.variantKey,
+    required this.streamId,
+    required this.chosenAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['account_id'] = Variable<String>(accountId);
+    map['variant_key'] = Variable<String>(variantKey);
+    map['stream_id'] = Variable<String>(streamId);
+    map['chosen_at_millis_utc'] = Variable<int>(chosenAtMillisUtc);
+    return map;
+  }
+
+  StreamChoicesTableCompanion toCompanion(bool nullToAbsent) {
+    return StreamChoicesTableCompanion(
+      accountId: Value(accountId),
+      variantKey: Value(variantKey),
+      streamId: Value(streamId),
+      chosenAtMillisUtc: Value(chosenAtMillisUtc),
+    );
+  }
+
+  factory StreamChoiceRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StreamChoiceRow(
+      accountId: serializer.fromJson<String>(json['accountId']),
+      variantKey: serializer.fromJson<String>(json['variantKey']),
+      streamId: serializer.fromJson<String>(json['streamId']),
+      chosenAtMillisUtc: serializer.fromJson<int>(json['chosenAtMillisUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'accountId': serializer.toJson<String>(accountId),
+      'variantKey': serializer.toJson<String>(variantKey),
+      'streamId': serializer.toJson<String>(streamId),
+      'chosenAtMillisUtc': serializer.toJson<int>(chosenAtMillisUtc),
+    };
+  }
+
+  StreamChoiceRow copyWith({
+    String? accountId,
+    String? variantKey,
+    String? streamId,
+    int? chosenAtMillisUtc,
+  }) => StreamChoiceRow(
+    accountId: accountId ?? this.accountId,
+    variantKey: variantKey ?? this.variantKey,
+    streamId: streamId ?? this.streamId,
+    chosenAtMillisUtc: chosenAtMillisUtc ?? this.chosenAtMillisUtc,
+  );
+  StreamChoiceRow copyWithCompanion(StreamChoicesTableCompanion data) {
+    return StreamChoiceRow(
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      variantKey: data.variantKey.present
+          ? data.variantKey.value
+          : this.variantKey,
+      streamId: data.streamId.present ? data.streamId.value : this.streamId,
+      chosenAtMillisUtc: data.chosenAtMillisUtc.present
+          ? data.chosenAtMillisUtc.value
+          : this.chosenAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StreamChoiceRow(')
+          ..write('accountId: $accountId, ')
+          ..write('variantKey: $variantKey, ')
+          ..write('streamId: $streamId, ')
+          ..write('chosenAtMillisUtc: $chosenAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(accountId, variantKey, streamId, chosenAtMillisUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StreamChoiceRow &&
+          other.accountId == this.accountId &&
+          other.variantKey == this.variantKey &&
+          other.streamId == this.streamId &&
+          other.chosenAtMillisUtc == this.chosenAtMillisUtc);
+}
+
+class StreamChoicesTableCompanion extends UpdateCompanion<StreamChoiceRow> {
+  final Value<String> accountId;
+  final Value<String> variantKey;
+  final Value<String> streamId;
+  final Value<int> chosenAtMillisUtc;
+  final Value<int> rowid;
+  const StreamChoicesTableCompanion({
+    this.accountId = const Value.absent(),
+    this.variantKey = const Value.absent(),
+    this.streamId = const Value.absent(),
+    this.chosenAtMillisUtc = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StreamChoicesTableCompanion.insert({
+    required String accountId,
+    required String variantKey,
+    required String streamId,
+    required int chosenAtMillisUtc,
+    this.rowid = const Value.absent(),
+  }) : accountId = Value(accountId),
+       variantKey = Value(variantKey),
+       streamId = Value(streamId),
+       chosenAtMillisUtc = Value(chosenAtMillisUtc);
+  static Insertable<StreamChoiceRow> custom({
+    Expression<String>? accountId,
+    Expression<String>? variantKey,
+    Expression<String>? streamId,
+    Expression<int>? chosenAtMillisUtc,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (accountId != null) 'account_id': accountId,
+      if (variantKey != null) 'variant_key': variantKey,
+      if (streamId != null) 'stream_id': streamId,
+      if (chosenAtMillisUtc != null) 'chosen_at_millis_utc': chosenAtMillisUtc,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StreamChoicesTableCompanion copyWith({
+    Value<String>? accountId,
+    Value<String>? variantKey,
+    Value<String>? streamId,
+    Value<int>? chosenAtMillisUtc,
+    Value<int>? rowid,
+  }) {
+    return StreamChoicesTableCompanion(
+      accountId: accountId ?? this.accountId,
+      variantKey: variantKey ?? this.variantKey,
+      streamId: streamId ?? this.streamId,
+      chosenAtMillisUtc: chosenAtMillisUtc ?? this.chosenAtMillisUtc,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (variantKey.present) {
+      map['variant_key'] = Variable<String>(variantKey.value);
+    }
+    if (streamId.present) {
+      map['stream_id'] = Variable<String>(streamId.value);
+    }
+    if (chosenAtMillisUtc.present) {
+      map['chosen_at_millis_utc'] = Variable<int>(chosenAtMillisUtc.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StreamChoicesTableCompanion(')
+          ..write('accountId: $accountId, ')
+          ..write('variantKey: $variantKey, ')
+          ..write('streamId: $streamId, ')
+          ..write('chosenAtMillisUtc: $chosenAtMillisUtc, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $OutroHintsTableTable extends OutroHintsTable
+    with TableInfo<$OutroHintsTableTable, OutroHintRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OutroHintsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _seriesIdMeta = const VerificationMeta(
+    'seriesId',
+  );
+  @override
+  late final GeneratedColumn<String> seriesId = GeneratedColumn<String>(
+    'series_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _secondsBeforeEndMeta = const VerificationMeta(
+    'secondsBeforeEnd',
+  );
+  @override
+  late final GeneratedColumn<int> secondsBeforeEnd = GeneratedColumn<int>(
+    'seconds_before_end',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _observedAtMillisUtcMeta =
+      const VerificationMeta('observedAtMillisUtc');
+  @override
+  late final GeneratedColumn<int> observedAtMillisUtc = GeneratedColumn<int>(
+    'observed_at_millis_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    accountId,
+    seriesId,
+    secondsBeforeEnd,
+    observedAtMillisUtc,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'outro_hints';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<OutroHintRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_accountIdMeta);
+    }
+    if (data.containsKey('series_id')) {
+      context.handle(
+        _seriesIdMeta,
+        seriesId.isAcceptableOrUnknown(data['series_id']!, _seriesIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_seriesIdMeta);
+    }
+    if (data.containsKey('seconds_before_end')) {
+      context.handle(
+        _secondsBeforeEndMeta,
+        secondsBeforeEnd.isAcceptableOrUnknown(
+          data['seconds_before_end']!,
+          _secondsBeforeEndMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_secondsBeforeEndMeta);
+    }
+    if (data.containsKey('observed_at_millis_utc')) {
+      context.handle(
+        _observedAtMillisUtcMeta,
+        observedAtMillisUtc.isAcceptableOrUnknown(
+          data['observed_at_millis_utc']!,
+          _observedAtMillisUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_observedAtMillisUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  OutroHintRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return OutroHintRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      )!,
+      seriesId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}series_id'],
+      )!,
+      secondsBeforeEnd: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seconds_before_end'],
+      )!,
+      observedAtMillisUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}observed_at_millis_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $OutroHintsTableTable createAlias(String alias) {
+    return $OutroHintsTableTable(attachedDatabase, alias);
+  }
+}
+
+class OutroHintRow extends DataClass implements Insertable<OutroHintRow> {
+  final int id;
+  final String accountId;
+  final String seriesId;
+
+  /// How far before the end the user chose to move on. Outros are consistent
+  /// within a show, so a few of these converge on where its credits start.
+  final int secondsBeforeEnd;
+  final int observedAtMillisUtc;
+  const OutroHintRow({
+    required this.id,
+    required this.accountId,
+    required this.seriesId,
+    required this.secondsBeforeEnd,
+    required this.observedAtMillisUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['account_id'] = Variable<String>(accountId);
+    map['series_id'] = Variable<String>(seriesId);
+    map['seconds_before_end'] = Variable<int>(secondsBeforeEnd);
+    map['observed_at_millis_utc'] = Variable<int>(observedAtMillisUtc);
+    return map;
+  }
+
+  OutroHintsTableCompanion toCompanion(bool nullToAbsent) {
+    return OutroHintsTableCompanion(
+      id: Value(id),
+      accountId: Value(accountId),
+      seriesId: Value(seriesId),
+      secondsBeforeEnd: Value(secondsBeforeEnd),
+      observedAtMillisUtc: Value(observedAtMillisUtc),
+    );
+  }
+
+  factory OutroHintRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return OutroHintRow(
+      id: serializer.fromJson<int>(json['id']),
+      accountId: serializer.fromJson<String>(json['accountId']),
+      seriesId: serializer.fromJson<String>(json['seriesId']),
+      secondsBeforeEnd: serializer.fromJson<int>(json['secondsBeforeEnd']),
+      observedAtMillisUtc: serializer.fromJson<int>(
+        json['observedAtMillisUtc'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'accountId': serializer.toJson<String>(accountId),
+      'seriesId': serializer.toJson<String>(seriesId),
+      'secondsBeforeEnd': serializer.toJson<int>(secondsBeforeEnd),
+      'observedAtMillisUtc': serializer.toJson<int>(observedAtMillisUtc),
+    };
+  }
+
+  OutroHintRow copyWith({
+    int? id,
+    String? accountId,
+    String? seriesId,
+    int? secondsBeforeEnd,
+    int? observedAtMillisUtc,
+  }) => OutroHintRow(
+    id: id ?? this.id,
+    accountId: accountId ?? this.accountId,
+    seriesId: seriesId ?? this.seriesId,
+    secondsBeforeEnd: secondsBeforeEnd ?? this.secondsBeforeEnd,
+    observedAtMillisUtc: observedAtMillisUtc ?? this.observedAtMillisUtc,
+  );
+  OutroHintRow copyWithCompanion(OutroHintsTableCompanion data) {
+    return OutroHintRow(
+      id: data.id.present ? data.id.value : this.id,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
+      secondsBeforeEnd: data.secondsBeforeEnd.present
+          ? data.secondsBeforeEnd.value
+          : this.secondsBeforeEnd,
+      observedAtMillisUtc: data.observedAtMillisUtc.present
+          ? data.observedAtMillisUtc.value
+          : this.observedAtMillisUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OutroHintRow(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('seriesId: $seriesId, ')
+          ..write('secondsBeforeEnd: $secondsBeforeEnd, ')
+          ..write('observedAtMillisUtc: $observedAtMillisUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    accountId,
+    seriesId,
+    secondsBeforeEnd,
+    observedAtMillisUtc,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OutroHintRow &&
+          other.id == this.id &&
+          other.accountId == this.accountId &&
+          other.seriesId == this.seriesId &&
+          other.secondsBeforeEnd == this.secondsBeforeEnd &&
+          other.observedAtMillisUtc == this.observedAtMillisUtc);
+}
+
+class OutroHintsTableCompanion extends UpdateCompanion<OutroHintRow> {
+  final Value<int> id;
+  final Value<String> accountId;
+  final Value<String> seriesId;
+  final Value<int> secondsBeforeEnd;
+  final Value<int> observedAtMillisUtc;
+  const OutroHintsTableCompanion({
+    this.id = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.seriesId = const Value.absent(),
+    this.secondsBeforeEnd = const Value.absent(),
+    this.observedAtMillisUtc = const Value.absent(),
+  });
+  OutroHintsTableCompanion.insert({
+    this.id = const Value.absent(),
+    required String accountId,
+    required String seriesId,
+    required int secondsBeforeEnd,
+    required int observedAtMillisUtc,
+  }) : accountId = Value(accountId),
+       seriesId = Value(seriesId),
+       secondsBeforeEnd = Value(secondsBeforeEnd),
+       observedAtMillisUtc = Value(observedAtMillisUtc);
+  static Insertable<OutroHintRow> custom({
+    Expression<int>? id,
+    Expression<String>? accountId,
+    Expression<String>? seriesId,
+    Expression<int>? secondsBeforeEnd,
+    Expression<int>? observedAtMillisUtc,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (accountId != null) 'account_id': accountId,
+      if (seriesId != null) 'series_id': seriesId,
+      if (secondsBeforeEnd != null) 'seconds_before_end': secondsBeforeEnd,
+      if (observedAtMillisUtc != null)
+        'observed_at_millis_utc': observedAtMillisUtc,
+    });
+  }
+
+  OutroHintsTableCompanion copyWith({
+    Value<int>? id,
+    Value<String>? accountId,
+    Value<String>? seriesId,
+    Value<int>? secondsBeforeEnd,
+    Value<int>? observedAtMillisUtc,
+  }) {
+    return OutroHintsTableCompanion(
+      id: id ?? this.id,
+      accountId: accountId ?? this.accountId,
+      seriesId: seriesId ?? this.seriesId,
+      secondsBeforeEnd: secondsBeforeEnd ?? this.secondsBeforeEnd,
+      observedAtMillisUtc: observedAtMillisUtc ?? this.observedAtMillisUtc,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (seriesId.present) {
+      map['series_id'] = Variable<String>(seriesId.value);
+    }
+    if (secondsBeforeEnd.present) {
+      map['seconds_before_end'] = Variable<int>(secondsBeforeEnd.value);
+    }
+    if (observedAtMillisUtc.present) {
+      map['observed_at_millis_utc'] = Variable<int>(observedAtMillisUtc.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OutroHintsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('accountId: $accountId, ')
+          ..write('seriesId: $seriesId, ')
+          ..write('secondsBeforeEnd: $secondsBeforeEnd, ')
+          ..write('observedAtMillisUtc: $observedAtMillisUtc')
           ..write(')'))
         .toString();
   }
@@ -9403,6 +10229,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CatalogOverridesTableTable catalogOverridesTable =
       $CatalogOverridesTableTable(this);
   late final $RemindersTableTable remindersTable = $RemindersTableTable(this);
+  late final $StreamChoicesTableTable streamChoicesTable =
+      $StreamChoicesTableTable(this);
+  late final $OutroHintsTableTable outroHintsTable = $OutroHintsTableTable(
+    this,
+  );
   late final $EpgCacheTableTable epgCacheTable = $EpgCacheTableTable(this);
   late final $CatalogMetaTableTable catalogMetaTable = $CatalogMetaTableTable(
     this,
@@ -9433,6 +10264,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     favoritesTable,
     catalogOverridesTable,
     remindersTable,
+    streamChoicesTable,
+    outroHintsTable,
     epgCacheTable,
     catalogMetaTable,
     catalogCategoryMetaTable,
@@ -11643,6 +12476,7 @@ typedef $$PreferencesTableTableCreateCompanionBuilder =
       Value<String?> themeMode,
       Value<double?> uiScale,
       Value<bool?> groupChannelVariants,
+      Value<int?> audioDelayMs,
       Value<String?> activeAccountId,
     });
 typedef $$PreferencesTableTableUpdateCompanionBuilder =
@@ -11658,6 +12492,7 @@ typedef $$PreferencesTableTableUpdateCompanionBuilder =
       Value<String?> themeMode,
       Value<double?> uiScale,
       Value<bool?> groupChannelVariants,
+      Value<int?> audioDelayMs,
       Value<String?> activeAccountId,
     });
 
@@ -11722,6 +12557,11 @@ class $$PreferencesTableTableFilterComposer
 
   ColumnFilters<bool> get groupChannelVariants => $composableBuilder(
     column: $table.groupChannelVariants,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get audioDelayMs => $composableBuilder(
+    column: $table.audioDelayMs,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11795,6 +12635,11 @@ class $$PreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get audioDelayMs => $composableBuilder(
+    column: $table.audioDelayMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get activeAccountId => $composableBuilder(
     column: $table.activeAccountId,
     builder: (column) => ColumnOrderings(column),
@@ -11859,6 +12704,11 @@ class $$PreferencesTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get audioDelayMs => $composableBuilder(
+    column: $table.audioDelayMs,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get activeAccountId => $composableBuilder(
     column: $table.activeAccountId,
     builder: (column) => column,
@@ -11913,6 +12763,7 @@ class $$PreferencesTableTableTableManager
                 Value<String?> themeMode = const Value.absent(),
                 Value<double?> uiScale = const Value.absent(),
                 Value<bool?> groupChannelVariants = const Value.absent(),
+                Value<int?> audioDelayMs = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion(
                 id: id,
@@ -11926,6 +12777,7 @@ class $$PreferencesTableTableTableManager
                 themeMode: themeMode,
                 uiScale: uiScale,
                 groupChannelVariants: groupChannelVariants,
+                audioDelayMs: audioDelayMs,
                 activeAccountId: activeAccountId,
               ),
           createCompanionCallback:
@@ -11941,6 +12793,7 @@ class $$PreferencesTableTableTableManager
                 Value<String?> themeMode = const Value.absent(),
                 Value<double?> uiScale = const Value.absent(),
                 Value<bool?> groupChannelVariants = const Value.absent(),
+                Value<int?> audioDelayMs = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion.insert(
                 id: id,
@@ -11954,6 +12807,7 @@ class $$PreferencesTableTableTableManager
                 themeMode: themeMode,
                 uiScale: uiScale,
                 groupChannelVariants: groupChannelVariants,
+                audioDelayMs: audioDelayMs,
                 activeAccountId: activeAccountId,
               ),
           withReferenceMapper: (p0) => p0
@@ -12178,6 +13032,7 @@ typedef $$CatalogOverridesTableTableCreateCompanionBuilder =
       Value<bool> hidden,
       Value<String?> customName,
       Value<int?> sortIndex,
+      Value<int?> updatedAtMillisUtc,
       Value<int> rowid,
     });
 typedef $$CatalogOverridesTableTableUpdateCompanionBuilder =
@@ -12188,6 +13043,7 @@ typedef $$CatalogOverridesTableTableUpdateCompanionBuilder =
       Value<bool> hidden,
       Value<String?> customName,
       Value<int?> sortIndex,
+      Value<int?> updatedAtMillisUtc,
       Value<int> rowid,
     });
 
@@ -12227,6 +13083,11 @@ class $$CatalogOverridesTableTableFilterComposer
 
   ColumnFilters<int> get sortIndex => $composableBuilder(
     column: $table.sortIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtMillisUtc => $composableBuilder(
+    column: $table.updatedAtMillisUtc,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -12269,6 +13130,11 @@ class $$CatalogOverridesTableTableOrderingComposer
     column: $table.sortIndex,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get updatedAtMillisUtc => $composableBuilder(
+    column: $table.updatedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CatalogOverridesTableTableAnnotationComposer
@@ -12299,6 +13165,11 @@ class $$CatalogOverridesTableTableAnnotationComposer
 
   GeneratedColumn<int> get sortIndex =>
       $composableBuilder(column: $table.sortIndex, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAtMillisUtc => $composableBuilder(
+    column: $table.updatedAtMillisUtc,
+    builder: (column) => column,
+  );
 }
 
 class $$CatalogOverridesTableTableTableManager
@@ -12353,6 +13224,7 @@ class $$CatalogOverridesTableTableTableManager
                 Value<bool> hidden = const Value.absent(),
                 Value<String?> customName = const Value.absent(),
                 Value<int?> sortIndex = const Value.absent(),
+                Value<int?> updatedAtMillisUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CatalogOverridesTableCompanion(
                 accountId: accountId,
@@ -12361,6 +13233,7 @@ class $$CatalogOverridesTableTableTableManager
                 hidden: hidden,
                 customName: customName,
                 sortIndex: sortIndex,
+                updatedAtMillisUtc: updatedAtMillisUtc,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -12371,6 +13244,7 @@ class $$CatalogOverridesTableTableTableManager
                 Value<bool> hidden = const Value.absent(),
                 Value<String?> customName = const Value.absent(),
                 Value<int?> sortIndex = const Value.absent(),
+                Value<int?> updatedAtMillisUtc = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CatalogOverridesTableCompanion.insert(
                 accountId: accountId,
@@ -12379,6 +13253,7 @@ class $$CatalogOverridesTableTableTableManager
                 hidden: hidden,
                 customName: customName,
                 sortIndex: sortIndex,
+                updatedAtMillisUtc: updatedAtMillisUtc,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -12675,6 +13550,404 @@ typedef $$RemindersTableTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $RemindersTableTable, ReminderRow>,
       ),
       ReminderRow,
+      PrefetchHooks Function()
+    >;
+typedef $$StreamChoicesTableTableCreateCompanionBuilder =
+    StreamChoicesTableCompanion Function({
+      required String accountId,
+      required String variantKey,
+      required String streamId,
+      required int chosenAtMillisUtc,
+      Value<int> rowid,
+    });
+typedef $$StreamChoicesTableTableUpdateCompanionBuilder =
+    StreamChoicesTableCompanion Function({
+      Value<String> accountId,
+      Value<String> variantKey,
+      Value<String> streamId,
+      Value<int> chosenAtMillisUtc,
+      Value<int> rowid,
+    });
+
+class $$StreamChoicesTableTableFilterComposer
+    extends Composer<_$AppDatabase, $StreamChoicesTableTable> {
+  $$StreamChoicesTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get variantKey => $composableBuilder(
+    column: $table.variantKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get chosenAtMillisUtc => $composableBuilder(
+    column: $table.chosenAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$StreamChoicesTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $StreamChoicesTableTable> {
+  $$StreamChoicesTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get variantKey => $composableBuilder(
+    column: $table.variantKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get streamId => $composableBuilder(
+    column: $table.streamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get chosenAtMillisUtc => $composableBuilder(
+    column: $table.chosenAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$StreamChoicesTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $StreamChoicesTableTable> {
+  $$StreamChoicesTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get variantKey => $composableBuilder(
+    column: $table.variantKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get streamId =>
+      $composableBuilder(column: $table.streamId, builder: (column) => column);
+
+  GeneratedColumn<int> get chosenAtMillisUtc => $composableBuilder(
+    column: $table.chosenAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$StreamChoicesTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $StreamChoicesTableTable,
+          StreamChoiceRow,
+          $$StreamChoicesTableTableFilterComposer,
+          $$StreamChoicesTableTableOrderingComposer,
+          $$StreamChoicesTableTableAnnotationComposer,
+          $$StreamChoicesTableTableCreateCompanionBuilder,
+          $$StreamChoicesTableTableUpdateCompanionBuilder,
+          (
+            StreamChoiceRow,
+            BaseReferences<
+              _$AppDatabase,
+              $StreamChoicesTableTable,
+              StreamChoiceRow
+            >,
+          ),
+          StreamChoiceRow,
+          PrefetchHooks Function()
+        > {
+  $$StreamChoicesTableTableTableManager(
+    _$AppDatabase db,
+    $StreamChoicesTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StreamChoicesTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StreamChoicesTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StreamChoicesTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> accountId = const Value.absent(),
+                Value<String> variantKey = const Value.absent(),
+                Value<String> streamId = const Value.absent(),
+                Value<int> chosenAtMillisUtc = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StreamChoicesTableCompanion(
+                accountId: accountId,
+                variantKey: variantKey,
+                streamId: streamId,
+                chosenAtMillisUtc: chosenAtMillisUtc,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String accountId,
+                required String variantKey,
+                required String streamId,
+                required int chosenAtMillisUtc,
+                Value<int> rowid = const Value.absent(),
+              }) => StreamChoicesTableCompanion.insert(
+                accountId: accountId,
+                variantKey: variantKey,
+                streamId: streamId,
+                chosenAtMillisUtc: chosenAtMillisUtc,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$StreamChoicesTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $StreamChoicesTableTable,
+      StreamChoiceRow,
+      $$StreamChoicesTableTableFilterComposer,
+      $$StreamChoicesTableTableOrderingComposer,
+      $$StreamChoicesTableTableAnnotationComposer,
+      $$StreamChoicesTableTableCreateCompanionBuilder,
+      $$StreamChoicesTableTableUpdateCompanionBuilder,
+      (
+        StreamChoiceRow,
+        BaseReferences<
+          _$AppDatabase,
+          $StreamChoicesTableTable,
+          StreamChoiceRow
+        >,
+      ),
+      StreamChoiceRow,
+      PrefetchHooks Function()
+    >;
+typedef $$OutroHintsTableTableCreateCompanionBuilder =
+    OutroHintsTableCompanion Function({
+      Value<int> id,
+      required String accountId,
+      required String seriesId,
+      required int secondsBeforeEnd,
+      required int observedAtMillisUtc,
+    });
+typedef $$OutroHintsTableTableUpdateCompanionBuilder =
+    OutroHintsTableCompanion Function({
+      Value<int> id,
+      Value<String> accountId,
+      Value<String> seriesId,
+      Value<int> secondsBeforeEnd,
+      Value<int> observedAtMillisUtc,
+    });
+
+class $$OutroHintsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $OutroHintsTableTable> {
+  $$OutroHintsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get seriesId => $composableBuilder(
+    column: $table.seriesId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get secondsBeforeEnd => $composableBuilder(
+    column: $table.secondsBeforeEnd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get observedAtMillisUtc => $composableBuilder(
+    column: $table.observedAtMillisUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$OutroHintsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $OutroHintsTableTable> {
+  $$OutroHintsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get seriesId => $composableBuilder(
+    column: $table.seriesId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get secondsBeforeEnd => $composableBuilder(
+    column: $table.secondsBeforeEnd,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get observedAtMillisUtc => $composableBuilder(
+    column: $table.observedAtMillisUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$OutroHintsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OutroHintsTableTable> {
+  $$OutroHintsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get seriesId =>
+      $composableBuilder(column: $table.seriesId, builder: (column) => column);
+
+  GeneratedColumn<int> get secondsBeforeEnd => $composableBuilder(
+    column: $table.secondsBeforeEnd,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get observedAtMillisUtc => $composableBuilder(
+    column: $table.observedAtMillisUtc,
+    builder: (column) => column,
+  );
+}
+
+class $$OutroHintsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $OutroHintsTableTable,
+          OutroHintRow,
+          $$OutroHintsTableTableFilterComposer,
+          $$OutroHintsTableTableOrderingComposer,
+          $$OutroHintsTableTableAnnotationComposer,
+          $$OutroHintsTableTableCreateCompanionBuilder,
+          $$OutroHintsTableTableUpdateCompanionBuilder,
+          (
+            OutroHintRow,
+            BaseReferences<_$AppDatabase, $OutroHintsTableTable, OutroHintRow>,
+          ),
+          OutroHintRow,
+          PrefetchHooks Function()
+        > {
+  $$OutroHintsTableTableTableManager(
+    _$AppDatabase db,
+    $OutroHintsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OutroHintsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$OutroHintsTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$OutroHintsTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> accountId = const Value.absent(),
+                Value<String> seriesId = const Value.absent(),
+                Value<int> secondsBeforeEnd = const Value.absent(),
+                Value<int> observedAtMillisUtc = const Value.absent(),
+              }) => OutroHintsTableCompanion(
+                id: id,
+                accountId: accountId,
+                seriesId: seriesId,
+                secondsBeforeEnd: secondsBeforeEnd,
+                observedAtMillisUtc: observedAtMillisUtc,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String accountId,
+                required String seriesId,
+                required int secondsBeforeEnd,
+                required int observedAtMillisUtc,
+              }) => OutroHintsTableCompanion.insert(
+                id: id,
+                accountId: accountId,
+                seriesId: seriesId,
+                secondsBeforeEnd: secondsBeforeEnd,
+                observedAtMillisUtc: observedAtMillisUtc,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$OutroHintsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $OutroHintsTableTable,
+      OutroHintRow,
+      $$OutroHintsTableTableFilterComposer,
+      $$OutroHintsTableTableOrderingComposer,
+      $$OutroHintsTableTableAnnotationComposer,
+      $$OutroHintsTableTableCreateCompanionBuilder,
+      $$OutroHintsTableTableUpdateCompanionBuilder,
+      (
+        OutroHintRow,
+        BaseReferences<_$AppDatabase, $OutroHintsTableTable, OutroHintRow>,
+      ),
+      OutroHintRow,
       PrefetchHooks Function()
     >;
 typedef $$EpgCacheTableTableCreateCompanionBuilder =
@@ -14223,6 +15496,10 @@ class $AppDatabaseManager {
       $$CatalogOverridesTableTableTableManager(_db, _db.catalogOverridesTable);
   $$RemindersTableTableTableManager get remindersTable =>
       $$RemindersTableTableTableManager(_db, _db.remindersTable);
+  $$StreamChoicesTableTableTableManager get streamChoicesTable =>
+      $$StreamChoicesTableTableTableManager(_db, _db.streamChoicesTable);
+  $$OutroHintsTableTableTableManager get outroHintsTable =>
+      $$OutroHintsTableTableTableManager(_db, _db.outroHintsTable);
   $$EpgCacheTableTableTableManager get epgCacheTable =>
       $$EpgCacheTableTableTableManager(_db, _db.epgCacheTable);
   $$CatalogMetaTableTableTableManager get catalogMetaTable =>

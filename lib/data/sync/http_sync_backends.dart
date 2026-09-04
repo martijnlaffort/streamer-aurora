@@ -2,26 +2,69 @@ import 'package:dio/dio.dart';
 
 import '../../domain/models/models.dart';
 import '../repositories/sync_backend.dart';
+import 'server_clock.dart';
 
 /// Dio-backed implementations of the sync seam (PRD §9) against the Laravel
 /// API in `backend/`. One shared bearer token authenticates every call.
 class _ApiClient {
-  _ApiClient({required String baseUrl, required String token, Dio? dio})
+  _ApiClient(
+      {required String baseUrl,
+      required String token,
+      Dio? dio,
+      ServerClock? clock})
       : _dio = dio ??
             Dio(BaseOptions(
               baseUrl: '${baseUrl.replaceAll(RegExp(r'/+$'), '')}/api',
               headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
               connectTimeout: const Duration(seconds: 15),
               receiveTimeout: const Duration(seconds: 30),
-            ));
+            )) {
+    // Every response already carries the one clock all devices agree on. Read
+    // it here rather than adding a "what time is it" endpoint: this costs
+    // nothing and works on every call the app already makes.
+    if (clock != null) _dio.interceptors.add(_ClockInterceptor(clock));
+  }
 
   final Dio _dio;
 }
 
+class _ClockInterceptor extends Interceptor {
+  _ClockInterceptor(this._clock);
+
+  final ServerClock _clock;
+  final _sent = <int, DateTime>{};
+
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    _sent[options.hashCode] = DateTime.now().toUtc();
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response<dynamic> response, ResponseInterceptorHandler h) {
+    final sentAt = _sent.remove(response.requestOptions.hashCode);
+    final date =
+        ServerClock.parseHttpDate(response.headers.value('date'));
+    if (date != null) {
+      _clock.observe(date,
+          roundTrip: sentAt == null
+              ? Duration.zero
+              : DateTime.now().toUtc().difference(sentAt));
+    }
+    h.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    _sent.remove(err.requestOptions.hashCode);
+    handler.next(err);
+  }
+}
+
 class HttpProgressSyncBackend implements ProgressSyncBackend {
   HttpProgressSyncBackend(
-      {required String baseUrl, required String token, Dio? dio})
-      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+      {required String baseUrl, required String token, Dio? dio, ServerClock? clock})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio, clock: clock);
 
   final _ApiClient _api;
 
@@ -68,8 +111,8 @@ class HttpProgressSyncBackend implements ProgressSyncBackend {
 
 class HttpPreferencesSyncBackend implements PreferencesSyncBackend {
   HttpPreferencesSyncBackend(
-      {required String baseUrl, required String token, Dio? dio})
-      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+      {required String baseUrl, required String token, Dio? dio, ServerClock? clock})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio, clock: clock);
 
   final _ApiClient _api;
 
@@ -104,8 +147,8 @@ class HttpPreferencesSyncBackend implements PreferencesSyncBackend {
 
 class HttpFavoritesSyncBackend implements FavoritesSyncBackend {
   HttpFavoritesSyncBackend(
-      {required String baseUrl, required String token, Dio? dio})
-      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+      {required String baseUrl, required String token, Dio? dio, ServerClock? clock})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio, clock: clock);
 
   final _ApiClient _api;
 
@@ -143,10 +186,55 @@ class HttpFavoritesSyncBackend implements FavoritesSyncBackend {
   }
 }
 
+class HttpOverridesSyncBackend implements OverridesSyncBackend {
+  HttpOverridesSyncBackend(
+      {required String baseUrl, required String token, Dio? dio, ServerClock? clock})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio, clock: clock);
+
+  final _ApiClient _api;
+
+  @override
+  Future<void> push(List<OverrideRecord> records) async {
+    if (records.isEmpty) return;
+    await _api._dio.post('/overrides', data: {
+      'entries': [
+        for (final r in records)
+          {
+            'account_id': r.accountId,
+            'scope': r.scope,
+            'target_id': r.targetId,
+            'hidden': r.hidden,
+            'custom_name': r.customName,
+            'sort_index': r.sortIndex,
+            'updated_at': r.updatedAt.toUtc().toIso8601String(),
+          },
+      ],
+    });
+  }
+
+  @override
+  Future<List<OverrideRecord>> pull() async {
+    final response = await _api._dio.get<Map<String, dynamic>>('/overrides');
+    final rows = (response.data?['overrides'] as List?) ?? const [];
+    return [
+      for (final o in rows.cast<Map<String, dynamic>>())
+        (
+          accountId: o['account_id'] as String,
+          scope: o['scope'] as String,
+          targetId: o['target_id'] as String,
+          hidden: o['hidden'] as bool? ?? false,
+          customName: o['custom_name'] as String?,
+          sortIndex: (o['sort_index'] as num?)?.toInt(),
+          updatedAt: DateTime.parse(o['updated_at'] as String).toUtc(),
+        ),
+    ];
+  }
+}
+
 class HttpAccountSyncBackend implements AccountSyncBackend {
   HttpAccountSyncBackend(
-      {required String baseUrl, required String token, Dio? dio})
-      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio);
+      {required String baseUrl, required String token, Dio? dio, ServerClock? clock})
+      : _api = _ApiClient(baseUrl: baseUrl, token: token, dio: dio, clock: clock);
 
   final _ApiClient _api;
 

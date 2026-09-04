@@ -3,6 +3,8 @@ import '../repositories/account_repository.dart';
 import '../repositories/favorites_repository.dart';
 import '../repositories/preferences_repository.dart';
 import '../repositories/sync_backend.dart';
+import '../db/app_database.dart' show CatalogOverrideRow;
+import '../repositories/catalog_overrides_repository.dart';
 import '../repositories/watch_progress_repository.dart';
 import 'sync_config.dart' show SyncStateStore;
 
@@ -14,6 +16,7 @@ class SyncResult {
     this.accountsChanged = false,
     this.preferencesChanged = false,
     this.favoritesChanged = false,
+    this.overridesChanged = false,
     this.backfilledTitles = false,
     this.error,
   });
@@ -26,6 +29,7 @@ class SyncResult {
         accountsChanged: accountsChanged,
         preferencesChanged: preferencesChanged,
         favoritesChanged: favoritesChanged,
+        overridesChanged: overridesChanged,
         backfilledTitles: true,
         error: error,
       );
@@ -44,6 +48,9 @@ class SyncResult {
   final bool preferencesChanged;
   final bool favoritesChanged;
 
+  /// A hide/rename/reorder arrived from another device.
+  final bool overridesChanged;
+
   /// The catalogue backfill cached a title the rails were waiting on. Set by
   /// the caller (see runSync), not by the reconcile itself — and it MUST count
   /// as a change, because the usual convergence step is a sync that pulls
@@ -56,6 +63,7 @@ class SyncResult {
       accountsChanged ||
       preferencesChanged ||
       favoritesChanged ||
+      overridesChanged ||
       backfilledTitles;
 
   /// Series ids referenced by episode progress just pulled from the backend.
@@ -93,6 +101,8 @@ class SyncService {
     this._resolveSeriesId,
     this._accountsRepo,
     this._accounts,
+    this._overridesRepo,
+    this._overrides,
     DateTime Function()? clock,
   }) : _clock = clock ?? (() => DateTime.now().toUtc());
 
@@ -105,6 +115,8 @@ class SyncService {
   final SyncStateStore _configStore;
   final AccountRepository? _accountsRepo;
   final AccountSyncBackend? _accounts;
+  final CatalogOverridesRepository? _overridesRepo;
+  final OverridesSyncBackend? _overrides;
 
   /// Looks up which series an episode belongs to, from the local catalogue.
   /// Used to tag outgoing episode progress so the other device can resolve it.
@@ -127,6 +139,7 @@ class SyncService {
       final pushed = await _pushDirtyProgress();
       final preferencesChanged = await _reconcilePreferences();
       final favoritesChanged = await _reconcileFavorites();
+      final overridesChanged = await _reconcileOverrides();
       await _configStore.setLastSyncAt(syncStartedAt);
       return SyncResult(
           pulledProgress: pulled,
@@ -134,7 +147,8 @@ class SyncService {
           pulledSeriesIds: seriesIds,
           accountsChanged: accountsChanged,
           preferencesChanged: preferencesChanged,
-          favoritesChanged: favoritesChanged);
+          favoritesChanged: favoritesChanged,
+          overridesChanged: overridesChanged);
     } on Object catch (e) {
       return SyncResult(error: '$e');
     }
@@ -216,11 +230,79 @@ class SyncService {
         themeMode: local.themeMode,
         uiScale: local.uiScale,
         groupChannelVariants: local.groupChannelVariants,
+        audioDelayMs: local.audioDelayMs,
       ));
       await _configStore.setPreferencesChangedAt(winner.updatedAt);
       return true;
     }
     return false;
+  }
+
+  /// Hide / rename / reorder, last-write-wins per (account, scope, target).
+  ///
+  /// Pull first and apply what is newer, then push everything local — the
+  /// server arbitrates, so re-pushing rows it already has is a harmless no-op
+  /// and is what gets a freshly-paired device's curation up in one pass.
+  ///
+  /// Returns whether anything actually changed here, so a sync that agrees
+  /// with the server stays invisible.
+  Future<bool> _reconcileOverrides() async {
+    final repo = _overridesRepo;
+    final backend = _overrides;
+    final accountsRepo = _accountsRepo;
+    if (repo == null || backend == null || accountsRepo == null) return false;
+
+    // Isolated from the rest of the reconcile on purpose. These endpoints are
+    // newer than the others, so a backend that has not been redeployed yet
+    // answers 404 — and an exception here would abort the whole reconcile,
+    // stopping progress, favourites and playlists from syncing too. Curation
+    // is additive: failing it must never take the rest down with it.
+    try {
+      return await _syncOverrides(repo, backend, accountsRepo);
+    } on Object {
+      return false;
+    }
+  }
+
+  Future<bool> _syncOverrides(
+    CatalogOverridesRepository repo,
+    OverridesSyncBackend backend,
+    AccountRepository accountsRepo,
+  ) async {
+    var changed = false;
+    for (final remote in await backend.pull()) {
+      final applied = await repo.applyRemote(CatalogOverrideRow(
+        accountId: remote.accountId,
+        scope: remote.scope,
+        targetId: remote.targetId,
+        hidden: remote.hidden,
+        customName: remote.customName,
+        sortIndex: remote.sortIndex,
+        updatedAtMillisUtc: remote.updatedAt.toUtc().millisecondsSinceEpoch,
+      ));
+      changed = changed || applied;
+    }
+
+    final records = <OverrideRecord>[];
+    for (final account in await accountsRepo.getAccounts()) {
+      for (final row in await repo.records(account.id)) {
+        records.add((
+          accountId: row.accountId,
+          scope: row.scope,
+          targetId: row.targetId,
+          hidden: row.hidden,
+          customName: row.customName,
+          sortIndex: row.sortIndex,
+          // A row written before v17 has no stamp; treat it as ancient so a
+          // real edit from another device wins over it.
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(
+              row.updatedAtMillisUtc ?? 0,
+              isUtc: true),
+        ));
+      }
+    }
+    await backend.push(records);
+    return changed;
   }
 
   /// Returns whether any favourite was actually added, removed or restored here.

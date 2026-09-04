@@ -15,6 +15,7 @@ import '../../../data/repositories/catalog_overrides_repository.dart';
 import '../../../domain/models/models.dart';
 import '../../movies/movies_providers.dart' show isFavoriteProvider;
 import '../../player/player_request.dart';
+import '../../settings/presentation/custom_groups_screen.dart';
 import '../live_providers.dart';
 import 'multi_view_screen.dart';
 
@@ -40,6 +41,11 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   /// is the default, because that is the numbering people know their channels
   /// by; the letter index below only means anything once sorted A–Z.
   bool _byName = false;
+
+  /// Whether the selected chip is one of the user's own groups rather than a
+  /// playlist category or Favourites. Groups render from their provider, like
+  /// favourites, so the paged list and its letter index step aside.
+  bool get _isGroup => _categoryId?.startsWith(customGroupPrefix) ?? false;
 
   /// Selected letter from the A–Z index, or null for all.
   ///
@@ -116,9 +122,10 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   }
 
   Future<void> _loadMore() async {
-    // Favourites are not paged from the catalogue — they come from the
-    // favourites provider, so the sentinel must never reach the repository.
-    if (_categoryId == favoritesCategoryId) return;
+    // Favourites and the user's own groups are not paged from the catalogue —
+    // they come from their providers, so neither sentinel may reach the
+    // repository (a "group:" id would query a category that does not exist).
+    if (_categoryId == favoritesCategoryId || _isGroup) return;
     if (_loading || _atEnd) return;
     _loading = true;
     final gen = _generation;
@@ -203,6 +210,9 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     // needs no _reload() because favourites render from the provider rather
     // than from the paged `_items`.
 
+    final groups =
+        ref.watch(catalogOverridesProvider).value?.orderedGroups ?? const [];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Live TV'),
@@ -236,7 +246,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
             // A background sync must never blank a screen that already has
             // content: when() shows its loading branch on a reload by default.
             skipLoadingOnReload: true,
-            data: (list) => list.isEmpty && favorites.isEmpty
+            data: (list) => list.isEmpty && favorites.isEmpty && groups.isEmpty
                 ? const SizedBox(height: 4)
                 : CategoryChips(
                     categories: list,
@@ -244,6 +254,11 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                     leading: [
                       if (favorites.isNotEmpty)
                         (id: favoritesCategoryId, label: 'Favourites'),
+                      // The user's own groups sit with Favourites, ahead of the
+                      // playlist's categories: both are things this person
+                      // chose, not things the provider handed down.
+                      for (final g in groups)
+                        (id: '$customGroupPrefix${g.id}', label: g.name),
                     ],
                     onSelected: (id) {
                       setState(() {
@@ -258,11 +273,15 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
           ),
           // The A–Z index, only while sorted alphabetically — in playlist order
           // a letter would pick out channels scattered through the whole list.
-          if (_byName && _categoryId != favoritesCategoryId) _letterStrip(),
+          if (_byName && _categoryId != favoritesCategoryId && !_isGroup)
+            _letterStrip(),
           Expanded(
             child: _categoryId == favoritesCategoryId
                 ? _favoritesList(favorites)
-                : _list(),
+                : _isGroup
+                    ? _groupList(
+                        _categoryId!.substring(customGroupPrefix.length))
+                    : _list(),
           ),
         ],
       ),
@@ -351,6 +370,33 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       // do with its position there — zapping would jump to unrelated channels.
       // Better to have no channel up/down here than wrong channel up/down.
       itemBuilder: (context, i) => _ChannelTile(channel: favorites[i]),
+    );
+  }
+
+  /// One of the user's own groups. Like favourites: small, straight from the
+  /// provider, not paged, and no channel up/down — a member's place in the
+  /// group says nothing about its place in the catalogue.
+  Widget _groupList(String groupId) {
+    final channels = ref.watch(groupChannelsProvider(groupId));
+    return channels.when(
+      skipLoadingOnReload: true,
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) =>
+          Center(child: Text('$e', style: TextStyle(color: AppColors.error))),
+      data: (list) => list.isEmpty
+          ? Center(
+              child: Text(
+                'Nothing in this group yet. Open a channel\'s menu and choose '
+                '"Add to group".',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.only(bottom: 24),
+              itemCount: list.length,
+              itemBuilder: (context, i) => _ChannelTile(channel: list[i]),
+            ),
     );
   }
 
@@ -475,6 +521,16 @@ class _ChannelTile extends ConsumerWidget {
                   _showQualityPicker(context, ref, displayName);
                 },
               ),
+            ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: const Text('Add to group…'),
+              subtitle: Text('Your own groups, across categories',
+                  style: TextStyle(color: AppColors.textSecondary)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                addChannelToGroup(context, ref, channel);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.splitscreen_outlined),
               title: const Text('Watch alongside…'),

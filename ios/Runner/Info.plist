@@ -60,6 +60,10 @@
 	     export-compliance question once, instead of on every upload. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Camera: only to scan the pairing QR a television shows (Settings ->
+	     Set up a TV). Never on without that screen open. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Scans the pairing code shown on your TV.</string>
 
 	<key>NSAppTransportSecurity</key>
 	<dict>

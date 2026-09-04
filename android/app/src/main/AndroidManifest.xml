@@ -14,6 +14,11 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
 
+    <!-- Scanning the television's pairing QR. Not required: a phone without a
+         camera (or a TV, which has none) still pairs by typing the code. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+
     <!-- Android TV (Google TV Streamer): declare leanback support and that the
          app works without a touchscreen, both non-required so the same APK
          still installs on phones/tablets. -->

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -10,6 +11,7 @@ import '../../../data/providers.dart';
 import '../../../data/sync/pairing_service.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../home/home_providers.dart';
+import 'pair_scan_screen.dart';
 
 /// The receiving side of pairing — normally the TV.
 ///
@@ -246,7 +248,27 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
         const SizedBox(height: 4),
         Text('Settings → Set up a TV', style: AppTypography.title),
         const SizedBox(height: 28),
-        Text('Then enter this code:',
+        // The QR carries the code AND the backend, so a scan pairs in one step
+        // with nothing typed on either device. The code stays underneath for a
+        // phone with no camera - and because a six-character code read across
+        // a room is still the fallback that always works.
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: QrImageView(
+            data: PairScanScreen.uriFor(
+              code: _session!.code,
+              backend: _baseUrl.text.trim(),
+            ),
+            size: 200,
+            backgroundColor: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text('Scan this, or enter the code:',
             style: TextStyle(color: AppColors.textSecondary)),
         const SizedBox(height: 12),
         Container(

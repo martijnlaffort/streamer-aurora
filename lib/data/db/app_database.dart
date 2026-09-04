@@ -332,7 +332,14 @@ class CatalogOverridesTable extends Table {
 /// [epg] is a mapping rather than a presentation edit: its `customName` column
 /// holds the XMLTV channel id the user pointed this channel at, which is how a
 /// guide that matched nothing gets fixed by hand.
-enum OverrideScope { category, channel, epg }
+///
+/// [group] is a channel group the user made themselves: `customName` is its
+/// name, `sortIndex` its order among groups, `hidden` means deleted (a
+/// tombstone, so the deletion syncs). [groupMember] is one channel in such a
+/// group: `targetId` is `<groupId>/<channelId>`, `sortIndex` the position,
+/// `hidden` means removed. Both ride the same last-write-wins table as every
+/// other piece of curation, so they follow the user across devices for free.
+enum OverrideScope { category, channel, epg, group, groupMember }
 
 @DataClassName('FavoriteRow')
 class FavoritesTable extends Table {

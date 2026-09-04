@@ -74,6 +74,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// assertion and terminates the app.
   AudioSession? _audioSession;
 
+  /// We paused because the OS interrupted us (a call), so we may resume when
+  /// it ends. A pause the USER made is never undone by the call finishing.
+  bool _pausedByInterruption = false;
+
   /// Grabbed once so dispose-time saving never touches `ref` late.
   late final WatchProgressRepository _progressRepo =
       ref.read(watchProgressRepositoryProvider);
@@ -441,6 +445,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         // Show the controls so the pause is visibly deliberate, not a stall.
         setState(() => _controlsVisible = true);
         _scheduleHide();
+      }));
+      // A phone call, an alarm, another app taking the audio. The OS has
+      // already silenced us; without this the picture keeps running with no
+      // sound and the viewer loses a minute of the episode. Pause, and resume
+      // only when the platform says the interruption was the pausing kind and
+      // it is over - a "duck" (a notification chime) never stops the film.
+      _subs.add(session.interruptionEventStream.listen((event) {
+        if (!mounted) return;
+        if (event.begin) {
+          if (event.type == AudioInterruptionType.pause ||
+              event.type == AudioInterruptionType.unknown) {
+            _pausedByInterruption = _playing;
+            if (_playing) _player.pause();
+          }
+          return;
+        }
+        if (_pausedByInterruption &&
+            event.type == AudioInterruptionType.pause) {
+          _pausedByInterruption = false;
+          _player.play();
+        } else {
+          _pausedByInterruption = false;
+        }
       }));
     } catch (_) {
       // Never fatal — playback still works; we just don't own the session.

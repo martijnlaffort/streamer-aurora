@@ -16,7 +16,7 @@ abstract final class AppTypography {
   static const String displayFamily = 'Outfit';
   static const String uiFamily = 'Inter';
 
-  static TextStyle get display => const TextStyle(
+  static TextStyle get display => TextStyle(
         fontFamily: displayFamily,
         fontSize: 40,
         fontWeight: FontWeight.w700,
@@ -25,7 +25,7 @@ abstract final class AppTypography {
         color: AppColors.textPrimary,
       );
 
-  static TextStyle get title => const TextStyle(
+  static TextStyle get title => TextStyle(
         fontFamily: displayFamily,
         fontSize: 22,
         fontWeight: FontWeight.w600,
@@ -33,7 +33,7 @@ abstract final class AppTypography {
         color: AppColors.textPrimary,
       );
 
-  static TextStyle get body => const TextStyle(
+  static TextStyle get body => TextStyle(
         fontFamily: uiFamily,
         fontSize: 15,
         fontWeight: FontWeight.w400,
@@ -41,7 +41,7 @@ abstract final class AppTypography {
         color: AppColors.textPrimary,
       );
 
-  static TextStyle get label => const TextStyle(
+  static TextStyle get label => TextStyle(
         fontFamily: uiFamily,
         fontSize: 12,
         fontWeight: FontWeight.w500,

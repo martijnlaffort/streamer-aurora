@@ -36,7 +36,10 @@ abstract final class AppTheme {
       scaffoldBackgroundColor: p.background,
     );
 
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
+    // Inter is bundled (see pubspec), so the UI face is applied by family
+    // name; nothing is fetched at runtime.
+    final textTheme =
+        base.textTheme.apply(fontFamily: AppTypography.uiFamily).copyWith(
       displayLarge: AppTypography.display.copyWith(color: p.textPrimary),
       headlineMedium:
           AppTypography.display.copyWith(fontSize: 28, color: p.textPrimary),

@@ -164,6 +164,7 @@ class _HomeContent extends ConsumerWidget {
           // rails on purpose: for the few weeks it appears it is the most
           // topical thing on the screen, and it costs no network to produce.
           ..._seasonalSlivers(context, ref),
+          ..._emptySlivers(context, ref, data),
           // The Top Rated and Recently Added rails are gone: Top Rated was the
           // panel's own rating with no vote count (the discovery rails above
           // replaced it), and Recently Added just surfaced arbitrary, unknown
@@ -208,6 +209,52 @@ Widget _posterFor(BuildContext context, Object item, String tagPrefix,
     heroTag: tag,
     onTap: () => context.push('/series/${series.id}', extra: tag),
   );
+}
+
+/// What Home says when it has nothing at all to show: no history, no list, no
+/// rails. A blank page reads as "broken" — on a television doubly so, where
+/// there is not even a bottom bar to hint at where else to go. Seen on a TV
+/// straight after adding a playlist, before anything had been watched.
+List<Widget> _emptySlivers(BuildContext context, WidgetRef ref, HomeData data) {
+  if (data.continueWatching.isNotEmpty) return const [];
+  if ((ref.watch(myListProvider).value ?? const []).isNotEmpty) return const [];
+  final season = ref.watch(seasonalRailProvider).value;
+  if (season != null && season.items.isNotEmpty) return const [];
+  final rails = ref.watch(discoveryRailsProvider);
+  // Still resolving: say nothing yet rather than flash a message the rails
+  // are about to replace.
+  if (rails.isLoading) return const [];
+  if ((rails.value ?? const []).isNotEmpty) return const [];
+  final tv = isTelevisionOf(ref);
+  return [
+    SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.play_circle_outline,
+                  size: 48, color: AppColors.textSecondary),
+              const SizedBox(height: 12),
+              Text('Nothing to continue yet', style: AppTypography.title),
+              const SizedBox(height: 6),
+              Text(
+                tv
+                    ? 'Pick something from Live TV, Movies or Series in the '
+                        'menu on the left. What you watch shows up here.'
+                    : 'Pick something from Live TV, Movies or Series below. '
+                        'What you watch shows up here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ];
 }
 
 /// "My List" rail — hidden entirely when empty rather than showing a bald

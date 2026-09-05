@@ -106,7 +106,17 @@ class _AppShellState extends ConsumerState<AppShell> {
     final first = scope.traversalDescendants
         .where((n) => n.canRequestFocus && !n.skipTraversal)
         .firstOrNull;
-    (first ?? scope).requestFocus();
+    if (first == null) {
+      // Nothing focusable on the page — Home still loading, an empty tab, an
+      // error with no button. Focusing the bare scope here is what left a
+      // television with an invisible cursor AND no way to reach the rail:
+      // every directional press then "moved" inside the empty scope (see the
+      // LEFT handling in _onKey) and the remote appeared dead. The rail is the
+      // one thing that is always there, so it takes the cursor instead.
+      _enterRail();
+      return;
+    }
+    first.requestFocus();
   }
 
   void _enterRail() => _railItemFocus[shell.currentIndex].requestFocus();
@@ -139,9 +149,17 @@ class _AppShellState extends ConsumerState<AppShell> {
       // the rail opened on every single LEFT press. The primary focus is the
       // real card, sitting in the branch scope beside its neighbours, so a left
       // move finds the previous card and only fails at the true edge of the row.
-      final moved = FocusManager.instance.primaryFocus
-              ?.focusInDirection(TraversalDirection.left) ??
-          false;
+      //
+      // And it must not be asked of a bare scope. When the page has no
+      // focusable widget (a spinner, an empty list) the scope itself holds
+      // focus, and Flutter's directional traversal answers a move from a scope
+      // with no focused child by re-focusing that same scope — and reporting
+      // success. Trusting that answer is what made the rail unreachable while
+      // Home was loading: LEFT "moved" every time and never fell through.
+      final primary = FocusManager.instance.primaryFocus;
+      final moved = primary != null &&
+          primary is! FocusScopeNode &&
+          primary.focusInDirection(TraversalDirection.left);
       if (!moved) _enterRail();
       return KeyEventResult.handled;
     }

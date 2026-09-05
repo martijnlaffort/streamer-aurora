@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:drift_flutter/drift_flutter.dart';
 
 import '../../core/matching/channel_variant.dart';
@@ -552,6 +553,10 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onUpgrade: (m, from, to) async {
+          // Visible in `adb logcat` on a release build. A device that sits on a
+          // spinner at launch cannot be diagnosed without knowing whether it got
+          // past the schema upgrade; this and the line in beforeOpen say so.
+          debugPrint('[dawn] db upgrade $from -> $to');
           // v2: background-playback preference.
           if (from < 2) {
             await m.addColumn(
@@ -701,6 +706,8 @@ class AppDatabase extends _$AppDatabase {
           // Variant grouping reads GROUP BY variant_key within an account.
           await ix('idx_ch_acct_variant', ch.actualTableName,
               [ch.accountId.name, ch.variantKey.name]);
+          debugPrint('[dawn] db open v${details.versionNow}'
+              '${details.wasCreated ? ' (new)' : ''}');
         },
       );
 

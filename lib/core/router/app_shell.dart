@@ -99,30 +99,33 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// you to the card you left rather than jumping back to the top.
   void _enterContent() {
     final scope = _contentFocus;
-    if (scope.focusedChild != null) {
-      scope.requestFocus(); // Restores the last focused card.
-      return;
-    }
-    // Scopes are excluded on purpose. go_router's branch Navigator and every
-    // route inside it contribute FocusScopeNodes, and those count as traversal
-    // descendants, so on a page with no real widget to focus this used to pick
-    // a nested scope: focus went somewhere invisible, UP/DOWN did nothing, and
-    // only LEFT (which knows about bare scopes) still worked.
+    // Whether the page has any REAL widget to land on. Scopes are excluded on
+    // purpose: go_router wraps each branch in a Navigator (a FocusScopeNode),
+    // and that scope is always present, so its mere existence says nothing
+    // about whether the page has content. traversalDescendants recurses into
+    // it, so the leaves (poster cards, list rows) are found here when they
+    // exist. Computed BEFORE the restore check below — that check keys off the
+    // branch scope, which is non-null even on an empty page, and letting it win
+    // first is exactly what parked focus on a bare scope: invisible cursor,
+    // dead UP/DOWN/OK, and only LEFT (which handles bare scopes) still working.
     final first = scope.traversalDescendants
         .where((n) =>
             n is! FocusScopeNode && n.canRequestFocus && !n.skipTraversal)
         .firstOrNull;
     if (first == null) {
-      // Nothing focusable on the page — Home still loading, an empty tab, an
-      // error with no button. Focusing the bare scope here is what left a
-      // television with an invisible cursor AND no way to reach the rail:
-      // every directional press then "moved" inside the empty scope (see the
-      // LEFT handling in _onKey) and the remote appeared dead. The rail is the
-      // one thing that is always there, so it takes the cursor instead.
+      // Nothing to focus — Home still loading, an empty tab, an error with no
+      // button. The rail is the one thing always on screen, so the cursor goes
+      // there rather than nowhere.
       _enterRail();
       return;
     }
-    first.requestFocus();
+    // A real leaf is remembered from last time on this tab: restore it (the
+    // branch scope cascades focus back down to it). Otherwise take the first.
+    if (scope.focusedChild != null) {
+      scope.requestFocus();
+    } else {
+      first.requestFocus();
+    }
   }
 
   void _enterRail() => _railItemFocus[shell.currentIndex].requestFocus();

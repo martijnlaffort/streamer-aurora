@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../data/providers.dart';
+import '../../../data/sources/playlist_source.dart' show SourceException;
 import '../../../data/sync/pairing_service.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../home/home_providers.dart';
@@ -106,15 +107,35 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
   }
 
   Future<void> _check(PairingService service, PairingSession session) async {
+    // Two failure points, told apart on screen. ErrorView shows a
+    // SourceException's message verbatim and reduces anything else to a
+    // generic line, which sent a television back to "Can't load this right
+    // now" with no way to tell whether the phone's settings never arrived, could
+    // not be read, or arrived and could not be saved on this device.
+    PairingPayload? payload;
     try {
-      final payload =
-          await service.collect(session, DateTime.now().toUtc());
-      if (payload == null || !mounted) return;
-      _poll?.cancel();
-      await _apply(payload);
+      payload = await service.collect(session, DateTime.now().toUtc());
     } on Object catch (e) {
       _poll?.cancel();
-      if (mounted) setState(() => _error = e);
+      if (mounted) {
+        setState(() => _error = e is SourceException
+            ? e
+            : SourceException(
+                'Could not read what your phone sent. Details: $e', e));
+      }
+      return;
+    }
+    if (payload == null || !mounted) return;
+    _poll?.cancel();
+    try {
+      await _apply(payload);
+    } on Object catch (e) {
+      if (mounted) {
+        setState(() => _error = SourceException(
+            'Your phone sent its settings, but they could not be saved on '
+            'this device. Details: $e',
+            e));
+      }
     }
   }
 

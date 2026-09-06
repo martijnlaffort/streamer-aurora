@@ -103,8 +103,14 @@ class _AppShellState extends ConsumerState<AppShell> {
       scope.requestFocus(); // Restores the last focused card.
       return;
     }
+    // Scopes are excluded on purpose. go_router's branch Navigator and every
+    // route inside it contribute FocusScopeNodes, and those count as traversal
+    // descendants, so on a page with no real widget to focus this used to pick
+    // a nested scope: focus went somewhere invisible, UP/DOWN did nothing, and
+    // only LEFT (which knows about bare scopes) still worked.
     final first = scope.traversalDescendants
-        .where((n) => n.canRequestFocus && !n.skipTraversal)
+        .where((n) =>
+            n is! FocusScopeNode && n.canRequestFocus && !n.skipTraversal)
         .firstOrNull;
     if (first == null) {
       // Nothing focusable on the page — Home still loading, an empty tab, an

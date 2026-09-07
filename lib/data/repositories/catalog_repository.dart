@@ -75,24 +75,19 @@ class CatalogRepository {
       Account account, PlaylistSource source, CatalogKind kind) async {
     switch (kind) {
       case CatalogKind.live:
+        // Live is fetched WHOLE, in one request, even on a panel that supports
+        // per-category fetch: Xtream's get_live_streams returns every channel at
+        // once, and a channel line is small next to VOD. Seeding only a few
+        // categories (what the huge VOD/series slices need) left the full list
+        // and the A–Z index covering a fraction of the line, so most letters
+        // found nothing. See [_perCategory].
         final categories = await source.getLiveCategories();
         await _replaceCategories(account, CategoryType.live, categories);
         await _beginSeen();
-        if (source.supportsCategoryFetch && categories.isNotEmpty) {
-          for (final category in categories) {
-            final channels =
-                await source.getLiveStreams(categoryId: category.id);
-            await _upsertChunked(_db.channelsTable,
-                [for (final c in channels) c.toCompanion()]);
-            await _markSeen(channels.map((c) => c.id));
-            await _touchCategoryMeta(account, kind, category.id);
-          }
-        } else {
-          final channels = await source.getLiveStreams();
-          await _upsertChunked(
-              _db.channelsTable, [for (final c in channels) c.toCompanion()]);
-          await _markSeen(channels.map((c) => c.id));
-        }
+        final channels = await source.getLiveStreams();
+        await _upsertChunked(
+            _db.channelsTable, [for (final c in channels) c.toCompanion()]);
+        await _markSeen(channels.map((c) => c.id));
         await _deleteUnseen(
             _db.channelsTable, _db.channelsTable.id, account.id);
         await _touchMeta(account, kind);
@@ -325,6 +320,18 @@ class CatalogRepository {
   bool _supportsCategoryFetch(Account account) => _categoryFetchSupport
       .putIfAbsent(account.id, () => _sourceFactory(account).supportsCategoryFetch);
 
+  /// Whether reads for [kind] fetch one category at a time.
+  ///
+  /// Per-category fetch is what keeps the huge VOD and series slices affordable
+  /// — they cannot be pulled whole. LIVE is deliberately excluded even on a
+  /// panel that supports it: a channel line is small, Xtream returns every
+  /// channel in a single `get_live_streams` call, and caching it per-category
+  /// (only a bootstrapped few) left the full "All" list and the A–Z index
+  /// covering a fraction of the line, so most letters found nothing. Live is
+  /// always fetched whole; see the live case in [_refresh].
+  bool _perCategory(Account account, CatalogKind kind) =>
+      kind != CatalogKind.live && _supportsCategoryFetch(account);
+
   /// Freshness for a read scoped to one category, on the one rule that matters
   /// for how the app feels: **never block when there is something to show.**
   ///
@@ -336,8 +343,9 @@ class CatalogRepository {
   /// Home crawl: its six category rails each waited on their own fetch.
   Future<void> _ensureCategoryFresh(
       Account account, CatalogKind kind, String categoryId) async {
-    if (!_supportsCategoryFetch(account)) {
-      // One-file sources (M3U) have no per-category fetch; the slice is the unit.
+    if (!_perCategory(account, kind)) {
+      // No per-category fetch here — a one-file source (M3U), or live, which is
+      // fetched whole. The slice is the unit; serve the category from it.
       return _ensureFresh(account, kind);
     }
     final meta = await (_db.catalogCategoryMetaTable.select()
@@ -367,7 +375,7 @@ class CatalogRepository {
   /// thing the browse chips and Home's rails are built from.
   Future<void> _ensureCategoryListFresh(
       Account account, CatalogKind kind) async {
-    if (!_supportsCategoryFetch(account)) return _ensureFresh(account, kind);
+    if (!_perCategory(account, kind)) return _ensureFresh(account, kind);
     final meta = await (_db.catalogMetaTable.select()
           ..where((t) =>
               t.accountId.equals(account.id) & t.kind.equalsValue(kind)))
@@ -423,7 +431,7 @@ class CatalogRepository {
   /// is something to open, and let browsing fill in the rest.
   Future<void> _ensureSliceBootstrapped(
       Account account, CatalogKind kind) async {
-    if (!_supportsCategoryFetch(account)) return _ensureFresh(account, kind);
+    if (!_perCategory(account, kind)) return _ensureFresh(account, kind);
     await _ensureCategoryListFresh(account, kind);
     final seeded = await (_db.catalogCategoryMetaTable.select()
           ..where((t) =>

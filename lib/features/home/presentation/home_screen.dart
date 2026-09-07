@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/platform/television.dart';
 import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/account_warmup.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/shell_actions.dart';
 import '../../../core/theme/app_typography.dart';
@@ -221,9 +222,28 @@ List<Widget> _emptySlivers(BuildContext context, WidgetRef ref, HomeData data) {
   final season = ref.watch(seasonalRailProvider).value;
   if (season != null && season.items.isNotEmpty) return const [];
   final rails = ref.watch(discoveryRailsProvider);
-  // Still resolving: say nothing yet rather than flash a message the rails
-  // are about to replace.
-  if (rails.isLoading) return const [];
+  // A first load is under way — the account was just switched or paired and its
+  // catalogue and history are still downloading. Say so, so an in-progress
+  // screen reads as "loading" rather than "there is nothing here". The rows
+  // replace this the moment the data lands.
+  if (ref.watch(accountWarmingProvider) || rails.isLoading) {
+    return [
+      SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: AppColors.accent),
+              const SizedBox(height: 16),
+              Text('Setting up your library…',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
   if ((rails.value ?? const []).isNotEmpty) return const [];
   final tv = isTelevisionOf(ref);
   return [

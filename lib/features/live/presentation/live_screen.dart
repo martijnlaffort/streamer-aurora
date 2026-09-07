@@ -475,11 +475,72 @@ class _ChannelTile extends ConsumerWidget {
     );
   }
 
+  /// Plays a programme from the channel's recording, from its start — catch-up.
+  ///
+  /// Unlike live this has a real beginning and end, so it goes to the player as
+  /// a seekable item (isLive: false); the source turns the start + duration into
+  /// the panel's timeshift URL. Mirrors the guide's own catch-up so the two
+  /// entry points behave identically.
+  void _playCatchUp(BuildContext context, EpgEntry e) {
+    final minutes = e.stop.difference(e.start).inMinutes;
+    final l = e.start.toLocal();
+    final hhmm = '${l.hour.toString().padLeft(2, '0')}:'
+        '${l.minute.toString().padLeft(2, '0')}';
+    context.push(
+      '/player',
+      extra: PlayerRequest(queue: [
+        PlayerItem(
+          streamRef: StreamRef(
+            accountId: channel.accountId,
+            type: StreamType.live,
+            streamId: channel.id,
+            catchupStart: e.start,
+            // A couple of minutes of headroom: panel clocks and listings rarely
+            // agree to the second, and overrunning is harmless while stopping
+            // short cuts the ending off.
+            catchupMinutes: (minutes > 0 ? minutes : 60) + 2,
+          ),
+          title: e.title,
+          subtitle: '${channel.displayName} · $hhmm',
+          contentKey: contentKeyFor(
+              accountId: channel.accountId,
+              type: StreamType.live,
+              id: '${channel.id}@${e.start.millisecondsSinceEpoch}'),
+          isLive: false,
+        ),
+      ]),
+    );
+  }
+
+  /// The programme on air now, if the channel is recorded and it is still within
+  /// the archive window — i.e. what "Watch from the start" would restart. Null
+  /// when there is no catch-up to offer.
+  Future<EpgEntry?> _catchupNow(WidgetRef ref) async {
+    if (!channel.hasArchive) return null;
+    try {
+      final nowNext = await ref.read(nowNextProvider(channel).future);
+      final now = DateTime.now().toUtc();
+      final horizon = channel.archiveHorizon(now);
+      if (horizon == null) return null;
+      for (final e in nowNext) {
+        final onAir = !now.isBefore(e.start) && now.isBefore(e.stop);
+        if (onAir && e.start.isAfter(horizon)) return e;
+      }
+    } on Object {
+      // No guide for this channel, or it failed to load — just no catch-up.
+    }
+    return null;
+  }
+
   /// Rename / hide, in a sheet rather than a popup menu so it is operable with a
   /// remote (the first row takes focus).
   Future<void> _showChannelMenu(BuildContext context, WidgetRef ref,
       String displayName, CatalogOverrides overrides) async {
     final custom = overrides.channelNames[channel.id];
+    // Resolved before the sheet opens so "Watch from the start" can lead the
+    // menu when there is something to restart. One indexed, cached EPG read.
+    final catchupNow = await _catchupNow(ref);
+    if (!context.mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surface,
@@ -497,8 +558,23 @@ class _ChannelTile extends ConsumerWidget {
                     style: AppTypography.title),
               ),
             ),
+            if (catchupNow != null)
+              ListTile(
+                autofocus: true,
+                leading: const Icon(Icons.replay),
+                title: const Text('Watch from the start'),
+                subtitle: Text(
+                    'Restart “${catchupNow.title}” from the beginning',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: AppColors.textSecondary)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _playCatchUp(context, catchupNow);
+                },
+              ),
             ListTile(
-              autofocus: true,
+              autofocus: catchupNow == null,
               leading: const Icon(Icons.edit_outlined),
               title: const Text('Rename channel'),
               subtitle: custom == null

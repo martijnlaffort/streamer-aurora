@@ -156,6 +156,13 @@ class ChannelsTable extends Table {
   TextColumn get baseName => text().nullable()();
   IntColumn get qualityRank => integer().nullable()();
 
+  /// The name this channel sorts and indexes under (schema v19): the provider's
+  /// leading packaging stripped so the A–Z index and alphabetical sort land on
+  /// the word people read, not on a `|` or a `:`. Derived from [name] at write
+  /// time by `channelSortName`. Separate from [baseName], which keeps the prefix
+  /// for grouping.
+  TextColumn get sortName => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {accountId, id};
 }
@@ -548,7 +555,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -670,6 +677,13 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(preferencesTable, preferencesTable.audioDelayMs);
             await m.createTable(outroHintsTable);
           }
+          // v19: a sort/index name per channel with the provider's leading
+          // packaging stripped, so the A–Z index and sort land on the real
+          // word. Backfilled for every already-cached channel.
+          if (from < 19) {
+            await m.addColumn(channelsTable, channelsTable.sortName);
+            await _backfillChannelSortNames();
+          }
         },
         beforeOpen: (details) async {
           // Indexes for the hot catalog queries. Without them every Home rail
@@ -706,6 +720,9 @@ class AppDatabase extends _$AppDatabase {
           // Variant grouping reads GROUP BY variant_key within an account.
           await ix('idx_ch_acct_variant', ch.actualTableName,
               [ch.accountId.name, ch.variantKey.name]);
+          // The A–Z sort and letter index order/scan by sort_name.
+          await ix('idx_ch_acct_sortname', ch.actualTableName,
+              [ch.accountId.name, ch.sortName.name]);
           debugPrint('[dawn] db open v${details.versionNow}'
               '${details.wasCreated ? ' (new)' : ''}');
         },
@@ -733,6 +750,29 @@ class AppDatabase extends _$AppDatabase {
               baseName: Value(variant.baseName),
               qualityRank: Value(variant.qualityRank),
             ),
+            where: (t) =>
+                t.accountId.equals(row.accountId) & t.id.equals(row.id),
+          );
+        }
+      });
+      if (rows.length < pageSize) break;
+    }
+  }
+
+  /// Fills in the v19 [ChannelsTable.sortName] for channels cached before it
+  /// existed. Paged for the same reason as [_backfillChannelVariants]: a real
+  /// line holds tens of thousands of channels.
+  Future<void> _backfillChannelSortNames() async {
+    const pageSize = 2000;
+    for (var offset = 0;; offset += pageSize) {
+      final rows = await (select(channelsTable)..limit(pageSize, offset: offset))
+          .get();
+      if (rows.isEmpty) break;
+      await batch((b) {
+        for (final row in rows) {
+          b.update(
+            channelsTable,
+            ChannelsTableCompanion(sortName: Value(channelSortName(row.name))),
             where: (t) =>
                 t.accountId.equals(row.accountId) & t.id.equals(row.id),
           );

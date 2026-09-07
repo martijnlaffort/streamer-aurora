@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../core/matching/channel_variant.dart' show channelSortName;
+
 /// A live TV channel (PRD §7 `channels`).
 class Channel extends Equatable {
   const Channel({
@@ -61,9 +63,12 @@ class Channel extends Equatable {
   /// Higher is better quality; decides which variant a collapsed group plays.
   final int? qualityRank;
 
-  /// The name to show, collapsed or not. Falls back to the raw name so a row
-  /// predating variant grouping still renders.
-  String get displayName => baseName ?? name;
+  /// The name to show, collapsed or not, with the provider's leading packaging
+  /// taken off so `|UCL| ZIGGO SPORT 1 [NL]` reads as `ZIGGO SPORT 1 [NL]` and
+  /// `:MLS 04` as `MLS 04`. Trailing tags (`[NL]`, quality) are kept — they tell
+  /// two rows apart. Falls back to the raw name so a row predating variant
+  /// grouping still renders. Grouping is unaffected; only the caption changes.
+  String get displayName => channelSortName(baseName ?? name);
 
   @override
   List<Object?> get props => [

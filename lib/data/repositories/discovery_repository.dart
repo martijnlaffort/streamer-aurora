@@ -330,10 +330,10 @@ class DiscoveryRepository {
           ..where((t) => t.accountId.equals(account.id) & t.id.isIn(ids.values)))
         .get();
     final byId = {for (final r in rows) r.id: r.toModel()};
-    return [
+    return _dedupeByTitle([
       for (final id in ids.values)
         if (byId[id] != null) byId[id]!,
-    ];
+    ], (m) => titleKeyFor(m.name, year: m.year));
   }
 
   /// The resolved series for a list, in the source list's ranking order.
@@ -345,10 +345,30 @@ class DiscoveryRepository {
           ..where((t) => t.accountId.equals(account.id) & t.id.isIn(ids.values)))
         .get();
     final byId = {for (final r in rows) r.id: r.toModel()};
-    return [
+    return _dedupeByTitle([
       for (final id in ids.values)
         if (byId[id] != null) byId[id]!,
-    ];
+    ], (s) => titleKeyFor(s.name, year: s.year));
+  }
+
+  /// Drops later entries whose title matches one already kept, so a rail never
+  /// shows the same show twice. A line routinely carries the same title under
+  /// several categories (languages, qualities), and two of them can match the
+  /// same ranked entry — which is how `Shōgun` turned up side by side. Matched
+  /// on [TitleKey], the same year-aware comparison Continue Watching and My List
+  /// use, so `The Office` (2005) and `The Office` (2001) still count as two.
+  /// Order is preserved, so the best-ranked survivor stays first.
+  static List<T> _dedupeByTitle<T>(
+      List<T> items, TitleKey Function(T) keyOf) {
+    final seen = <TitleKey>[];
+    final out = <T>[];
+    for (final item in items) {
+      final key = keyOf(item);
+      if (seen.any((k) => k.matches(key))) continue;
+      seen.add(key);
+      out.add(item);
+    }
+    return out;
   }
 
   /// Matched local ids for a list, keyed by rank so ordering survives.

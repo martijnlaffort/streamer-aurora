@@ -336,7 +336,7 @@ List<Widget> _discoverySlivers(BuildContext context, WidgetRef ref) {
           title: rail.label,
           itemCount: rail.items.length,
           // The numeral needs room, and a rating badge next to a rank is noise.
-          height: rail.numbered ? 252 : 236,
+          height: rail.numbered ? 258 : 248,
           itemBuilder: (context, i) => _posterFor(
             context,
             rail.items[i],

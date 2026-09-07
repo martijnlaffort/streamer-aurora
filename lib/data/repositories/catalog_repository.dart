@@ -668,7 +668,11 @@ class CatalogRepository {
     final query = _db.channelsTable.select()
       ..orderBy([
         if (byName)
-          (t) => OrderingTerm.asc(t.name)
+          // sort_name has the provider's leading packaging stripped, so A–Z
+          // lands on the word people read (`|UCL| ZIGGO` under Z, `:MLS` under
+          // M) rather than on a punctuation mark. Falls back to name for a row
+          // cached before the column existed.
+          (t) => OrderingTerm.asc(coalesce<String>([t.sortName, t.name]))
         else
           (t) => OrderingTerm.asc(t.sortOrder),
       ]);
@@ -677,7 +681,9 @@ class CatalogRepository {
       // The A–Z index passes a single letter, never user-typed text, so there
       // is nothing here for LIKE's `%`/`_` wildcards to misread. (SQLite's LIKE
       // is ASCII case-insensitive, which is what makes `b%` find `BBC`.)
-      query.where((t) => t.name.like('$namePrefix%'));
+      // Matched against sort_name so the letter agrees with the sort above.
+      query.where(
+          (t) => coalesce<String>([t.sortName, t.name]).like('$namePrefix%'));
     }
     if (limit != null) query.limit(limit, offset: offset);
     return (await query.get()).map((r) => r.toModel()).toList();
@@ -711,9 +717,10 @@ class CatalogRepository {
       vars.addAll(excludeIds.map((c) => Variable<String>(c)));
     }
     if (namePrefix != null && namePrefix.isNotEmpty) {
-      // Matches the name the collapsed row SHOWS, not the raw one — otherwise
-      // the A–Z index sends you to a letter the list no longer displays.
-      clauses.add('COALESCE(base_name, name) LIKE ?');
+      // Matched against sort_name — the display name with the provider's
+      // leading packaging stripped — so a letter finds `|UCL| ZIGGO` under Z
+      // and `:MLS 04` under M, not under `|` or `:`.
+      clauses.add('COALESCE(sort_name, base_name, name) LIKE ?');
       vars.add(Variable<String>('$namePrefix%'));
     }
     return (clauses.join(' AND '), vars);
@@ -744,7 +751,8 @@ class CatalogRepository {
   }) async {
     final (where, vars) = _channelScopeSql(
         account, categoryId, categoryIds, excludeIds, namePrefix);
-    final order = byName ? 'COALESCE(base_name, name)' : 'sort_order';
+    final order =
+        byName ? 'COALESCE(sort_name, base_name, name)' : 'sort_order';
     final page = limit != null ? ' LIMIT ? OFFSET ?' : '';
     final rows = await _db.customSelect(
       'SELECT channels.*, MAX(quality_rank) AS best_quality_rank '

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/player/presentation/cast_controls.dart';
 import '../platform/television.dart';
 import '../theme/app_colors.dart';
 
@@ -248,22 +249,34 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (isTelevisionOf(ref)) return _tvShell();
     return Scaffold(
       body: shell,
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: AppColors.surface,
-        indicatorColor: AppColors.accent.withValues(alpha: 0.24),
-        // Search and Settings are branches the bar does not carry, so while one
-        // of them is showing there is no bar item to light up. Fall back to the
-        // first rather than leave the bar in an impossible state — the bar has
-        // to stay usable, since it is the only way back to the content tabs.
-        selectedIndex: _phoneBarBranches.indexOf(shell.currentIndex).clamp(0,
-            _phoneBarBranches.length - 1),
-        onDestinationSelected: (i) => _go(_phoneBarBranches[i]),
-        destinations: [
-          for (final branch in _phoneBarBranches)
-            NavigationDestination(
-                icon: Icon(_destinations[branch].icon),
-                selectedIcon: Icon(_destinations[branch].selected),
-                label: _destinations[branch].label),
+      // The cast mini bar rides directly above the navigation while something is
+      // playing on a TV, so leaving the screen you cast from does not strand the
+      // controls. It collapses to nothing when nothing is casting. Sitting inside
+      // the bottom bar (rather than floated over the body) means it never has to
+      // guess the nav's height and the page never reflows under it.
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CastMiniBar(),
+          NavigationBar(
+            backgroundColor: AppColors.surface,
+            indicatorColor: AppColors.accent.withValues(alpha: 0.24),
+            // Search and Settings are branches the bar does not carry, so while
+            // one of them is showing there is no bar item to light up. Fall back
+            // to the first rather than leave the bar in an impossible state — the
+            // bar has to stay usable, since it is the only way back to content.
+            selectedIndex: _phoneBarBranches
+                .indexOf(shell.currentIndex)
+                .clamp(0, _phoneBarBranches.length - 1),
+            onDestinationSelected: (i) => _go(_phoneBarBranches[i]),
+            destinations: [
+              for (final branch in _phoneBarBranches)
+                NavigationDestination(
+                    icon: Icon(_destinations[branch].icon),
+                    selectedIcon: Icon(_destinations[branch].selected),
+                    label: _destinations[branch].label),
+            ],
+          ),
         ],
       ),
     );

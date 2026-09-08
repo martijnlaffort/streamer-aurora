@@ -10,6 +10,7 @@ import '../../../data/notifications/reminder_service.dart';
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
 import '../../player/player_request.dart';
+import '../../player/presentation/cast_controls.dart';
 import '../live_providers.dart';
 
 /// EPG time-grid guide (PRD §8.5): channels down the side, time across the
@@ -68,6 +69,23 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
           isLive: true,
         ),
       ]),
+    );
+  }
+
+  /// Casts this channel live to a Chromecast. Uses the state's own context (not
+  /// the sheet's, which is popped first) so the picker and any error have a live
+  /// surface to show on.
+  void _castChannel(Channel channel) {
+    beginCast(
+      context,
+      ref,
+      streamRef: StreamRef(
+        accountId: channel.accountId,
+        type: StreamType.live,
+        streamId: channel.id,
+      ),
+      title: channel.displayName,
+      isLive: true,
     );
   }
 
@@ -233,6 +251,21 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                 icon: const Icon(Icons.play_arrow),
                 label: Text('Watch ${channel.name} live'),
               ),
+              // Casts the channel live (not this specific programme): a
+              // Chromecast has no way to seek a past cell. Offered only where
+              // casting is available.
+              if (ref.read(castOfferedProvider).value ?? false)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _castChannel(channel);
+                    },
+                    icon: const Icon(Icons.cast),
+                    label: const Text('Cast to a TV'),
+                  ),
+                ),
               // Only for programmes that have not started: a reminder for
               // something already on air is just a worse Play button.
               if (ReminderService.isSupported &&

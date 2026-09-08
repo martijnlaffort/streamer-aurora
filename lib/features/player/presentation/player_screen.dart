@@ -26,6 +26,7 @@ import '../../../domain/models/models.dart'
     show Account, Preferences, StreamRef, StreamType, contentKeyFor;
 import '../../../tour/screenshot_tour.dart' show screenshotTourEnabled;
 import '../player_request.dart';
+import 'cast_controls.dart';
 import 'cast_picker.dart';
 
 /// Android emulators stall on hardware video decode (documented media_kit
@@ -1547,6 +1548,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       return;
     }
 
+    // Remember what we handed over, so the browse-shell mini bar and remote
+    // sheet can name it if the user leaves the player while it is still casting.
+    ref
+        .read(castNowPlayingProvider.notifier)
+        .set(_current.title, _current.subtitle);
     try {
       await ref.read(castServiceProvider).load(
             url: target.url!,

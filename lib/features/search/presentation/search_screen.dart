@@ -13,6 +13,7 @@ import '../../../data/providers.dart';
 import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../../player/player_request.dart';
+import '../../player/presentation/cast_controls.dart';
 
 /// Unified instant search over the cached catalog (PRD §8.6): debounced,
 /// no network round-trips — movies, series, and live channels.
@@ -179,6 +180,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     imageUrl: channel.logoUrl,
                     contain: true,
                     onTap: () => _playChannel(channel),
+                    // Cast straight from the result; hides itself where casting
+                    // is not offered, so non-cast rows show nothing extra.
+                    trailing: CastButton(
+                      streamRef: StreamRef(
+                        accountId: channel.accountId,
+                        type: StreamType.live,
+                        streamId: channel.id,
+                      ),
+                      title: channel.displayName,
+                      isLive: true,
+                    ),
                   ),
               ],
               if (data.movies.isNotEmpty) ...[
@@ -316,6 +328,7 @@ class _ResultTile extends StatelessWidget {
     this.imageUrl,
     this.subtitle,
     this.contain = false,
+    this.trailing,
   });
 
   final String title;
@@ -325,6 +338,9 @@ class _ResultTile extends StatelessWidget {
 
   /// Channel logos are contained on a square tile; posters cover a 2:3 tile.
   final bool contain;
+
+  /// Optional trailing control (the cast button on channel rows).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -375,6 +391,7 @@ class _ResultTile extends StatelessWidget {
           ? Text(subtitle!,
               style: TextStyle(color: AppColors.textSecondary))
           : null,
+      trailing: trailing,
     );
   }
 }

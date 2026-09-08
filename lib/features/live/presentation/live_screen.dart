@@ -15,6 +15,7 @@ import '../../../data/repositories/catalog_overrides_repository.dart';
 import '../../../domain/models/models.dart';
 import '../../movies/movies_providers.dart' show isFavoriteProvider;
 import '../../player/player_request.dart';
+import '../../player/presentation/cast_controls.dart';
 import '../../settings/presentation/custom_groups_screen.dart';
 import '../live_providers.dart';
 import 'multi_view_screen.dart';
@@ -540,6 +541,9 @@ class _ChannelTile extends ConsumerWidget {
     // Resolved before the sheet opens so "Watch from the start" can lead the
     // menu when there is something to restart. One indexed, cached EPG read.
     final catchupNow = await _catchupNow(ref);
+    // Casting is offered only off the TV build where the Cast SDK is present;
+    // resolved once so the menu can carry it as a normal row.
+    final canCast = ref.read(castOfferedProvider).value ?? false;
     if (!context.mounted) return;
     await showModalBottomSheet<void>(
       context: context,
@@ -571,6 +575,30 @@ class _ChannelTile extends ConsumerWidget {
                 onTap: () {
                   Navigator.pop(sheetContext);
                   _playCatchUp(context, catchupNow);
+                },
+              ),
+            if (canCast)
+              ListTile(
+                leading: const Icon(Icons.cast),
+                title: const Text('Cast to a TV'),
+                // Live is cast as HLS where the panel offers it (castTargetFor
+                // swaps the .ts for .m3u8); a panel without HLS fails at the
+                // receiver, which surfaces as a normal cast error.
+                subtitle: Text('Play this channel on a Chromecast',
+                    style: TextStyle(color: AppColors.textSecondary)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  beginCast(
+                    context,
+                    ref,
+                    streamRef: StreamRef(
+                      accountId: channel.accountId,
+                      type: StreamType.live,
+                      streamId: channel.id,
+                    ),
+                    title: displayName,
+                    isLive: true,
+                  );
                 },
               ),
             ListTile(

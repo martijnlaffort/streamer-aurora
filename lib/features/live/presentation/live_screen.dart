@@ -460,7 +460,7 @@ class _ChannelTile extends ConsumerWidget {
               type: StreamType.live,
               streamId: target.id,
             ),
-            title: title ?? target.name,
+            title: title ?? target.displayName,
             subtitle: nowTitle != null ? 'Now: $nowTitle' : null,
             // The GROUP's key, deliberately, even when a specific variant is
             // playing: the heart on this row toggles that key, so keying

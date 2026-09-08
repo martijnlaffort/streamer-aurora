@@ -59,7 +59,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
             type: StreamType.live,
             streamId: channel.id,
           ),
-          title: channel.name,
+          title: channel.displayName,
           subtitle: nowTitle != null ? 'Now: $nowTitle' : null,
           contentKey: contentKeyFor(
               accountId: channel.accountId,

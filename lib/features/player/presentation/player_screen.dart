@@ -1284,6 +1284,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (channel == null || !mounted) return;
       _saveProgress();
       _reconnectTimer?.cancel();
+      // The name the LIVE LIST shows: its base name when qualities are grouped,
+      // and any rename the user gave it. Showing the raw provider row here
+      // ("NL | NPO 1 FHD") — on the player title or the zap toast — after they
+      // renamed it to "NPO 1" reads as landing on a different channel, so the
+      // title and the toast share this one resolved label.
+      final label = overrides.channelName(
+          channel.id, grouped ? channel.displayName : channel.name);
       setState(() {
         _zap = zap.withIndex(nextIndex);
         _zappedItem = PlayerItem(
@@ -1292,7 +1299,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             type: StreamType.live,
             streamId: channel.id,
           ),
-          title: channel.name,
+          title: label,
           contentKey: contentKeyFor(
               accountId: channel.accountId,
               type: StreamType.live,
@@ -1300,12 +1307,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           isLive: true,
         );
       });
-      // The name the LIVE LIST shows: its base name when qualities are grouped,
-      // and any rename the user gave it. Announcing the raw provider row here
-      // ("NL | NPO 1 FHD") after they renamed it to "NPO 1" reads as landing on
-      // a different channel.
-      final label = overrides.channelName(
-          channel.id, grouped ? channel.displayName : channel.name);
       _showZapToast('${nextIndex + 1}/$total · $label');
       await _openCurrent();
     } finally {

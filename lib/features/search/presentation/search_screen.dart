@@ -86,7 +86,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               type: StreamType.live,
               streamId: channel.id,
             ),
-            title: channel.name,
+            title: channel.displayName,
             contentKey: contentKeyFor(
                 accountId: channel.accountId,
                 type: StreamType.live,

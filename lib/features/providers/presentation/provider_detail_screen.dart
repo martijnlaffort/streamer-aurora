@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/category_rails_view.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../domain/models/models.dart';
 import '../../movies/presentation/movies_screen.dart' show MovieCategoryRail;
 import '../../series/presentation/series_screen.dart' show SeriesCategoryRail;
@@ -28,8 +29,9 @@ class ProviderDetailScreen extends ConsumerWidget {
       body: shelf.when(
         skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-            child: Text('$e', style: TextStyle(color: AppColors.error))),
+        error: (e, _) => ErrorView(
+            error: e,
+            onRetry: () => ref.invalidate(providerShelfProvider(brandId))),
         data: (data) {
           if (data == null) {
             return Center(

@@ -7,6 +7,7 @@ import '../../../core/matching/channel_variant.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/category_chips.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/focus_highlight.dart';
 import '../../../core/widgets/shell_actions.dart';
 import '../../../data/db/app_database.dart' show OverrideScope;
@@ -382,8 +383,9 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     return channels.when(
       skipLoadingOnReload: true,
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) =>
-          Center(child: Text('$e', style: TextStyle(color: AppColors.error))),
+      error: (e, _) => ErrorView(
+          error: e,
+          onRetry: () => ref.invalidate(groupChannelsProvider(groupId))),
       data: (list) => list.isEmpty
           ? Center(
               child: Text(
@@ -407,9 +409,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
         return const Center(child: CircularProgressIndicator());
       }
       if (_error != null) {
-        return Center(
-            child: Text('$_error',
-                style: TextStyle(color: AppColors.error)));
+        return ErrorView(error: _error!, onRetry: _reload);
       }
       return Center(
         child: Text('No channels in this playlist.',

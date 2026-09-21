@@ -11,8 +11,10 @@ import '../../../data/providers.dart';
 import '../../../data/sources/playlist_source.dart' show SourceException;
 import '../../../data/sources/tmdb_source.dart';
 import '../../../data/sync/sync_providers.dart';
+import '../../../data/updates/update_service.dart';
 import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
+import 'update_notice.dart';
 
 /// Cache row counts for the active account.
 final cacheStatsProvider = FutureProvider<
@@ -369,6 +371,21 @@ class SettingsScreen extends ConsumerWidget {
               onTap: () => context.push('/pair/receive'),
             ),
           ],
+          // Sideloaded: nothing else tells anyone a newer build exists. Absent
+          // when this build is current, or when GitHub could not be reached.
+          if (ref.watch(availableUpdateProvider).value case final update?)
+            ListTile(
+              leading: Icon(Icons.system_update_alt, color: AppColors.accent),
+              title: Text('Update available — build ${update.build}'),
+              subtitle: Text(
+                isTelevisionOf(ref)
+                    ? 'Shows where to get it'
+                    : 'Download the new build',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => openUpdate(context, ref, update),
+            ),
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('About & credits'),
@@ -435,6 +452,16 @@ class SettingsScreen extends ConsumerWidget {
                 style: TextStyle(color: AppColors.textSecondary)),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/hidden-channels'),
+          ),
+          // Groups are made from the Live tab's channel menu; this is where
+          // they are renamed, emptied and deleted.
+          ListTile(
+            leading: const Icon(Icons.folder_outlined),
+            title: const Text('Channel groups'),
+            subtitle: Text('Your own groups of channels, across categories',
+                style: TextStyle(color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/custom-groups'),
           ),
           if (ReminderService.isSupported)
             ListTile(

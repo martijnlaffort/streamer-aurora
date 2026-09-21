@@ -3,6 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import 'update_notice.dart';
 
 /// About & credits.
 ///
@@ -24,6 +25,9 @@ class AboutScreen extends StatelessWidget {
           Text('Dawn Player', style: AppTypography.title),
           const SizedBox(height: 4),
           const _BuildIdentity(),
+          // Right under the build line, because that is where someone checking
+          // "am I up to date?" is already looking.
+          const UpdateNotice(),
           const SizedBox(height: 10),
           Text(
             'A player for your own IPTV subscription. Dawn Player does not provide, '

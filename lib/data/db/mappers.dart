@@ -215,6 +215,7 @@ extension ChannelMapper on Channel {
       variantKey: Value(variant.key),
       baseName: Value(variant.baseName),
       qualityRank: Value(variant.qualityRank),
+      sortName: Value(channelSortName(name)),
     );
   }
 }

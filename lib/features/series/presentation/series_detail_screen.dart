@@ -16,6 +16,7 @@ import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
 import '../../movies/movies_providers.dart';
 import '../../player/player_request.dart';
+import '../../player/presentation/cast_controls.dart';
 import '../series_providers.dart';
 
 /// Series detail (PRD §8.4/§8.7): season selector, episode list with
@@ -241,6 +242,27 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                                 accountId: account.id, id: series.id),
                           ),
                         ),
+                        // Cast the next-up episode straight to a TV. Hidden with
+                        // its gap where casting is not offered (see CastButton).
+                        if (hasEpisodes &&
+                            (ref.watch(castOfferedProvider).value ?? false))
+                          CastButton(
+                            streamRef: StreamRef(
+                              accountId: account.id,
+                              type: StreamType.episode,
+                              streamId: next!.id,
+                              containerExt: next.containerExt,
+                            ),
+                            title: prettyTitle(series.name, year: series.year),
+                            subtitle: episodeLabel(
+                              season: next.seasonNumber,
+                              episode: next.episodeNumber,
+                              title: next.title,
+                              seriesName: series.name,
+                            ),
+                            positionSeconds:
+                                resume ? nextProgress!.positionSeconds : 0,
+                          ),
                       ],
                     ),
                   ],

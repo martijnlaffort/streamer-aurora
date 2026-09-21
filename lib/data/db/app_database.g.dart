@@ -3398,6 +3398,17 @@ class $ChannelsTableTable extends ChannelsTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _sortNameMeta = const VerificationMeta(
+    'sortName',
+  );
+  @override
+  late final GeneratedColumn<String> sortName = GeneratedColumn<String>(
+    'sort_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -3413,6 +3424,7 @@ class $ChannelsTableTable extends ChannelsTable
     variantKey,
     baseName,
     qualityRank,
+    sortName,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3523,6 +3535,12 @@ class $ChannelsTableTable extends ChannelsTable
         ),
       );
     }
+    if (data.containsKey('sort_name')) {
+      context.handle(
+        _sortNameMeta,
+        sortName.isAcceptableOrUnknown(data['sort_name']!, _sortNameMeta),
+      );
+    }
     return context;
   }
 
@@ -3584,6 +3602,10 @@ class $ChannelsTableTable extends ChannelsTable
         DriftSqlType.int,
         data['${effectivePrefix}quality_rank'],
       ),
+      sortName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sort_name'],
+      ),
     );
   }
 
@@ -3620,6 +3642,13 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
   final String? variantKey;
   final String? baseName;
   final int? qualityRank;
+
+  /// The name this channel sorts and indexes under (schema v19): the provider's
+  /// leading packaging stripped so the A–Z index and alphabetical sort land on
+  /// the word people read, not on a `|` or a `:`. Derived from [name] at write
+  /// time by `channelSortName`. Separate from [baseName], which keeps the prefix
+  /// for grouping.
+  final String? sortName;
   const ChannelRow({
     required this.id,
     required this.accountId,
@@ -3634,6 +3663,7 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     this.variantKey,
     this.baseName,
     this.qualityRank,
+    this.sortName,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3664,6 +3694,9 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     }
     if (!nullToAbsent || qualityRank != null) {
       map['quality_rank'] = Variable<int>(qualityRank);
+    }
+    if (!nullToAbsent || sortName != null) {
+      map['sort_name'] = Variable<String>(sortName);
     }
     return map;
   }
@@ -3697,6 +3730,9 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       qualityRank: qualityRank == null && nullToAbsent
           ? const Value.absent()
           : Value(qualityRank),
+      sortName: sortName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sortName),
     );
   }
 
@@ -3719,6 +3755,7 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       variantKey: serializer.fromJson<String?>(json['variantKey']),
       baseName: serializer.fromJson<String?>(json['baseName']),
       qualityRank: serializer.fromJson<int?>(json['qualityRank']),
+      sortName: serializer.fromJson<String?>(json['sortName']),
     );
   }
   @override
@@ -3738,6 +3775,7 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       'variantKey': serializer.toJson<String?>(variantKey),
       'baseName': serializer.toJson<String?>(baseName),
       'qualityRank': serializer.toJson<int?>(qualityRank),
+      'sortName': serializer.toJson<String?>(sortName),
     };
   }
 
@@ -3755,6 +3793,7 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     Value<String?> variantKey = const Value.absent(),
     Value<String?> baseName = const Value.absent(),
     Value<int?> qualityRank = const Value.absent(),
+    Value<String?> sortName = const Value.absent(),
   }) => ChannelRow(
     id: id ?? this.id,
     accountId: accountId ?? this.accountId,
@@ -3771,6 +3810,7 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     variantKey: variantKey.present ? variantKey.value : this.variantKey,
     baseName: baseName.present ? baseName.value : this.baseName,
     qualityRank: qualityRank.present ? qualityRank.value : this.qualityRank,
+    sortName: sortName.present ? sortName.value : this.sortName,
   );
   ChannelRow copyWithCompanion(ChannelsTableCompanion data) {
     return ChannelRow(
@@ -3799,6 +3839,7 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
       qualityRank: data.qualityRank.present
           ? data.qualityRank.value
           : this.qualityRank,
+      sortName: data.sortName.present ? data.sortName.value : this.sortName,
     );
   }
 
@@ -3817,7 +3858,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           ..write('cachedAtMillisUtc: $cachedAtMillisUtc, ')
           ..write('variantKey: $variantKey, ')
           ..write('baseName: $baseName, ')
-          ..write('qualityRank: $qualityRank')
+          ..write('qualityRank: $qualityRank, ')
+          ..write('sortName: $sortName')
           ..write(')'))
         .toString();
   }
@@ -3837,6 +3879,7 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
     variantKey,
     baseName,
     qualityRank,
+    sortName,
   );
   @override
   bool operator ==(Object other) =>
@@ -3854,7 +3897,8 @@ class ChannelRow extends DataClass implements Insertable<ChannelRow> {
           other.cachedAtMillisUtc == this.cachedAtMillisUtc &&
           other.variantKey == this.variantKey &&
           other.baseName == this.baseName &&
-          other.qualityRank == this.qualityRank);
+          other.qualityRank == this.qualityRank &&
+          other.sortName == this.sortName);
 }
 
 class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
@@ -3871,6 +3915,7 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
   final Value<String?> variantKey;
   final Value<String?> baseName;
   final Value<int?> qualityRank;
+  final Value<String?> sortName;
   final Value<int> rowid;
   const ChannelsTableCompanion({
     this.id = const Value.absent(),
@@ -3886,6 +3931,7 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     this.variantKey = const Value.absent(),
     this.baseName = const Value.absent(),
     this.qualityRank = const Value.absent(),
+    this.sortName = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ChannelsTableCompanion.insert({
@@ -3902,6 +3948,7 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     this.variantKey = const Value.absent(),
     this.baseName = const Value.absent(),
     this.qualityRank = const Value.absent(),
+    this.sortName = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        accountId = Value(accountId),
@@ -3922,6 +3969,7 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     Expression<String>? variantKey,
     Expression<String>? baseName,
     Expression<int>? qualityRank,
+    Expression<String>? sortName,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3938,6 +3986,7 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
       if (variantKey != null) 'variant_key': variantKey,
       if (baseName != null) 'base_name': baseName,
       if (qualityRank != null) 'quality_rank': qualityRank,
+      if (sortName != null) 'sort_name': sortName,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3956,6 +4005,7 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     Value<String?>? variantKey,
     Value<String?>? baseName,
     Value<int?>? qualityRank,
+    Value<String?>? sortName,
     Value<int>? rowid,
   }) {
     return ChannelsTableCompanion(
@@ -3972,6 +4022,7 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
       variantKey: variantKey ?? this.variantKey,
       baseName: baseName ?? this.baseName,
       qualityRank: qualityRank ?? this.qualityRank,
+      sortName: sortName ?? this.sortName,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4018,6 +4069,9 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
     if (qualityRank.present) {
       map['quality_rank'] = Variable<int>(qualityRank.value);
     }
+    if (sortName.present) {
+      map['sort_name'] = Variable<String>(sortName.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4040,6 +4094,7 @@ class ChannelsTableCompanion extends UpdateCompanion<ChannelRow> {
           ..write('variantKey: $variantKey, ')
           ..write('baseName: $baseName, ')
           ..write('qualityRank: $qualityRank, ')
+          ..write('sortName: $sortName, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -11853,6 +11908,7 @@ typedef $$ChannelsTableTableCreateCompanionBuilder =
       Value<String?> variantKey,
       Value<String?> baseName,
       Value<int?> qualityRank,
+      Value<String?> sortName,
       Value<int> rowid,
     });
 typedef $$ChannelsTableTableUpdateCompanionBuilder =
@@ -11870,6 +11926,7 @@ typedef $$ChannelsTableTableUpdateCompanionBuilder =
       Value<String?> variantKey,
       Value<String?> baseName,
       Value<int?> qualityRank,
+      Value<String?> sortName,
       Value<int> rowid,
     });
 
@@ -11944,6 +12001,11 @@ class $$ChannelsTableTableFilterComposer
 
   ColumnFilters<int> get qualityRank => $composableBuilder(
     column: $table.qualityRank,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sortName => $composableBuilder(
+    column: $table.sortName,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -12021,6 +12083,11 @@ class $$ChannelsTableTableOrderingComposer
     column: $table.qualityRank,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get sortName => $composableBuilder(
+    column: $table.sortName,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ChannelsTableTableAnnotationComposer
@@ -12082,6 +12149,9 @@ class $$ChannelsTableTableAnnotationComposer
     column: $table.qualityRank,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get sortName =>
+      $composableBuilder(column: $table.sortName, builder: (column) => column);
 }
 
 class $$ChannelsTableTableTableManager
@@ -12128,6 +12198,7 @@ class $$ChannelsTableTableTableManager
                 Value<String?> variantKey = const Value.absent(),
                 Value<String?> baseName = const Value.absent(),
                 Value<int?> qualityRank = const Value.absent(),
+                Value<String?> sortName = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChannelsTableCompanion(
                 id: id,
@@ -12143,6 +12214,7 @@ class $$ChannelsTableTableTableManager
                 variantKey: variantKey,
                 baseName: baseName,
                 qualityRank: qualityRank,
+                sortName: sortName,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -12160,6 +12232,7 @@ class $$ChannelsTableTableTableManager
                 Value<String?> variantKey = const Value.absent(),
                 Value<String?> baseName = const Value.absent(),
                 Value<int?> qualityRank = const Value.absent(),
+                Value<String?> sortName = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChannelsTableCompanion.insert(
                 id: id,
@@ -12175,6 +12248,7 @@ class $$ChannelsTableTableTableManager
                 variantKey: variantKey,
                 baseName: baseName,
                 qualityRank: qualityRank,
+                sortName: sortName,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

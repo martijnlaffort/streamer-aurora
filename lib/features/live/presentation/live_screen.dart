@@ -7,6 +7,7 @@ import '../../../core/matching/channel_variant.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/category_chips.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/focus_highlight.dart';
 import '../../../core/widgets/shell_actions.dart';
 import '../../../data/db/app_database.dart' show OverrideScope;
@@ -15,6 +16,8 @@ import '../../../data/repositories/catalog_overrides_repository.dart';
 import '../../../domain/models/models.dart';
 import '../../movies/movies_providers.dart' show isFavoriteProvider;
 import '../../player/player_request.dart';
+import '../../player/presentation/cast_controls.dart';
+import '../../settings/presentation/custom_groups_screen.dart';
 import '../live_providers.dart';
 import 'multi_view_screen.dart';
 
@@ -40,6 +43,11 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   /// is the default, because that is the numbering people know their channels
   /// by; the letter index below only means anything once sorted A–Z.
   bool _byName = false;
+
+  /// Whether the selected chip is one of the user's own groups rather than a
+  /// playlist category or Favourites. Groups render from their provider, like
+  /// favourites, so the paged list and its letter index step aside.
+  bool get _isGroup => _categoryId?.startsWith(customGroupPrefix) ?? false;
 
   /// Selected letter from the A–Z index, or null for all.
   ///
@@ -116,9 +124,10 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   }
 
   Future<void> _loadMore() async {
-    // Favourites are not paged from the catalogue — they come from the
-    // favourites provider, so the sentinel must never reach the repository.
-    if (_categoryId == favoritesCategoryId) return;
+    // Favourites and the user's own groups are not paged from the catalogue —
+    // they come from their providers, so neither sentinel may reach the
+    // repository (a "group:" id would query a category that does not exist).
+    if (_categoryId == favoritesCategoryId || _isGroup) return;
     if (_loading || _atEnd) return;
     _loading = true;
     final gen = _generation;
@@ -203,6 +212,9 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     // needs no _reload() because favourites render from the provider rather
     // than from the paged `_items`.
 
+    final groups =
+        ref.watch(catalogOverridesProvider).value?.orderedGroups ?? const [];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Live TV'),
@@ -236,7 +248,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
             // A background sync must never blank a screen that already has
             // content: when() shows its loading branch on a reload by default.
             skipLoadingOnReload: true,
-            data: (list) => list.isEmpty && favorites.isEmpty
+            data: (list) => list.isEmpty && favorites.isEmpty && groups.isEmpty
                 ? const SizedBox(height: 4)
                 : CategoryChips(
                     categories: list,
@@ -244,6 +256,11 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                     leading: [
                       if (favorites.isNotEmpty)
                         (id: favoritesCategoryId, label: 'Favourites'),
+                      // The user's own groups sit with Favourites, ahead of the
+                      // playlist's categories: both are things this person
+                      // chose, not things the provider handed down.
+                      for (final g in groups)
+                        (id: '$customGroupPrefix${g.id}', label: g.name),
                     ],
                     onSelected: (id) {
                       setState(() {
@@ -258,11 +275,15 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
           ),
           // The A–Z index, only while sorted alphabetically — in playlist order
           // a letter would pick out channels scattered through the whole list.
-          if (_byName && _categoryId != favoritesCategoryId) _letterStrip(),
+          if (_byName && _categoryId != favoritesCategoryId && !_isGroup)
+            _letterStrip(),
           Expanded(
             child: _categoryId == favoritesCategoryId
                 ? _favoritesList(favorites)
-                : _list(),
+                : _isGroup
+                    ? _groupList(
+                        _categoryId!.substring(customGroupPrefix.length))
+                    : _list(),
           ),
         ],
       ),
@@ -354,15 +375,41 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
     );
   }
 
+  /// One of the user's own groups. Like favourites: small, straight from the
+  /// provider, not paged, and no channel up/down — a member's place in the
+  /// group says nothing about its place in the catalogue.
+  Widget _groupList(String groupId) {
+    final channels = ref.watch(groupChannelsProvider(groupId));
+    return channels.when(
+      skipLoadingOnReload: true,
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => ErrorView(
+          error: e,
+          onRetry: () => ref.invalidate(groupChannelsProvider(groupId))),
+      data: (list) => list.isEmpty
+          ? Center(
+              child: Text(
+                'Nothing in this group yet. Open a channel\'s menu and choose '
+                '"Add to group".',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.only(bottom: 24),
+              itemCount: list.length,
+              itemBuilder: (context, i) => _ChannelTile(channel: list[i]),
+            ),
+    );
+  }
+
   Widget _list() {
     if (_items.isEmpty) {
       if (_loading) {
         return const Center(child: CircularProgressIndicator());
       }
       if (_error != null) {
-        return Center(
-            child: Text('$_error',
-                style: TextStyle(color: AppColors.error)));
+        return ErrorView(error: _error!, onRetry: _reload);
       }
       return Center(
         child: Text('No channels in this playlist.',
@@ -414,7 +461,7 @@ class _ChannelTile extends ConsumerWidget {
               type: StreamType.live,
               streamId: target.id,
             ),
-            title: title ?? target.name,
+            title: title ?? target.displayName,
             subtitle: nowTitle != null ? 'Now: $nowTitle' : null,
             // The GROUP's key, deliberately, even when a specific variant is
             // playing: the heart on this row toggles that key, so keying
@@ -429,11 +476,75 @@ class _ChannelTile extends ConsumerWidget {
     );
   }
 
+  /// Plays a programme from the channel's recording, from its start — catch-up.
+  ///
+  /// Unlike live this has a real beginning and end, so it goes to the player as
+  /// a seekable item (isLive: false); the source turns the start + duration into
+  /// the panel's timeshift URL. Mirrors the guide's own catch-up so the two
+  /// entry points behave identically.
+  void _playCatchUp(BuildContext context, EpgEntry e) {
+    final minutes = e.stop.difference(e.start).inMinutes;
+    final l = e.start.toLocal();
+    final hhmm = '${l.hour.toString().padLeft(2, '0')}:'
+        '${l.minute.toString().padLeft(2, '0')}';
+    context.push(
+      '/player',
+      extra: PlayerRequest(queue: [
+        PlayerItem(
+          streamRef: StreamRef(
+            accountId: channel.accountId,
+            type: StreamType.live,
+            streamId: channel.id,
+            catchupStart: e.start,
+            // A couple of minutes of headroom: panel clocks and listings rarely
+            // agree to the second, and overrunning is harmless while stopping
+            // short cuts the ending off.
+            catchupMinutes: (minutes > 0 ? minutes : 60) + 2,
+          ),
+          title: e.title,
+          subtitle: '${channel.displayName} · $hhmm',
+          contentKey: contentKeyFor(
+              accountId: channel.accountId,
+              type: StreamType.live,
+              id: '${channel.id}@${e.start.millisecondsSinceEpoch}'),
+          isLive: false,
+        ),
+      ]),
+    );
+  }
+
+  /// The programme on air now, if the channel is recorded and it is still within
+  /// the archive window — i.e. what "Watch from the start" would restart. Null
+  /// when there is no catch-up to offer.
+  Future<EpgEntry?> _catchupNow(WidgetRef ref) async {
+    if (!channel.hasArchive) return null;
+    try {
+      final nowNext = await ref.read(nowNextProvider(channel).future);
+      final now = DateTime.now().toUtc();
+      final horizon = channel.archiveHorizon(now);
+      if (horizon == null) return null;
+      for (final e in nowNext) {
+        final onAir = !now.isBefore(e.start) && now.isBefore(e.stop);
+        if (onAir && e.start.isAfter(horizon)) return e;
+      }
+    } on Object {
+      // No guide for this channel, or it failed to load — just no catch-up.
+    }
+    return null;
+  }
+
   /// Rename / hide, in a sheet rather than a popup menu so it is operable with a
   /// remote (the first row takes focus).
   Future<void> _showChannelMenu(BuildContext context, WidgetRef ref,
       String displayName, CatalogOverrides overrides) async {
     final custom = overrides.channelNames[channel.id];
+    // Resolved before the sheet opens so "Watch from the start" can lead the
+    // menu when there is something to restart. One indexed, cached EPG read.
+    final catchupNow = await _catchupNow(ref);
+    // Casting is offered only off the TV build where the Cast SDK is present;
+    // resolved once so the menu can carry it as a normal row.
+    final canCast = ref.read(castOfferedProvider).value ?? false;
+    if (!context.mounted) return;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surface,
@@ -451,8 +562,47 @@ class _ChannelTile extends ConsumerWidget {
                     style: AppTypography.title),
               ),
             ),
+            if (catchupNow != null)
+              ListTile(
+                autofocus: true,
+                leading: const Icon(Icons.replay),
+                title: const Text('Watch from the start'),
+                subtitle: Text(
+                    'Restart “${catchupNow.title}” from the beginning',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: AppColors.textSecondary)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _playCatchUp(context, catchupNow);
+                },
+              ),
+            if (canCast)
+              ListTile(
+                leading: const Icon(Icons.cast),
+                title: const Text('Cast to a TV'),
+                // Live is cast as HLS where the panel offers it (castTargetFor
+                // swaps the .ts for .m3u8); a panel without HLS fails at the
+                // receiver, which surfaces as a normal cast error.
+                subtitle: Text('Play this channel on a Chromecast',
+                    style: TextStyle(color: AppColors.textSecondary)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  beginCast(
+                    context,
+                    ref,
+                    streamRef: StreamRef(
+                      accountId: channel.accountId,
+                      type: StreamType.live,
+                      streamId: channel.id,
+                    ),
+                    title: displayName,
+                    isLive: true,
+                  );
+                },
+              ),
             ListTile(
-              autofocus: true,
+              autofocus: catchupNow == null,
               leading: const Icon(Icons.edit_outlined),
               title: const Text('Rename channel'),
               subtitle: custom == null
@@ -475,6 +625,16 @@ class _ChannelTile extends ConsumerWidget {
                   _showQualityPicker(context, ref, displayName);
                 },
               ),
+            ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: const Text('Add to group…'),
+              subtitle: Text('Your own groups, across categories',
+                  style: TextStyle(color: AppColors.textSecondary)),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                addChannelToGroup(context, ref, channel);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.splitscreen_outlined),
               title: const Text('Watch alongside…'),

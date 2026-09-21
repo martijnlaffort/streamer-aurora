@@ -12,6 +12,30 @@
 /// `UK | Discovery`, which are different channels showing different things.
 library;
 
+import 'name_tags.dart';
+
+/// The name a channel sorts and indexes under — the provider's packaging taken
+/// off the front, so the A–Z index and the alphabetical sort land on the word a
+/// person actually reads. `|UCL| ZIGGO SPORT` sorts under Z, `:MLS 04` under M,
+/// and `| PPV | The Fight` under T.
+///
+/// Leading only: trailing tags (`HD`, `[NL]`) are left alone, because they
+/// distinguish one row from the next. Nothing here touches [ChannelVariant.key]
+/// — grouping still keeps the country prefix, so `NL | Discovery` and
+/// `UK | Discovery` never collapse into one row.
+///
+/// Falls back to the original when stripping would leave nothing, so a channel
+/// that is ALL packaging still has something to sort on.
+String channelSortName(String raw) {
+  // Any leading bracketed tag (`|UCL|`, `[PPV]`, `«NL»`) is packaging for the
+  // purpose of sorting; every one of them is noise here.
+  var s = stripLeadingTag(raw, (_) => true);
+  // Then a lone leading punctuation run with no closing partner — `:MLS 04`,
+  // `- Sky Sports`, `. TNT` — which stripLeadingTag leaves untouched.
+  s = s.replaceFirst(RegExp(r'^[^\p{L}\p{N}]+', unicode: true), '').trim();
+  return s.isEmpty ? raw.trim() : s;
+}
+
 /// Quality tags, lowercased and stripped of punctuation, with the rank used to
 /// decide which variant a group plays by default.
 ///

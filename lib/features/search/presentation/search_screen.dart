@@ -13,6 +13,7 @@ import '../../../data/providers.dart';
 import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../../player/player_request.dart';
+import '../../player/presentation/cast_controls.dart';
 
 /// Unified instant search over the cached catalog (PRD §8.6): debounced,
 /// no network round-trips — movies, series, and live channels.
@@ -86,7 +87,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               type: StreamType.live,
               streamId: channel.id,
             ),
-            title: channel.name,
+            title: channel.displayName,
             contentKey: contentKeyFor(
                 accountId: channel.accountId,
                 type: StreamType.live,
@@ -151,8 +152,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               data.series.isEmpty &&
               data.channels.isEmpty) {
             return Center(
-              child: Text('Nothing found for “${_query.trim()}”.',
-                  style: TextStyle(color: AppColors.textSecondary)),
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Nothing found for “${_query.trim()}”.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.textSecondary)),
+                    const SizedBox(height: 8),
+                    Text(_catalogueScopeHint,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 13)),
+                  ],
+                ),
+              ),
             );
           }
           return ListView(
@@ -161,10 +176,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 const _SectionHeader('Channels'),
                 for (final channel in data.channels)
                   _ResultTile(
-                    title: channel.name,
+                    title: channel.displayName,
                     imageUrl: channel.logoUrl,
                     contain: true,
                     onTap: () => _playChannel(channel),
+                    // Cast straight from the result; hides itself where casting
+                    // is not offered, so non-cast rows show nothing extra.
+                    trailing: CastButton(
+                      streamRef: StreamRef(
+                        accountId: channel.accountId,
+                        type: StreamType.live,
+                        streamId: channel.id,
+                      ),
+                      title: channel.displayName,
+                      isLive: true,
+                    ),
                   ),
               ],
               if (data.movies.isNotEmpty) ...[
@@ -199,6 +225,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     },
                   ),
               ],
+              // Films and series are searched over what has been cached, which
+              // is the categories that have been opened (plus the few seeded on
+              // setup) — a 150k-title line cannot be held in full. When a search
+              // turns up channels but no catalogue title, that gap is the likely
+              // reason, so say so rather than let it read as "not on your line".
+              if (data.movies.isEmpty && data.series.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                  child: Text(_catalogueScopeHint,
+                      style: TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13)),
+                ),
               const SizedBox(height: 24),
             ],
           );
@@ -207,6 +245,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 }
+
+/// Why a film or series a user knows they have might not show: catalogue search
+/// only covers what is cached, and a big line is cached a category at a time.
+const _catalogueScopeHint =
+    'Films and series are searched over the categories you have opened. '
+    'Open a category once to include it here.';
 
 /// Empty-box state (PRD §8.6): recent searches, tap to re-run, swipe/× to
 /// remove, or clear all. Falls back to a hint when there's no history.
@@ -284,6 +328,7 @@ class _ResultTile extends StatelessWidget {
     this.imageUrl,
     this.subtitle,
     this.contain = false,
+    this.trailing,
   });
 
   final String title;
@@ -293,6 +338,9 @@ class _ResultTile extends StatelessWidget {
 
   /// Channel logos are contained on a square tile; posters cover a 2:3 tile.
   final bool contain;
+
+  /// Optional trailing control (the cast button on channel rows).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -343,6 +391,7 @@ class _ResultTile extends StatelessWidget {
           ? Text(subtitle!,
               style: TextStyle(color: AppColors.textSecondary))
           : null,
+      trailing: trailing,
     );
   }
 }

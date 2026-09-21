@@ -16,7 +16,26 @@ class CatalogOverrides {
     this.channelNames = const {},
     this.categoryOrder = const {},
     this.epgIds = const {},
+    this.customGroups = const {},
+    this.groupMembers = const {},
   });
+
+  /// Channel groups the user made, id → (name, order). Deleted groups are
+  /// tombstoned rows and are not in here.
+  final Map<String, ({String name, int order})> customGroups;
+
+  /// Group id → the channel ids in it, in the user's order.
+  final Map<String, List<String>> groupMembers;
+
+  /// Groups in the user's order, for chips and management screens.
+  List<({String id, String name})> get orderedGroups {
+    final entries = customGroups.entries.toList()
+      ..sort((a, b) {
+        final byOrder = a.value.order.compareTo(b.value.order);
+        return byOrder != 0 ? byOrder : a.value.name.compareTo(b.value.name);
+      });
+    return [for (final e in entries) (id: e.key, name: e.value.name)];
+  }
 
   static const empty = CatalogOverrides();
 
@@ -38,7 +57,9 @@ class CatalogOverrides {
       categoryNames.isEmpty &&
       channelNames.isEmpty &&
       categoryOrder.isEmpty &&
-      epgIds.isEmpty;
+      epgIds.isEmpty &&
+      customGroups.isEmpty &&
+      groupMembers.isEmpty;
 
   /// Which guide key to read a channel's programmes under: the user's mapping
   /// if they set one, otherwise whatever the playlist claimed.
@@ -105,6 +126,8 @@ class CatalogOverridesRepository {
     final channelNames = <String, String>{};
     final categoryOrder = <String, int>{};
     final epgIds = <String, String>{};
+    final customGroups = <String, ({String name, int order})>{};
+    final members = <({String groupId, String channelId, int order})>[];
     for (final r in rows) {
       // Explicitly three-way. This used to be "category or else channel", so
       // adding a third scope would have filed every EPG mapping as a channel
@@ -123,9 +146,32 @@ class CatalogOverridesRepository {
           if (name != null && name.isNotEmpty) channelNames[r.targetId] = name;
         case OverrideScope.epg:
           if (name != null && name.isNotEmpty) epgIds[r.targetId] = name;
+        case OverrideScope.group:
+          // hidden == deleted: the row stays as a tombstone so the deletion
+          // reaches the other devices, but the group is gone from here.
+          if (r.hidden || name == null || name.isEmpty) break;
+          customGroups[r.targetId] = (name: name, order: r.sortIndex ?? 1 << 20);
+        case OverrideScope.groupMember:
+          if (r.hidden) break;
+          final slash = r.targetId.indexOf('/');
+          if (slash <= 0 || slash == r.targetId.length - 1) break;
+          members.add((
+            groupId: r.targetId.substring(0, slash),
+            channelId: r.targetId.substring(slash + 1),
+            order: r.sortIndex ?? 1 << 20,
+          ));
         case null:
           break; // A scope written by a newer build; ignore rather than guess.
       }
+    }
+    // Members of a group that has been deleted are dropped with it: their rows
+    // may well still exist (deleting a group tombstones the group, not every
+    // member), and showing them would resurrect the group in all but name.
+    members.sort((a, b) => a.order.compareTo(b.order));
+    final groupMembers = <String, List<String>>{};
+    for (final m in members) {
+      if (!customGroups.containsKey(m.groupId)) continue;
+      groupMembers.putIfAbsent(m.groupId, () => []).add(m.channelId);
     }
     return CatalogOverrides(
       hiddenCategories: hiddenCategories,
@@ -134,6 +180,8 @@ class CatalogOverridesRepository {
       channelNames: channelNames,
       categoryOrder: categoryOrder,
       epgIds: epgIds,
+      customGroups: customGroups,
+      groupMembers: groupMembers,
     );
   }
 
@@ -213,6 +261,82 @@ class CatalogOverridesRepository {
     await _db.catalogOverridesTable.insertOnConflictUpdate(remote);
     return true;
   }
+
+  // --- Custom groups ---------------------------------------------------------
+  //
+  // A group is an override row of scope `group`; its members are rows of scope
+  // `groupMember` keyed `<groupId>/<channelId>`. Nothing new to sync: they are
+  // curation, and they ride the same last-write-wins table as hiding and
+  // renaming, so a group made on the phone is on the television next sync.
+
+  /// Makes a new, empty group and returns its id.
+  ///
+  /// The id is the creation instant rather than a counter: two devices making
+  /// a group offline must not collide when they later sync, and a millisecond
+  /// timestamp per user is unique enough for that without coordination.
+  Future<String> createGroup({
+    required String accountId,
+    required String name,
+  }) async {
+    final id = 'g${_clock().millisecondsSinceEpoch}';
+    final existing = await forAccount(accountId);
+    await _upsert(accountId, OverrideScope.group, id,
+        customName: Value(name.trim()),
+        sortIndex: Value(existing.customGroups.length),
+        hidden: const Value(false));
+    return id;
+  }
+
+  Future<void> renameGroup({
+    required String accountId,
+    required String groupId,
+    required String name,
+  }) =>
+      _upsert(accountId, OverrideScope.group, groupId,
+          customName: Value(name.trim()));
+
+  /// Tombstones the group. Its member rows are left alone: the loader drops
+  /// members of a group it cannot find, and deleting them individually would
+  /// be one write per channel for no visible difference.
+  Future<void> deleteGroup({
+    required String accountId,
+    required String groupId,
+  }) =>
+      _upsert(accountId, OverrideScope.group, groupId,
+          hidden: const Value(true));
+
+  Future<void> setGroupOrder({
+    required String accountId,
+    required List<String> orderedIds,
+  }) async {
+    await _db.transaction(() async {
+      for (final (index, id) in orderedIds.indexed) {
+        await _upsert(accountId, OverrideScope.group, id,
+            sortIndex: Value(index));
+      }
+    });
+  }
+
+  /// Adds [channelId] at the end of [groupId]. Re-adding a removed channel
+  /// clears its tombstone.
+  Future<void> addToGroup({
+    required String accountId,
+    required String groupId,
+    required String channelId,
+  }) async {
+    final existing = await forAccount(accountId);
+    final position = existing.groupMembers[groupId]?.length ?? 0;
+    await _upsert(accountId, OverrideScope.groupMember, '$groupId/$channelId',
+        hidden: const Value(false), sortIndex: Value(position));
+  }
+
+  Future<void> removeFromGroup({
+    required String accountId,
+    required String groupId,
+    required String channelId,
+  }) =>
+      _upsert(accountId, OverrideScope.groupMember, '$groupId/$channelId',
+          hidden: const Value(true));
 
   Future<void> _upsert(
     String accountId,

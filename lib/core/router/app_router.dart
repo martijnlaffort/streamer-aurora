@@ -22,6 +22,7 @@ import '../../features/settings/presentation/account_network_screen.dart';
 import '../../features/settings/presentation/accounts_screen.dart';
 import '../../features/settings/presentation/add_account_screen.dart';
 import '../../features/settings/presentation/content_languages_screen.dart';
+import '../../features/settings/presentation/custom_groups_screen.dart';
 import '../../features/settings/presentation/hidden_channels_screen.dart';
 import '../../features/settings/presentation/manage_categories_screen.dart';
 import '../../features/settings/presentation/pair_device_screen.dart';
@@ -211,6 +212,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings/hidden-channels',
         name: 'hiddenChannels',
         builder: (context, state) => const HiddenChannelsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/custom-groups',
+        name: 'customGroups',
+        builder: (context, state) => const CustomGroupsScreen(),
       ),
       GoRoute(
         path: '/settings/languages',

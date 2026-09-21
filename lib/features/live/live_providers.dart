@@ -90,6 +90,30 @@ final knownEpgKeysProvider = FutureProvider<List<String>>((ref) async {
   return ref.watch(epgRepositoryProvider).knownEpgKeys(account);
 });
 
+/// The channels in one of the user's own groups, in the user's order.
+///
+/// Resolved by id, so a channel the playlist has since dropped simply does not
+/// appear rather than showing as a dead row. A group is small by construction
+/// (someone picked every channel in it by hand), so this is a handful of indexed
+/// lookups — no paging needed.
+final groupChannelsProvider =
+    FutureProvider.family<List<Channel>, String>((ref, groupId) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return const [];
+  final overrides = await ref.watch(catalogOverridesProvider.future);
+  final catalog = ref.watch(catalogRepositoryProvider);
+  final out = <Channel>[];
+  for (final id in overrides.groupMembers[groupId] ?? const <String>[]) {
+    final c = await catalog.channelById(account, id);
+    if (c != null) out.add(c);
+  }
+  return out;
+});
+
+/// Prefix that marks a chip id as one of the user's own groups rather than a
+/// playlist category. Never reaches the repository.
+const customGroupPrefix = 'group:';
+
 /// Whether the active account has any EPG data (drives the guide entry point).
 final hasEpgProvider = FutureProvider<bool>((ref) async {
   final account = await ref.watch(activeAccountProvider.future);

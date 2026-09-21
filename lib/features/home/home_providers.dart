@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/matching/title_match.dart';
@@ -297,6 +298,7 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   // tabs, which are now category-first — Home linking to six arbitrary
   // categories was both redundant and the thing that made every cold start
   // refresh six categories before it could paint.
+  debugPrint('[dawn] home ready: ${continueWatching.length} to continue');
   return HomeData(
     continueWatching: continueWatching,
   );

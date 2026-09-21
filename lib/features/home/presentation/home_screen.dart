@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/platform/television.dart';
 import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/account_warmup.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/shell_actions.dart';
 import '../../../core/theme/app_typography.dart';
@@ -164,6 +165,7 @@ class _HomeContent extends ConsumerWidget {
           // rails on purpose: for the few weeks it appears it is the most
           // topical thing on the screen, and it costs no network to produce.
           ..._seasonalSlivers(context, ref),
+          ..._emptySlivers(context, ref, data),
           // The Top Rated and Recently Added rails are gone: Top Rated was the
           // panel's own rating with no vote count (the discovery rails above
           // replaced it), and Recently Added just surfaced arbitrary, unknown
@@ -208,6 +210,71 @@ Widget _posterFor(BuildContext context, Object item, String tagPrefix,
     heroTag: tag,
     onTap: () => context.push('/series/${series.id}', extra: tag),
   );
+}
+
+/// What Home says when it has nothing at all to show: no history, no list, no
+/// rails. A blank page reads as "broken" — on a television doubly so, where
+/// there is not even a bottom bar to hint at where else to go. Seen on a TV
+/// straight after adding a playlist, before anything had been watched.
+List<Widget> _emptySlivers(BuildContext context, WidgetRef ref, HomeData data) {
+  if (data.continueWatching.isNotEmpty) return const [];
+  if ((ref.watch(myListProvider).value ?? const []).isNotEmpty) return const [];
+  final season = ref.watch(seasonalRailProvider).value;
+  if (season != null && season.items.isNotEmpty) return const [];
+  final rails = ref.watch(discoveryRailsProvider);
+  // A first load is under way — the account was just switched or paired and its
+  // catalogue and history are still downloading. Say so, so an in-progress
+  // screen reads as "loading" rather than "there is nothing here". The rows
+  // replace this the moment the data lands.
+  if (ref.watch(accountWarmingProvider) || rails.isLoading) {
+    return [
+      SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: AppColors.accent),
+              const SizedBox(height: 16),
+              Text('Setting up your library…',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+  if ((rails.value ?? const []).isNotEmpty) return const [];
+  final tv = isTelevisionOf(ref);
+  return [
+    SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.play_circle_outline,
+                  size: 48, color: AppColors.textSecondary),
+              const SizedBox(height: 12),
+              Text('Nothing to continue yet', style: AppTypography.title),
+              const SizedBox(height: 6),
+              Text(
+                tv
+                    ? 'Pick something from Live TV, Movies or Series in the '
+                        'menu on the left. What you watch shows up here.'
+                    : 'Pick something from Live TV, Movies or Series below. '
+                        'What you watch shows up here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ];
 }
 
 /// "My List" rail — hidden entirely when empty rather than showing a bald
@@ -269,7 +336,7 @@ List<Widget> _discoverySlivers(BuildContext context, WidgetRef ref) {
           title: rail.label,
           itemCount: rail.items.length,
           // The numeral needs room, and a rating badge next to a rank is noise.
-          height: rail.numbered ? 252 : 236,
+          height: rail.numbered ? 258 : 248,
           itemBuilder: (context, i) => _posterFor(
             context,
             rail.items[i],

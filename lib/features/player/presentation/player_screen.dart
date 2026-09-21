@@ -26,6 +26,7 @@ import '../../../domain/models/models.dart'
     show Account, Preferences, StreamRef, StreamType, contentKeyFor;
 import '../../../tour/screenshot_tour.dart' show screenshotTourEnabled;
 import '../player_request.dart';
+import 'cast_controls.dart';
 import 'cast_picker.dart';
 
 /// Android emulators stall on hardware video decode (documented media_kit
@@ -73,6 +74,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// Without an active playback session iOS revokes the `audio` background
   /// assertion and terminates the app.
   AudioSession? _audioSession;
+
+  /// We paused because the OS interrupted us (a call), so we may resume when
+  /// it ends. A pause the USER made is never undone by the call finishing.
+  bool _pausedByInterruption = false;
 
   /// Grabbed once so dispose-time saving never touches `ref` late.
   late final WatchProgressRepository _progressRepo =
@@ -441,6 +446,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         // Show the controls so the pause is visibly deliberate, not a stall.
         setState(() => _controlsVisible = true);
         _scheduleHide();
+      }));
+      // A phone call, an alarm, another app taking the audio. The OS has
+      // already silenced us; without this the picture keeps running with no
+      // sound and the viewer loses a minute of the episode. Pause, and resume
+      // only when the platform says the interruption was the pausing kind and
+      // it is over - a "duck" (a notification chime) never stops the film.
+      _subs.add(session.interruptionEventStream.listen((event) {
+        if (!mounted) return;
+        if (event.begin) {
+          if (event.type == AudioInterruptionType.pause ||
+              event.type == AudioInterruptionType.unknown) {
+            _pausedByInterruption = _playing;
+            if (_playing) _player.pause();
+          }
+          return;
+        }
+        if (_pausedByInterruption &&
+            event.type == AudioInterruptionType.pause) {
+          _pausedByInterruption = false;
+          _player.play();
+        } else {
+          _pausedByInterruption = false;
+        }
       }));
     } catch (_) {
       // Never fatal — playback still works; we just don't own the session.
@@ -1257,6 +1285,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (channel == null || !mounted) return;
       _saveProgress();
       _reconnectTimer?.cancel();
+      // The name the LIVE LIST shows: its base name when qualities are grouped,
+      // and any rename the user gave it. Showing the raw provider row here
+      // ("NL | NPO 1 FHD") — on the player title or the zap toast — after they
+      // renamed it to "NPO 1" reads as landing on a different channel, so the
+      // title and the toast share this one resolved label.
+      final label = overrides.channelName(
+          channel.id, grouped ? channel.displayName : channel.name);
       setState(() {
         _zap = zap.withIndex(nextIndex);
         _zappedItem = PlayerItem(
@@ -1265,7 +1300,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             type: StreamType.live,
             streamId: channel.id,
           ),
-          title: channel.name,
+          title: label,
           contentKey: contentKeyFor(
               accountId: channel.accountId,
               type: StreamType.live,
@@ -1273,12 +1308,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           isLive: true,
         );
       });
-      // The name the LIVE LIST shows: its base name when qualities are grouped,
-      // and any rename the user gave it. Announcing the raw provider row here
-      // ("NL | NPO 1 FHD") after they renamed it to "NPO 1" reads as landing on
-      // a different channel.
-      final label = overrides.channelName(
-          channel.id, grouped ? channel.displayName : channel.name);
       _showZapToast('${nextIndex + 1}/$total · $label');
       await _openCurrent();
     } finally {
@@ -1519,6 +1548,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       return;
     }
 
+    // Remember what we handed over, so the browse-shell mini bar and remote
+    // sheet can name it if the user leaves the player while it is still casting.
+    ref
+        .read(castNowPlayingProvider.notifier)
+        .set(_current.title, _current.subtitle);
     try {
       await ref.read(castServiceProvider).load(
             url: target.url!,

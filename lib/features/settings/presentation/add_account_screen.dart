@@ -90,6 +90,15 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         _error = e.message;
       });
       return;
+    } on FormatException catch (e) {
+      // A malformed address fails inside Uri parsing before the source can
+      // turn it into a SourceException. Uncaught, it left this button on
+      // "Validating…" for good — seen on the TV emulator.
+      setState(() {
+        _flow = _Flow.editing;
+        _error = 'That address is not a valid URL (${e.message}).';
+      });
+      return;
     }
 
     final accounts = ref.read(accountRepositoryProvider);

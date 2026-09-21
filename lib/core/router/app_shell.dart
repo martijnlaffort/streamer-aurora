@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/player/presentation/cast_controls.dart';
 import '../platform/television.dart';
 import '../theme/app_colors.dart';
 
@@ -99,14 +100,33 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// you to the card you left rather than jumping back to the top.
   void _enterContent() {
     final scope = _contentFocus;
-    if (scope.focusedChild != null) {
-      scope.requestFocus(); // Restores the last focused card.
+    // Whether the page has any REAL widget to land on. Scopes are excluded on
+    // purpose: go_router wraps each branch in a Navigator (a FocusScopeNode),
+    // and that scope is always present, so its mere existence says nothing
+    // about whether the page has content. traversalDescendants recurses into
+    // it, so the leaves (poster cards, list rows) are found here when they
+    // exist. Computed BEFORE the restore check below — that check keys off the
+    // branch scope, which is non-null even on an empty page, and letting it win
+    // first is exactly what parked focus on a bare scope: invisible cursor,
+    // dead UP/DOWN/OK, and only LEFT (which handles bare scopes) still working.
+    final first = scope.traversalDescendants
+        .where((n) =>
+            n is! FocusScopeNode && n.canRequestFocus && !n.skipTraversal)
+        .firstOrNull;
+    if (first == null) {
+      // Nothing to focus — Home still loading, an empty tab, an error with no
+      // button. The rail is the one thing always on screen, so the cursor goes
+      // there rather than nowhere.
+      _enterRail();
       return;
     }
-    final first = scope.traversalDescendants
-        .where((n) => n.canRequestFocus && !n.skipTraversal)
-        .firstOrNull;
-    (first ?? scope).requestFocus();
+    // A real leaf is remembered from last time on this tab: restore it (the
+    // branch scope cascades focus back down to it). Otherwise take the first.
+    if (scope.focusedChild != null) {
+      scope.requestFocus();
+    } else {
+      first.requestFocus();
+    }
   }
 
   void _enterRail() => _railItemFocus[shell.currentIndex].requestFocus();
@@ -139,9 +159,17 @@ class _AppShellState extends ConsumerState<AppShell> {
       // the rail opened on every single LEFT press. The primary focus is the
       // real card, sitting in the branch scope beside its neighbours, so a left
       // move finds the previous card and only fails at the true edge of the row.
-      final moved = FocusManager.instance.primaryFocus
-              ?.focusInDirection(TraversalDirection.left) ??
-          false;
+      //
+      // And it must not be asked of a bare scope. When the page has no
+      // focusable widget (a spinner, an empty list) the scope itself holds
+      // focus, and Flutter's directional traversal answers a move from a scope
+      // with no focused child by re-focusing that same scope — and reporting
+      // success. Trusting that answer is what made the rail unreachable while
+      // Home was loading: LEFT "moved" every time and never fell through.
+      final primary = FocusManager.instance.primaryFocus;
+      final moved = primary != null &&
+          primary is! FocusScopeNode &&
+          primary.focusInDirection(TraversalDirection.left);
       if (!moved) _enterRail();
       return KeyEventResult.handled;
     }
@@ -221,22 +249,34 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (isTelevisionOf(ref)) return _tvShell();
     return Scaffold(
       body: shell,
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: AppColors.surface,
-        indicatorColor: AppColors.accent.withValues(alpha: 0.24),
-        // Search and Settings are branches the bar does not carry, so while one
-        // of them is showing there is no bar item to light up. Fall back to the
-        // first rather than leave the bar in an impossible state — the bar has
-        // to stay usable, since it is the only way back to the content tabs.
-        selectedIndex: _phoneBarBranches.indexOf(shell.currentIndex).clamp(0,
-            _phoneBarBranches.length - 1),
-        onDestinationSelected: (i) => _go(_phoneBarBranches[i]),
-        destinations: [
-          for (final branch in _phoneBarBranches)
-            NavigationDestination(
-                icon: Icon(_destinations[branch].icon),
-                selectedIcon: Icon(_destinations[branch].selected),
-                label: _destinations[branch].label),
+      // The cast mini bar rides directly above the navigation while something is
+      // playing on a TV, so leaving the screen you cast from does not strand the
+      // controls. It collapses to nothing when nothing is casting. Sitting inside
+      // the bottom bar (rather than floated over the body) means it never has to
+      // guess the nav's height and the page never reflows under it.
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CastMiniBar(),
+          NavigationBar(
+            backgroundColor: AppColors.surface,
+            indicatorColor: AppColors.accent.withValues(alpha: 0.24),
+            // Search and Settings are branches the bar does not carry, so while
+            // one of them is showing there is no bar item to light up. Fall back
+            // to the first rather than leave the bar in an impossible state — the
+            // bar has to stay usable, since it is the only way back to content.
+            selectedIndex: _phoneBarBranches
+                .indexOf(shell.currentIndex)
+                .clamp(0, _phoneBarBranches.length - 1),
+            onDestinationSelected: (i) => _go(_phoneBarBranches[i]),
+            destinations: [
+              for (final branch in _phoneBarBranches)
+                NavigationDestination(
+                    icon: Icon(_destinations[branch].icon),
+                    selectedIcon: Icon(_destinations[branch].selected),
+                    label: _destinations[branch].label),
+            ],
+          ),
         ],
       ),
     );

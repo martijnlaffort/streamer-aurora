@@ -1,12 +1,15 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/providers.dart';
 import '../../../data/sync/pairing_service.dart';
 import '../../../data/sync/sync_providers.dart';
+import 'pair_scan_screen.dart';
 
 /// The sending side of pairing — the phone that is already set up.
 ///
@@ -31,7 +34,11 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
     super.dispose();
   }
 
-  Future<void> _send() async {
+  /// [backend] is the server the television opened its session on, when a scan
+  /// told us. The claim has to land there or the TV never sees it. The payload
+  /// still carries THIS phone's sync settings, so the TV ends up syncing with
+  /// the same server the phone does.
+  Future<void> _send({String? backend}) async {
     final config = await ref.read(syncConfigProvider.future);
     final token = config.token?.trim() ?? '';
     final baseUrl = config.baseUrl?.trim() ?? '';
@@ -56,7 +63,7 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
         });
         return;
       }
-      await PairingService(baseUrl: baseUrl).claim(
+      await PairingService(baseUrl: backend ?? baseUrl).claim(
         code: _code.text,
         token: token,
         payload: PairingPayload(accounts: accounts, sync: config),
@@ -76,6 +83,16 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
         });
       }
     }
+  }
+
+  /// Camera path: reads the code and the backend off the television's QR and
+  /// sends straight away — nothing to type, nothing to confirm.
+  Future<void> _scan() async {
+    final result = await Navigator.of(context).push<PairScan>(
+        MaterialPageRoute(builder: (_) => const PairScanScreen()));
+    if (result == null || !mounted) return;
+    setState(() => _code.text = result.code);
+    await _send(backend: result.backend);
   }
 
   @override
@@ -116,7 +133,7 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
           ],
           Text(
             'On your TV, open Dawn Player and go to Settings → Pair with your '
-            'phone. Enter the code it shows here.',
+            'phone. Enter the code it shows here, or scan the square beside it.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 20),
@@ -141,8 +158,23 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
               labelText: 'Code from your TV',
               counterText: '',
             ),
+            // The Send button below reads the length; without this it would
+            // only wake up on submit.
+            onChanged: (_) => setState(() {}),
             onSubmitted: (_) => _send(),
           ),
+          // Phones only: a television has no camera to point, and the desktop
+          // build has no scanner. The typed code stays for both.
+          if (!isTelevisionOf(ref) &&
+              (defaultTargetPlatform == TargetPlatform.android ||
+                  defaultTargetPlatform == TargetPlatform.iOS)) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _sending ? null : _scan,
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Scan the code on the TV instead'),
+            ),
+          ],
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(_error!, style: TextStyle(color: AppColors.error)),

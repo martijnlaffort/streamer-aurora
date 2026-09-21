@@ -85,6 +85,10 @@ if [ -x /usr/libexec/PlistBuddy ]; then
   # Set, or add if absent. Without it every upload stops to ask.
   /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST" 2>/dev/null ||
     /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
+  # Camera: only for scanning the television's pairing QR. iOS refuses to open
+  # the camera at all - and App Review rejects the build - without this string.
+  /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription 'Scans the pairing code shown on your TV.'" "$PLIST" 2>/dev/null ||
+    /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string 'Scans the pairing code shown on your TV.'" "$PLIST"
 elif grep -q "ITSAppUsesNonExemptEncryption" "$PLIST"; then
   echo "    PlistBuddy unavailable; key already present, skipping."
 else

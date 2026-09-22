@@ -52,7 +52,15 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   }
 
   Account _buildAccount() {
-    final server = _server.text.trim();
+    final raw = _server.text.trim();
+    // An Xtream server is a base URL. A trailing slash doesn't stop playback
+    // (the client strips one when it builds requests), but it DOES change the
+    // derived account id, so "host" and "host/" would be treated as two
+    // different accounts that never share history. Normalise it away here. M3U's
+    // field is a full playlist URL or a file path, so leave that untouched.
+    final server = _type == AccountType.xtream
+        ? raw.replaceFirst(RegExp(r'/+$'), '')
+        : raw;
     final fallbackName = Uri.tryParse(server)?.host ?? '';
     final username = _type == AccountType.xtream ? _username.text.trim() : '';
     return Account(

@@ -5,7 +5,7 @@
  * Run:    php -S 127.0.0.1:8082 tool/mock_xtream.php
  * Probe:  server http://127.0.0.1:8082 (Windows desktop)
  *         server http://10.0.2.2:8082  (Android emulator; 10.0.2.2 = host loopback)
- *         username: aurora   password: test
+ *         username: aurora   password: test   (also accepts demo / demo)
  *
  * Speaks enough of player_api.php for Aurora: auth, categories, live/VOD/series
  * lists, VOD/series info, short EPG. Stream URLs (/live, /movie, /series)
@@ -264,7 +264,10 @@ function json_out($data): void
 
 function creds_ok(string $user, string $pass): bool
 {
-    return $user === MOCK_USER && $pass === MOCK_PASS;
+    // demo/demo is a reviewer-friendly alias alongside the original aurora/test,
+    // so the App Store review instructions read naturally.
+    return ($user === MOCK_USER && $pass === MOCK_PASS)
+        || ($user === 'demo' && $pass === 'demo');
 }
 
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -282,7 +285,7 @@ if ($path === '/player_api.php') {
         case '':
             json_out([
                 'user_info' => [
-                    'username' => MOCK_USER, 'auth' => 1, 'status' => 'Active',
+                    'username' => $user, 'auth' => 1, 'status' => 'Active',
                     'exp_date' => (string) (time() + 30 * 86400),
                     'max_connections' => '2', 'active_cons' => '0',
                     'allowed_output_formats' => ['m3u8', 'ts'],

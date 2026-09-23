@@ -934,9 +934,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// side, where even a device that was already in sync sits far below the
   /// threshold.
   double _audioDelaySeconds() {
-    final hz = View.of(context).display.refreshRate;
-    final frame = hz > 1 ? 1 / hz : 1 / 60;
-    return 2 * frame + _prefs.audioDelayMs / 1000;
+    final reported = View.of(context).display.refreshRate;
+    // Some TVs misreport the refresh rate — not just 0/1, but a few Hz — and the
+    // old `hz > 1` guard let a value like 2 or 3 through, turning "two frames"
+    // into 0.7–1.0 s of delay and pushing the sound ~1 s behind the picture.
+    // Trust the number only inside a plausible display range; otherwise fall
+    // back to 60 Hz (~33 ms), which is always safe.
+    final hz = (reported >= 24 && reported <= 240) ? reported : 60.0;
+    return 2 / hz + _prefs.audioDelayMs / 1000;
   }
 
   /// Points [url] at the account's [attempt]-th fallback host.

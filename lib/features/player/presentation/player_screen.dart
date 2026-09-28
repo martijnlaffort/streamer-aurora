@@ -922,26 +922,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// How long to hold the audio back, in seconds.
   ///
   /// Two parts. The first is the app's own latency, computed rather than
-  /// guessed: mpv renders into a texture that Flutter composites one to two
-  /// frames later, so two frame periods at the display's actual refresh rate
-  /// — 33 ms at 60 Hz, 40 ms at 50 Hz. The second is the user's per-screen
-  /// adjustment for what the app cannot see (the TV's own processing).
+  /// guessed: mpv renders into a texture that Flutter composites a few frames
+  /// later, so three frame periods at the display's actual refresh rate — 50 ms
+  /// at 60 Hz, 60 ms at 50 Hz. The second is the user's per-screen adjustment
+  /// for what the app cannot see (the TV's own processing).
   ///
-  /// Applying the first part everywhere is safe because human perception is
-  /// lopsided (ITU-R BT.1359): sound running AHEAD is noticed from about 45 ms,
-  /// sound running BEHIND not until about 125 ms. Our texture path put us on
-  /// the wrong side of that line; two frames of delay moves us to the tolerant
-  /// side, where even a device that was already in sync sits far below the
-  /// threshold.
+  /// Three, not two: at two frames the sound still ran slightly AHEAD on real
+  /// TVs, and human perception is lopsided (ITU-R BT.1359) — sound ahead is
+  /// noticed from about 45 ms, sound behind not until about 125 ms. Three frames
+  /// (50–60 ms) clears the "ahead" threshold and lands on the tolerant side;
+  /// worst case on an already-synced device is ~60 ms behind, well under the
+  /// "behind" threshold and imperceptible.
   double _audioDelaySeconds() {
     final reported = View.of(context).display.refreshRate;
-    // Some TVs misreport the refresh rate — not just 0/1, but a few Hz — and the
-    // old `hz > 1` guard let a value like 2 or 3 through, turning "two frames"
-    // into 0.7–1.0 s of delay and pushing the sound ~1 s behind the picture.
-    // Trust the number only inside a plausible display range; otherwise fall
-    // back to 60 Hz (~33 ms), which is always safe.
-    final hz = (reported >= 24 && reported <= 240) ? reported : 60.0;
-    return 2 / hz + _prefs.audioDelayMs / 1000;
+    // Some TVs misreport the refresh rate — not just 0/1, but a few Hz — and a
+    // weak guard once let a value like 2 through, turning "a few frames" into
+    // ~1 s of delay. Trust the number only inside a plausible display range;
+    // otherwise assume 50 Hz — 50 rather than 60 because the fallback should err
+    // toward MORE delay (the tolerant side), never less.
+    final hz = (reported >= 24 && reported <= 240) ? reported : 50.0;
+    return 3 / hz + _prefs.audioDelayMs / 1000;
   }
 
   /// Points [url] at the account's [attempt]-th fallback host.

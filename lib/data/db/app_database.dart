@@ -555,7 +555,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -689,6 +689,16 @@ class AppDatabase extends _$AppDatabase {
           if (from < 19) {
             await m.addColumn(channelsTable, channelsTable.sortName);
             await _backfillChannelSortNames();
+          }
+          // v20: variant keys keep non-Latin letters. Re-derive them for every
+          // cached channel — before this, all Cyrillic/Greek/Arabic/CJK channels
+          // on a line shared one key and showed as a single row — and forget
+          // which stream "won" per key, since those choices were recorded under
+          // the merged keys and could tune a different channel. Losing them
+          // costs one extra failover and nothing else.
+          if (from < 20) {
+            if (from >= 13) await _backfillChannelVariants();
+            await delete(streamChoicesTable).go();
           }
         },
         beforeOpen: (details) async {

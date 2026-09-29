@@ -8,6 +8,7 @@ import '../../domain/models/models.dart';
 import '../db/app_database.dart';
 import '../db/mappers.dart';
 import '../sources/playlist_source.dart';
+import '../sync/playback_activity.dart';
 
 /// DB-side ordering for paged movie reads (the browse grid).
 enum MovieOrder { nameAsc, addedDesc, ratingDesc }
@@ -25,12 +26,16 @@ class CatalogRepository {
     required this._sourceFactory,
     DateTime Function()? clock,
     this.catalogTtl = const Duration(hours: 12),
+    this._playback,
   }) : _clock = clock ?? (() => DateTime.now().toUtc());
 
   final AppDatabase _db;
   final PlaylistSource Function(Account) _sourceFactory;
   final DateTime Function() _clock;
   final Duration catalogTtl;
+
+  /// Holds background refreshes back while a video plays; see [_whenIdle].
+  final PlaybackActivity? _playback;
 
   /// The most recent fire-and-forget TTL refresh, exposed so tests (and a
   /// future sync UI) can await determinism instead of racing it.
@@ -359,16 +364,30 @@ class CatalogRepository {
             catalogTtl) {
       return; // Fresh.
     }
-    final refresh = _refreshCategoryOnce(account, kind, categoryId);
     if (await _hasCachedItems(account, kind, categoryId: categoryId)) {
-      final background = refresh.catchError((Object e) => developer.log(
-          'background refresh of $kind/$categoryId failed: $e',
-          name: 'CatalogRepository'));
+      final background = _whenIdle(
+              () => _refreshCategoryOnce(account, kind, categoryId))
+          .catchError((Object e) => developer.log(
+              'background refresh of $kind/$categoryId failed: $e',
+              name: 'CatalogRepository'));
       lastBackgroundRefresh = background;
       unawaited(background);
       return;
     }
-    await refresh; // Nothing to show — propagate failures.
+    // Nothing to show — fetch now and propagate failures.
+    await _refreshCategoryOnce(account, kind, categoryId);
+  }
+
+  /// Runs a stale-while-refresh update once nothing is playing.
+  ///
+  /// Only for refreshes whose screen is already showing cached rows. These
+  /// used to start behind a playing video too — Home's rails rebuild whenever
+  /// a sync lands — and a catalogue download competing with the stream for the
+  /// connection shows up as buffering. A fetch the screen is actually waiting
+  /// on is never held back.
+  Future<void> _whenIdle(Future<void> Function() job) async {
+    await _playback?.whenIdle();
+    return job();
   }
 
   /// Freshness for the category *list* of a slice — one cheap request, and the
@@ -386,8 +405,9 @@ class CatalogRepository {
     }
     final age = _clock().difference(fromUtcMillis(meta.refreshedAtMillisUtc));
     if (age > catalogTtl) {
-      final refresh = _refreshListOnce(account, kind).catchError((Object e) =>
-          developer.log('background refresh of $kind categories failed: $e',
+      final refresh = _whenIdle(() => _refreshListOnce(account, kind))
+          .catchError((Object e) => developer.log(
+              'background refresh of $kind categories failed: $e',
               name: 'CatalogRepository'));
       lastBackgroundRefresh = refresh;
       unawaited(refresh);
@@ -443,15 +463,15 @@ class CatalogRepository {
     // an upgrade from the build that swept whole slices, or an explicit
     // refreshCatalog() — serve them and seed in the background. Blocking here
     // would stall a screen we can already fill, which is the whole complaint.
-    final seed = _seedOnce(account, kind);
     if (await _hasCachedItems(account, kind)) {
-      final background = seed.catchError((Object e) => developer.log(
-          'background seed of $kind failed: $e', name: 'CatalogRepository'));
+      final background = _whenIdle(() => _seedOnce(account, kind)).catchError(
+          (Object e) => developer.log('background seed of $kind failed: $e',
+              name: 'CatalogRepository'));
       lastBackgroundRefresh = background;
       unawaited(background);
       return;
     }
-    await seed; // Genuinely nothing to show — propagate failures.
+    await _seedOnce(account, kind); // Nothing to show — propagate failures.
   }
 
   /// Whether anything is cached for a slice, or for one category of it.
@@ -558,8 +578,9 @@ class CatalogRepository {
     }
     final age = _clock().difference(fromUtcMillis(meta.refreshedAtMillisUtc));
     if (age > catalogTtl) {
-      final refresh = _refreshOnce(account, kind).catchError((Object e) =>
-          developer.log('background refresh of $kind failed: $e',
+      final refresh = _whenIdle(() => _refreshOnce(account, kind))
+          .catchError((Object e) => developer.log(
+              'background refresh of $kind failed: $e',
               name: 'CatalogRepository'));
       lastBackgroundRefresh = refresh;
       unawaited(refresh);

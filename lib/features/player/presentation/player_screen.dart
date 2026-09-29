@@ -1137,8 +1137,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         .read(catalogRepositoryProvider)
         .channelById(account, _current.streamRef.streamId);
     if (!mounted || channel == null) return;
-    final programme =
-        await ref.read(epgRepositoryProvider).currentProgramme(account, channel);
+    // Cache only. This runs as the channel starts and every minute after; with
+    // refresh on, a stale guide meant the whole XMLTV file (often hundreds of
+    // megabytes) was downloaded and parsed while the stream was trying to
+    // start. The guide refreshes itself once nothing is playing.
+    final programme = await ref
+        .read(epgRepositoryProvider)
+        .currentProgramme(account, channel, refresh: false);
     if (mounted) setState(() => _liveNow = programme?.title);
   }
 

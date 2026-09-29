@@ -34,14 +34,22 @@ class ManageCategoriesScreen extends ConsumerWidget {
     final categories = ref.watch(_allCategoriesProvider(type));
     final overrides =
         ref.watch(catalogOverridesProvider).value ?? CatalogOverrides.empty;
+    // Only this screen's groups count: an edit to a channel, or to the movie
+    // groups while looking at the series ones, is not something Reset here
+    // touches, so it must not be what makes Reset appear.
+    final ids = [for (final c in categories.value ?? const <Category>[]) c.id];
+    final edited = ids.any((id) =>
+        overrides.hiddenCategories.contains(id) ||
+        overrides.categoryNames.containsKey(id) ||
+        overrides.categoryOrder.containsKey(id));
 
     return Scaffold(
       appBar: AppBar(
         title: Text(_title),
         actions: [
-          if (!overrides.isEmpty)
+          if (edited)
             TextButton(
-              onPressed: () => _resetAll(context, ref),
+              onPressed: () => _resetAll(context, ref, ids),
               child: const Text('Reset'),
             ),
         ],
@@ -218,7 +226,8 @@ class ManageCategoriesScreen extends ConsumerWidget {
     ref.invalidate(catalogOverridesProvider);
   }
 
-  Future<void> _resetAll(BuildContext context, WidgetRef ref) async {
+  Future<void> _resetAll(
+      BuildContext context, WidgetRef ref, List<String> categoryIds) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -240,7 +249,9 @@ class ManageCategoriesScreen extends ConsumerWidget {
     if (confirmed != true) return;
     final account = await ref.read(activeAccountProvider.future);
     if (account == null) return;
-    await ref.read(catalogOverridesRepositoryProvider).clearAll(account.id);
+    await ref
+        .read(catalogOverridesRepositoryProvider)
+        .clearCategories(account.id, categoryIds);
     ref.invalidate(catalogOverridesProvider);
   }
 }

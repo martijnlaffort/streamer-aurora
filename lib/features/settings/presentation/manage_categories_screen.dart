@@ -22,9 +22,12 @@ class ManageCategoriesScreen extends ConsumerWidget {
   final CategoryType type;
 
   String get _title => switch (type) {
-        CategoryType.live => 'Live TV groups',
-        CategoryType.vod => 'Movie groups',
-        CategoryType.series => 'Series groups',
+        // "Categories", not "groups": the app already has "My channel groups"
+        // (the user's own) and "Merge HD/SD versions", and three things
+        // called "groups" in one Settings page was one too many.
+        CategoryType.live => 'Live TV categories',
+        CategoryType.vod => 'Movie categories',
+        CategoryType.series => 'Series categories',
       };
 
   @override
@@ -65,7 +68,7 @@ class ManageCategoriesScreen extends ConsumerWidget {
             return Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
-                child: Text('This playlist has no groups yet.',
+                child: Text('This playlist has no categories yet.',
                     style: TextStyle(color: AppColors.textSecondary)),
               ),
             );
@@ -184,7 +187,7 @@ class ManageCategoriesScreen extends ConsumerWidget {
     final name = await showDialog<String?>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Rename group'),
+        title: const Text('Rename category'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -231,10 +234,10 @@ class ManageCategoriesScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reset all group changes?'),
+        title: const Text('Reset these categories?'),
         content: const Text(
-            'Hidden, renamed and reordered groups all go back to what the '
-            'playlist says. Channel changes are kept.'),
+            'Hidden, renamed and reordered categories on this page go back to '
+            'what the playlist says. Channels and your own groups are kept.'),
         actions: [
           TextButton(
               autofocus: true,

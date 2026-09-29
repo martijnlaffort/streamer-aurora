@@ -123,6 +123,7 @@ class Preferences extends Equatable {
     bool? showPlaybackStats,
     bool clearTmdbApiKey = false,
     bool clearContentLanguages = false,
+    bool clearDiscoveryRegion = false,
   }) {
     return Preferences(
       preferredAudioLang: preferredAudioLang ?? this.preferredAudioLang,
@@ -134,7 +135,9 @@ class Preferences extends Equatable {
           ? null
           : (contentLanguages ?? this.contentLanguages),
       tmdbApiKey: clearTmdbApiKey ? null : (tmdbApiKey ?? this.tmdbApiKey),
-      discoveryRegion: discoveryRegion ?? this.discoveryRegion,
+      discoveryRegion: clearDiscoveryRegion
+          ? null
+          : (discoveryRegion ?? this.discoveryRegion),
       themeMode: themeMode ?? this.themeMode,
       uiScale: uiScale ?? this.uiScale,
       groupChannelVariants:

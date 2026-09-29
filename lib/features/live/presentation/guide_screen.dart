@@ -359,6 +359,12 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
           final totalWidth = totalMin * _pxPerMin;
           final nowX = _x(DateTime.now().toUtc(), data.windowStart)
               .clamp(0.0, totalWidth);
+          // Rows grow with the text size. A fixed 64 px overflowed at the
+          // standard size already for a two-line channel name with its
+          // catch-up line, and every programme title spilled at Large.
+          final rowHeight = MediaQuery.textScalerOf(context)
+              .scale(_rowHeight)
+              .clamp(_rowHeight, _rowHeight * 2);
 
           // Land on "now" the first time the grid is shown.
           if (!_jumpedToNow) {
@@ -412,7 +418,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                           return InkWell(
                             onTap: () => _playChannel(c),
                             child: Container(
-                              height: _rowHeight,
+                              height: rowHeight,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 8),
                               decoration: BoxDecoration(
@@ -426,8 +432,10 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
+                                  // One line when the catch-up line needs
+                                  // the room below it.
                                   Text(c.displayName,
-                                      maxLines: 2,
+                                      maxLines: c.hasArchive ? 1 : 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: AppTypography.label),
                                   // How far back this channel can be replayed,
@@ -472,7 +480,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                                     windowStart: data.windowStart,
                                     windowEnd: data.windowEnd,
                                     pxPerMin: _pxPerMin,
-                                    rowHeight: _rowHeight,
+                                    rowHeight: rowHeight,
                                     onTap: (e) => _activateCell(e, c),
                                     onLongPress: (e) => _showProgramme(e, c),
                                     hasArchive: c.hasArchive,

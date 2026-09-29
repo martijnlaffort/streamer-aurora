@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_typography.dart';
 import 'error_view.dart';
 
 /// A poster grid that pulls its content one page at a time.
@@ -114,17 +115,33 @@ class _PagedPosterGridState<T> extends State<PagedPosterGrid<T>> {
             'Pull down to refresh, or try another category.',
       );
     }
-    return GridView.builder(
-      controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 140,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.54,
-      ),
-      itemCount: _items.length,
-      itemBuilder: (context, i) => widget.itemBuilder(context, _items[i]),
-    );
+    // Cell height = the 2:3 poster at this column width, plus the caption at
+    // the CURRENT text size. A fixed aspect ratio left room for a two-line
+    // caption only up to about 1.16× text, so the Large size setting (or a
+    // big system font) pushed every caption out of its cell.
+    const maxCellWidth = 140.0, spacing = 12.0, sidePad = 16.0;
+    final caption = MediaQuery.textScalerOf(context)
+            .scale(AppTypography.label.fontSize ?? 12) *
+        1.35 * // line height, with room to spare
+        2; // the caption's maxLines
+    return LayoutBuilder(builder: (context, constraints) {
+      final available = constraints.maxWidth - sidePad * 2;
+      // The same column count SliverGridDelegateWithMaxCrossAxisExtent picks.
+      final columns =
+          (available / (maxCellWidth + spacing)).ceil().clamp(1, 1 << 10);
+      final cellWidth = (available - spacing * (columns - 1)) / columns;
+      return GridView.builder(
+        controller: _scroll,
+        padding: const EdgeInsets.fromLTRB(sidePad, 8, sidePad, 24),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: spacing,
+          mainAxisExtent: cellWidth * 1.5 + 6 + caption,
+        ),
+        itemCount: _items.length,
+        itemBuilder: (context, i) => widget.itemBuilder(context, _items[i]),
+      );
+    });
   }
 }

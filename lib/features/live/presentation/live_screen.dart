@@ -303,7 +303,9 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       for (final l in letters) (value: l, label: l),
     ];
     return SizedBox(
-      height: 40,
+      // Grows with the text size; a fixed 40 clipped the letters at the
+      // largest size.
+      height: MediaQuery.textScalerOf(context).scale(40),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),

@@ -226,6 +226,41 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// because that node's rect is the whole screen.
   final _playPauseFocus = FocusNode(debugLabel: 'player-playpause');
 
+  // --- Television remote -----------------------------------------------------
+  //
+  // On a TV the controls come up with the cursor ON them, the way Netflix and
+  // HBO do it: the press that reveals them never also seeks, the scrubber
+  // previews a target instead of jumping on every press, and BACK steps out
+  // one layer at a time (cancel the scrub, hide the controls, leave).
+
+  /// The TV scrubber. LEFT/RIGHT move [_scrubTarget]; OK (or a pause) jumps.
+  final _scrubFocus = FocusNode(debugLabel: 'player-scrubber');
+
+  /// The up-next card's main button, or the end-of-episode button — only one
+  /// of them is ever on screen.
+  final _upNextFocus = FocusNode(debugLabel: 'player-upnext');
+
+  final _retryFocus = FocusNode(debugLabel: 'player-retry');
+
+  /// Wraps the TV controls so "is the cursor somewhere in the controls" can be
+  /// asked in one place. Never takes focus itself.
+  final _tvControlsRegion = FocusNode(
+      debugLabel: 'player-tv-controls',
+      canRequestFocus: false,
+      skipTraversal: true);
+
+  /// Where the scrubber will jump to, while the viewer is still choosing. Null
+  /// when not scrubbing.
+  Duration? _scrubTarget;
+  Timer? _scrubCommitTimer;
+
+  /// Key repeats in the current hold, for accelerating the scrub step.
+  int _scrubRepeats = 0;
+
+  /// Whether this build is the television one. Read, not watched: callers are
+  /// key handlers and timers, and the answer does not change mid-session.
+  bool get _tv => ref.read(isTelevisionProvider).value ?? false;
+
   // --- Casting ---------------------------------------------------------------
   //
   // Casting is not mirroring: the Chromecast fetches the URL and decodes it
@@ -503,8 +538,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _reconnectTimer?.cancel();
     _watchdog?.cancel();
     _zapToastTimer?.cancel();
+    _scrubCommitTimer?.cancel();
     _keyboardFocus.dispose();
     _playPauseFocus.dispose();
+    _scrubFocus.dispose();
+    _upNextFocus.dispose();
+    _retryFocus.dispose();
+    _tvControlsRegion.dispose();
     for (final sub in _subs) {
       sub.cancel();
     }
@@ -584,12 +624,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (position < offerAt - const Duration(seconds: 5)) {
         _earlyPrompted = false;
         if (_upNextEarly) setState(() => _upNextEarly = false);
+        if (_upNextFocus.hasFocus) _keyboardFocus.requestFocus();
       }
       return;
     }
     if (position < offerAt) return;
     _earlyPrompted = true;
     setState(() => _upNextEarly = true);
+    _maybeFocusUpNext();
   }
 
   /// Whether "near the end" can be trusted: long enough to be an episode, and
@@ -1201,6 +1243,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _upNextEarly = false;
         _upNextCountdown = 5;
       });
+      // The episode is over, so OK should mean "play it now".
+      _maybeFocusUpNext();
       _upNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (!mounted) return;
         final remaining = (_upNextCountdown ?? 1) - 1;
@@ -1235,6 +1279,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // A reconnect scheduled for THIS item would otherwise reopen the next one
     // at this one's position.
     _reconnectTimer?.cancel();
+    // The prompt that was pressed is about to disappear; keep the remote on
+    // something that exists.
+    if (_upNextFocus.hasFocus) _keyboardFocus.requestFocus();
     setState(() {
       _index += 1;
       _upNextCountdown = null;
@@ -1271,13 +1318,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // never come back.
     if (screenshotTourEnabled) return;
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(milliseconds: 3200), () {
-      if (mounted && _playing && _error == null) {
+    // Five seconds on a television, as Netflix does: reading a remote's
+    // buttons from a sofa is slower than a thumb, and 3.2 s hid the controls
+    // mid-thought.
+    final delay = _tv
+        ? const Duration(seconds: 5)
+        : const Duration(milliseconds: 3200);
+    _hideTimer = Timer(delay, () {
+      if (!mounted) return;
+      // Not while choosing a scrub target, and not from under an open audio or
+      // subtitle sheet: hiding used to move focus to the video underneath the
+      // sheet, and the arrows then scrubbed the film instead of the list.
+      if (_scrubTarget != null || !(ModalRoute.of(context)?.isCurrent ?? true)) {
+        _scheduleHide();
+        return;
+      }
+      if (_playing && _error == null) {
         setState(() => _controlsVisible = false);
         // If the remote was parked on a control, hand it back to the video
-        // surface as the controls fade — otherwise left/right would keep
-        // driving a button that is no longer visible instead of scrubbing.
-        if (!_keyboardFocus.hasPrimaryFocus) _keyboardFocus.requestFocus();
+        // surface as the controls fade — otherwise it would keep driving a
+        // button that is no longer visible. The up-next card stays put: it is
+        // on screen whether or not the controls are.
+        if (!_keyboardFocus.hasPrimaryFocus && !_upNextFocus.hasFocus) {
+          _keyboardFocus.requestFocus();
+        }
       }
     });
   }
@@ -1426,18 +1490,104 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _scheduleHide();
   }
 
+  /// TV: brings the controls up WITH the cursor on them — on the scrubber when
+  /// there is something to scrub, otherwise on play/pause.
+  ///
+  /// This is the fix for "pressing RIGHT jumps ten seconds": the video surface
+  /// used to keep the cursor while the controls showed, so the same RIGHT
+  /// either walked the buttons or seeked depending on a state nobody could
+  /// see. Now the press that reveals the controls only reveals them.
+  void _revealControls() {
+    _wake();
+    // After the frame: hidden controls are excluded from focus, and are only
+    // focusable again once they have rebuilt as visible.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _error != null) return;
+      (_hasTvScrubber ? _scrubFocus : _playPauseFocus).requestFocus();
+    });
+  }
+
+  bool get _hasTvScrubber => !_current.isLive && _duration > Duration.zero;
+
+  bool get _upNextShowing =>
+      ((_upNextCountdown != null || _upNextEarly) && _next != null) ||
+      _shouldShowNextEpisode();
+
+  bool _isOk(LogicalKeyboardKey key) =>
+      key == LogicalKeyboardKey.select ||
+      key == LogicalKeyboardKey.enter ||
+      key == LogicalKeyboardKey.numpadEnter ||
+      key == LogicalKeyboardKey.space ||
+      key == LogicalKeyboardKey.gameButtonA;
+
+  /// The remote's dedicated media and channel keys. They do the same thing
+  /// wherever the cursor is — they used to be dropped whenever a control had
+  /// focus, which is most of the time on a TV.
+  bool _handleMediaKey(LogicalKeyboardKey key) {
+    if (key == LogicalKeyboardKey.mediaPlayPause) {
+      _player.playOrPause();
+      _wake();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.mediaPlay) {
+      _player.play();
+      _wake();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.mediaPause) {
+      _player.pause();
+      _wake();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.mediaRewind) {
+      if (!_current.isLive || _canTimeshift) {
+        _seekRelative(-10);
+      } else {
+        _wake();
+      }
+      return true;
+    }
+    if (key == LogicalKeyboardKey.mediaFastForward) {
+      if (!_current.isLive || (_canTimeshift && !_atLiveEdge)) {
+        _seekRelative(10);
+      } else {
+        _wake();
+      }
+      return true;
+    }
+    if (key == LogicalKeyboardKey.mediaTrackNext) {
+      if (_next != null) _playNext();
+      _wake();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.mediaTrackPrevious) {
+      if (_hasPrevious) _playPrevious();
+      _wake();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.channelUp ||
+        key == LogicalKeyboardKey.channelDown) {
+      if (_canZap) {
+        unawaited(_zapBy(key == LogicalKeyboardKey.channelUp ? 1 : -1));
+      }
+      _wake();
+      return true;
+    }
+    return false;
+  }
+
   /// Remote and keyboard input.
   ///
   /// Handled here at the top of the player rather than by focus traversal
   /// between the overlay's buttons: a video player's primary controls are the
-  /// directional pad itself (left/right scrubs, centre pauses), not a set of
-  /// widgets you tab through. Up/Down are deliberately left unhandled so
-  /// traversal can still reach the top bar's audio/subtitle/lock buttons.
+  /// directional pad itself, not a set of widgets you tab through.
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
     final key = event.logicalKey;
+
+    if (_handleMediaKey(key)) return KeyEventResult.handled;
 
     // Key events bubble up from whatever descendant holds focus. Once the user
     // has moved into the overlay's buttons, the arrows belong to focus
@@ -1448,12 +1598,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // OK/centre activates the focused control. D-pad centre arrives as
       // `select` on many televisions, which is NOT in Flutter's default
       // activation shortcuts, so trigger the focused control ourselves.
-      // Everything else (arrows) falls through to traversal and to the focused
-      // widget — the seek slider scrubs with left/right, buttons move focus.
-      if (key == LogicalKeyboardKey.select ||
-          key == LogicalKeyboardKey.enter ||
-          key == LogicalKeyboardKey.space ||
-          key == LogicalKeyboardKey.gameButtonA) {
+      // Everything else (arrows) falls through to traversal; the TV scrubber
+      // never gets here, it handles its own keys (see _onScrubKey).
+      if (_isOk(key)) {
         final ctx = FocusManager.instance.primaryFocus?.context;
         if (ctx != null) Actions.maybeInvoke(ctx, const ActivateIntent());
         return KeyEventResult.handled;
@@ -1468,31 +1615,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       return KeyEventResult.handled;
     }
 
-    // Play/pause — the remote's dedicated keys plus the D-pad centre.
-    if (key == LogicalKeyboardKey.select ||
-        key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.space ||
-        key == LogicalKeyboardKey.gameButtonA ||
-        key == LogicalKeyboardKey.mediaPlayPause) {
+    // Play/pause — the D-pad centre. On a TV the controls come up with it, so
+    // pausing shows where you are and the scrubber is ready to move.
+    if (_isOk(key)) {
+      if (_tv && _error != null) {
+        _retryFocus.requestFocus();
+        return KeyEventResult.handled;
+      }
       _player.playOrPause();
-      _wake();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaPlay) {
-      _player.play();
-      _wake();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaPause) {
-      _player.pause();
-      _wake();
+      _tv ? _revealControls() : _wake();
       return KeyEventResult.handled;
     }
 
-    // Scrubbing. On a live stream there is nothing to seek through, so the
-    // keys only wake the overlay rather than appearing to do nothing.
-    if (key == LogicalKeyboardKey.arrowLeft ||
-        key == LogicalKeyboardKey.mediaRewind) {
+    if (_tv) return _onTvSurfaceArrow(key);
+
+    // Phone, tablet and desktop keyboards: the arrows seek straight away, the
+    // way every desktop player does. On a live stream there is nothing to
+    // seek through, so they only wake the overlay.
+    if (key == LogicalKeyboardKey.arrowLeft) {
       // Live can be scrubbed too now, as far back as the timeshift buffer goes.
       if (!_current.isLive || _canTimeshift) {
         _seekRelative(-10);
@@ -1501,8 +1641,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       }
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.arrowRight ||
-        key == LogicalKeyboardKey.mediaFastForward) {
+    if (key == LogicalKeyboardKey.arrowRight) {
       // Forward only means something when there is buffered future to move
       // into, i.e. when we are behind the live edge.
       if (!_current.isLive) {
@@ -1515,32 +1654,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       return KeyEventResult.handled;
     }
 
-    // Episode queue.
-    if (key == LogicalKeyboardKey.mediaTrackNext) {
-      if (_next != null) _playNext();
-      _wake();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.mediaTrackPrevious) {
-      if (_hasPrevious) _playPrevious();
-      _wake();
-      return KeyEventResult.handled;
-    }
-
-    // Channel up/down. The remote's dedicated channel keys always zap; the
-    // D-pad's up/down only do so while watching live, where changing channel
-    // is the thing you actually want them for. Everywhere else they are handed
-    // on to focus traversal so the top bar stays reachable.
-    if (key == LogicalKeyboardKey.channelUp) {
-      if (_canZap) unawaited(_zapBy(1));
-      _wake();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.channelDown) {
-      if (_canZap) unawaited(_zapBy(-1));
-      _wake();
-      return KeyEventResult.handled;
-    }
+    // Up/down zap while watching live, where changing channel is the thing
+    // you actually want them for; otherwise they move into the controls.
     if (key == LogicalKeyboardKey.arrowUp ||
         key == LogicalKeyboardKey.arrowDown) {
       if (_canZap) {
@@ -1560,6 +1675,174 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
 
     return KeyEventResult.ignored;
+  }
+
+  /// TV, cursor on the video itself (so the controls are normally hidden).
+  KeyEventResult _onTvSurfaceArrow(LogicalKeyboardKey key) {
+    final up = key == LogicalKeyboardKey.arrowUp;
+    final vertical = up || key == LogicalKeyboardKey.arrowDown;
+    final horizontal = key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight;
+    if (!vertical && !horizontal) return KeyEventResult.ignored;
+    if (_error != null) {
+      _retryFocus.requestFocus();
+      return KeyEventResult.handled;
+    }
+    // Watching live with nothing on screen, the D-pad's up/down are the
+    // channel keys a television viewer expects — and they must not bring the
+    // controls up, or holding channel-up would stop zapping after one press.
+    if (vertical && _canZap && !_controlsVisible) {
+      unawaited(_zapBy(up ? 1 : -1));
+      return KeyEventResult.handled;
+    }
+    // UP while an up-next prompt is on screen goes straight to it: it sits
+    // above everything else.
+    if (up && _upNextShowing) {
+      _wake();
+      _upNextFocus.requestFocus();
+      return KeyEventResult.handled;
+    }
+    _revealControls();
+    return KeyEventResult.handled;
+  }
+
+  /// TV scrubber keys. LEFT/RIGHT move a target rather than seeking on every
+  /// press: the old scrubber was a stock Slider, which seeked 5% of the film
+  /// per press and also claimed UP/DOWN, so there was no way off it but BACK.
+  KeyEventResult _onScrubKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight) {
+      // 10 s a press; held, it speeds up to 30 s and then a minute, so a
+      // two-hour film can be crossed without forty presses.
+      _scrubRepeats = event is KeyRepeatEvent ? _scrubRepeats + 1 : 0;
+      final step = _scrubRepeats >= 20
+          ? 60
+          : _scrubRepeats >= 6
+              ? 30
+              : 10;
+      final forward = key == LogicalKeyboardKey.arrowRight;
+      var target = (_scrubTarget ?? _position) +
+          Duration(seconds: forward ? step : -step);
+      if (target < Duration.zero) target = Duration.zero;
+      if (_duration > Duration.zero && target > _duration) target = _duration;
+      setState(() => _scrubTarget = target);
+      _hideTimer?.cancel();
+      // Commits by itself once the viewer stops pressing, so nobody has to
+      // know that OK confirms; OK just does it sooner.
+      _scrubCommitTimer?.cancel();
+      _scrubCommitTimer =
+          Timer(const Duration(milliseconds: 1500), _commitScrub);
+      return KeyEventResult.handled;
+    }
+    if (_isOk(key)) {
+      if (_scrubTarget != null) {
+        _commitScrub(play: true);
+      } else {
+        _player.playOrPause();
+        _scheduleHide();
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowDown) {
+      _commitScrub();
+      _playPauseFocus.requestFocus();
+      _scheduleHide();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowUp) {
+      if (_upNextShowing) {
+        _commitScrub();
+        _upNextFocus.requestFocus();
+      }
+      // Nothing else above the scrubber; handled so focus cannot wander off
+      // to something that is not on screen.
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// Jumps to the scrub target, if one is being chosen.
+  void _commitScrub({bool play = false}) {
+    _scrubCommitTimer?.cancel();
+    final target = _scrubTarget;
+    if (target == null) return;
+    _player.seek(target);
+    if (play) _player.play();
+    // Moved here now rather than when mpv next reports, so the playhead does
+    // not snap back to the old spot for a moment.
+    setState(() {
+      _scrubTarget = null;
+      _position = target;
+    });
+    _scheduleHide();
+  }
+
+  void _cancelScrub() {
+    _scrubCommitTimer?.cancel();
+    setState(() => _scrubTarget = null);
+    _scheduleHide();
+  }
+
+  /// TV transport row: UP goes back to the scrubber (or the up-next prompt
+  /// when there is no scrubber), and DOWN stays put — there is nothing below,
+  /// and letting traversal pick a target is how focus used to land on things
+  /// that were not visible.
+  KeyEventResult _onTvRowKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (_hasTvScrubber) {
+        _scrubFocus.requestFocus();
+      } else if (_upNextShowing) {
+        _upNextFocus.requestFocus();
+      }
+      _scheduleHide();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _scheduleHide();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// TV up-next prompt: DOWN drops into the controls.
+  KeyEventResult _onUpNextKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _revealControls();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// TV: puts the cursor on an up-next prompt that has just appeared — but
+  /// only in the final minute (or at a chapter the file names as the credits).
+  /// Earlier, grabbing focus would turn the OK meant as "pause" into "skip to
+  /// the next episode".
+  void _maybeFocusUpNext() {
+    if (!_tv) return;
+    final remaining = _duration - _position;
+    final atCredits =
+        _creditsStart != null && _position >= _creditsStart!;
+    if (_upNextCountdown == null &&
+        remaining > const Duration(seconds: 60) &&
+        !atCredits) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _upNextShowing) _upNextFocus.requestFocus();
+    });
   }
 
   // --- Casting ---------------------------------------------------------------
@@ -1846,15 +2129,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // playback altogether; a second Back then exits. Without this, reaching
       // for the subtitle button and changing your mind drops you out of the
       // film — a costly mistake with a remote.
-      canPop: _keyboardFocus.hasPrimaryFocus,
+      //
+      // On a TV, BACK peels one layer per press: a scrub being chosen is
+      // cancelled, then visible controls are hidden, then you leave. An error
+      // screen leaves at once — there is nothing to peel.
+      canPop: _tv
+          ? _error != null || (!_controlsVisible && _scrubTarget == null)
+          : _keyboardFocus.hasPrimaryFocus,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) {
-          _keyboardFocus.requestFocus();
+        if (didPop) {
+          // Now, not in dispose: dispose runs after the exit animation, so the
+          // screen underneath would slide in sideways first.
+          _landscape?.release();
           return;
         }
-        // Now, not in dispose: dispose runs after the exit animation, so the
-        // screen underneath would slide in sideways first.
-        _landscape?.release();
+        if (_tv) {
+          if (_scrubTarget != null) {
+            _cancelScrub();
+            return;
+          }
+          _hideTimer?.cancel();
+          setState(() => _controlsVisible = false);
+        }
+        _keyboardFocus.requestFocus();
       },
       child: Scaffold(
       backgroundColor: Colors.black,
@@ -2119,6 +2416,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   Widget _errorView() {
+    // On a TV the cursor goes to Retry as the error appears. OK on the video
+    // used to toggle play/pause on a stream that had already failed.
+    if (_tv && !_retryFocus.hasFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            _error != null &&
+            (_keyboardFocus.hasPrimaryFocus || _tvControlsRegion.hasFocus)) {
+          _retryFocus.requestFocus();
+        }
+      });
+    }
     final friendly = _friendlyError();
     final hasDetail = _diagLog.isNotEmpty || _error != null;
     return Center(
@@ -2143,10 +2451,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               ),
             ],
             const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () => _openCurrent(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+            FocusHighlight(
+              borderRadius: 24,
+              child: FilledButton.icon(
+                focusNode: _retryFocus,
+                onPressed: () {
+                  // Back to the video before this button disappears, or the
+                  // remote is left pointing at nothing once playback resumes.
+                  _keyboardFocus.requestFocus();
+                  _openCurrent();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
             ),
             if (hasDetail) ...[
               const SizedBox(height: 8),
@@ -2218,15 +2535,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   Widget _nextEpisodeButton() {
     return _nextPromptSlot(
-      child: FilledButton.icon(
-        onPressed: () => _playNext(fromOffer: true),
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.textPrimary,
-          foregroundColor: Colors.black,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onKeyEvent: _onUpNextKey,
+        child: FocusHighlight(
+          borderRadius: 24,
+          child: FilledButton.icon(
+            focusNode: _upNextFocus,
+            onPressed: () => _playNext(fromOffer: true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.textPrimary,
+              foregroundColor: Colors.black,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            icon: const Icon(Icons.skip_next),
+            label: const Text('Next Episode'),
+          ),
         ),
-        icon: const Icon(Icons.skip_next),
-        label: const Text('Next Episode'),
       ),
     );
   }
@@ -2265,32 +2592,44 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.body),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  FilledButton(
-                    // Only in the final minute. Earlier, taking focus would
-                    // turn the OK press someone meant as "pause" into "skip
-                    // to the next episode".
-                    autofocus: early &&
-                        _duration - _position <= const Duration(seconds: 60),
-                    onPressed: () => _playNext(fromOffer: early),
-                    child: Text(early ? 'Next episode' : 'Play now',
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      _upNextTimer?.cancel();
-                      setState(() {
-                        _upNextCountdown = null;
-                        _upNextEarly = false;
-                      });
-                    },
-                    child: Text(early ? 'Keep watching' : 'Cancel',
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                ],
+              // Focus is put here explicitly, and only late (see
+              // _maybeFocusUpNext): `autofocus` did nothing while the video
+              // surface held the cursor, which is always.
+              Focus(
+                canRequestFocus: false,
+                skipTraversal: true,
+                onKeyEvent: _onUpNextKey,
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    FocusHighlight(
+                      borderRadius: 20,
+                      child: FilledButton(
+                        focusNode: _upNextFocus,
+                        onPressed: () => _playNext(fromOffer: early),
+                        child: Text(early ? 'Next episode' : 'Play now',
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                    FocusHighlight(
+                      borderRadius: 20,
+                      child: TextButton(
+                        onPressed: () {
+                          _upNextTimer?.cancel();
+                          setState(() {
+                            _upNextCountdown = null;
+                            _upNextEarly = false;
+                          });
+                          // The card is going; the cursor must not go with it.
+                          _keyboardFocus.requestFocus();
+                        },
+                        child: Text(early ? 'Keep watching' : 'Cancel',
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -2381,7 +2720,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Widget _tvControls(
       Duration position, int durationSeconds, double bufferFraction) {
     final queued = widget.request.queue.length > 1;
-    return AnimatedOpacity(
+    final controls = AnimatedOpacity(
       opacity: _controlsVisible ? 1 : 0,
       duration: const Duration(milliseconds: 200),
       child: IgnorePointer(
@@ -2429,105 +2768,110 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                       else
                         _tvSeekBar(position, durationSeconds, bufferFraction),
                       const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          if (queued)
+                      Focus(
+                        canRequestFocus: false,
+                        skipTraversal: true,
+                        onKeyEvent: _onTvRowKey,
+                        child: Row(
+                          children: [
+                            if (queued)
+                              IconButton(
+                                style: _tvTransportStyle,
+                                iconSize: 30,
+                                tooltip: 'Previous episode',
+                                onPressed: _hasPrevious ? _playPrevious : null,
+                                icon: const Icon(Icons.skip_previous),
+                              ),
+                            if (_canZap)
+                              IconButton(
+                                style: _tvTransportStyle,
+                                iconSize: 30,
+                                tooltip: 'Channel down',
+                                onPressed: () => _zapBy(-1),
+                                icon: const Icon(Icons.keyboard_arrow_down),
+                              ),
+                            // Seeking is offered for VOD always, and for live once
+                            // the timeshift buffer has something to rewind into —
+                            // so a channel can have both zapping and scrubbing.
+                            if (!_current.isLive || _canTimeshift)
+                              IconButton(
+                                style: _tvTransportStyle,
+                                iconSize: 30,
+                                tooltip: 'Back 10 seconds',
+                                onPressed: () => _seekRelative(-10),
+                                icon: const Icon(Icons.replay_10),
+                              ),
                             IconButton(
+                              focusNode: _playPauseFocus,
                               style: _tvTransportStyle,
-                              iconSize: 30,
-                              tooltip: 'Previous episode',
-                              onPressed: _hasPrevious ? _playPrevious : null,
-                              icon: const Icon(Icons.skip_previous),
+                              iconSize: 38,
+                              tooltip: _playing ? 'Pause' : 'Play',
+                              onPressed: () {
+                                _player.playOrPause();
+                                _scheduleHide();
+                              },
+                              icon: Icon(_playing
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded),
                             ),
-                          if (_canZap)
-                            IconButton(
-                              style: _tvTransportStyle,
-                              iconSize: 30,
-                              tooltip: 'Channel down',
-                              onPressed: () => _zapBy(-1),
-                              icon: const Icon(Icons.keyboard_arrow_down),
-                            ),
-                          // Seeking is offered for VOD always, and for live once
-                          // the timeshift buffer has something to rewind into —
-                          // so a channel can have both zapping and scrubbing.
-                          if (!_current.isLive || _canTimeshift)
-                            IconButton(
-                              style: _tvTransportStyle,
-                              iconSize: 30,
-                              tooltip: 'Back 10 seconds',
-                              onPressed: () => _seekRelative(-10),
-                              icon: const Icon(Icons.replay_10),
-                            ),
-                          IconButton(
-                            focusNode: _playPauseFocus,
-                            style: _tvTransportStyle,
-                            iconSize: 38,
-                            tooltip: _playing ? 'Pause' : 'Play',
-                            onPressed: () {
-                              _player.playOrPause();
-                              _scheduleHide();
-                            },
-                            icon: Icon(_playing
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded),
-                          ),
-                          // Forward is disabled at the live edge rather than
-                          // hidden, so the row does not reflow as you scrub.
-                          if (!_current.isLive || _canTimeshift)
-                            IconButton(
-                              style: _tvTransportStyle,
-                              iconSize: 30,
-                              tooltip: 'Forward 10 seconds',
-                              onPressed: _current.isLive && _atLiveEdge
-                                  ? null
-                                  : () => _seekRelative(10),
-                              icon: const Icon(Icons.forward_10),
-                            ),
-                          if (_canZap)
-                            IconButton(
-                              style: _tvTransportStyle,
-                              iconSize: 30,
-                              tooltip: 'Channel up',
-                              onPressed: () => _zapBy(1),
-                              icon: const Icon(Icons.keyboard_arrow_up),
-                            ),
-                          if (queued)
-                            IconButton(
-                              style: _tvTransportStyle,
-                              iconSize: 30,
-                              tooltip: 'Next episode',
-                              onPressed: _next != null ? _playNext : null,
-                              icon: const Icon(Icons.skip_next),
-                            ),
-                          const Spacer(),
-                          // On a television you are already on the big screen,
-                          // so casting is only offered when this build is NOT
-                          // the TV one (see _castAvailable, which is false
-                          // there) — this branch keeps the row consistent if
-                          // that ever changes.
-                          if (_castAvailable)
+                            // Forward is disabled at the live edge rather than
+                            // hidden, so the row does not reflow as you scrub.
+                            if (!_current.isLive || _canTimeshift)
+                              IconButton(
+                                style: _tvTransportStyle,
+                                iconSize: 30,
+                                tooltip: 'Forward 10 seconds',
+                                onPressed: _current.isLive && _atLiveEdge
+                                    ? null
+                                    : () => _seekRelative(10),
+                                icon: const Icon(Icons.forward_10),
+                              ),
+                            if (_canZap)
+                              IconButton(
+                                style: _tvTransportStyle,
+                                iconSize: 30,
+                                tooltip: 'Channel up',
+                                onPressed: () => _zapBy(1),
+                                icon: const Icon(Icons.keyboard_arrow_up),
+                              ),
+                            if (queued)
+                              IconButton(
+                                style: _tvTransportStyle,
+                                iconSize: 30,
+                                tooltip: 'Next episode',
+                                onPressed: _next != null ? _playNext : null,
+                                icon: const Icon(Icons.skip_next),
+                              ),
+                            const Spacer(),
+                            // On a television you are already on the big screen,
+                            // so casting is only offered when this build is NOT
+                            // the TV one (see _castAvailable, which is false
+                            // there) — this branch keeps the row consistent if
+                            // that ever changes.
+                            if (_castAvailable)
+                              IconButton(
+                                style: _tvTransportStyle,
+                                iconSize: 26,
+                                tooltip: 'Cast to a TV',
+                                onPressed: _startCasting,
+                                icon: const Icon(Icons.cast),
+                              ),
                             IconButton(
                               style: _tvTransportStyle,
                               iconSize: 26,
-                              tooltip: 'Cast to a TV',
-                              onPressed: _startCasting,
-                              icon: const Icon(Icons.cast),
+                              tooltip: 'Audio',
+                              onPressed: _showAudioSheet,
+                              icon: const Icon(Icons.audiotrack_outlined),
                             ),
-                          IconButton(
-                            style: _tvTransportStyle,
-                            iconSize: 26,
-                            tooltip: 'Audio',
-                            onPressed: _showAudioSheet,
-                            icon: const Icon(Icons.audiotrack_outlined),
-                          ),
-                          IconButton(
-                            style: _tvTransportStyle,
-                            iconSize: 26,
-                            tooltip: 'Subtitles',
-                            onPressed: _showSubtitleSheet,
-                            icon: const Icon(Icons.subtitles_outlined),
-                          ),
-                        ],
+                            IconButton(
+                              style: _tvTransportStyle,
+                              iconSize: 26,
+                              tooltip: 'Subtitles',
+                              onPressed: _showSubtitleSheet,
+                              icon: const Icon(Icons.subtitles_outlined),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -2538,64 +2882,142 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         ),
       ),
     );
+    // Out of focus traversal while hidden. Fading them out only made them
+    // transparent, so the remote could still land on buttons nobody could see.
+    return ExcludeFocus(
+      excluding: !_controlsVisible,
+      child: Focus(focusNode: _tvControlsRegion, child: controls),
+    );
   }
 
-  /// Scrubber sized for a ten-foot view, and focusable: once the remote is on
-  /// it, LEFT/RIGHT scrub instead of walking the button row.
+  /// Scrubber sized for a ten-foot view.
+  ///
+  /// Not a Slider. A stock Slider seeks on every key press, in steps of 5% of
+  /// the runtime, and in the default navigation mode it takes UP and DOWN as
+  /// value changes too — so it could only be left with BACK ("I have to escape
+  /// the time bar"). This one shows a target the viewer moves with LEFT/RIGHT
+  /// and jumps once, on OK or when the pressing stops; UP/DOWN leave it. See
+  /// [_onScrubKey].
   Widget _tvSeekBar(
       Duration position, int durationSeconds, double bufferFraction) {
+    final target = _scrubTarget;
+    final totalMs = durationSeconds > 0 ? durationSeconds * 1000 : 1;
+    double fraction(Duration d) =>
+        (d.inMilliseconds / totalMs).clamp(0.0, 1.0).toDouble();
     return Row(
       children: [
-        Text(formatSeconds(position.inSeconds), style: AppTypography.label),
+        // While choosing, the clock shows where you will land.
+        Text(formatSeconds((target ?? position).inSeconds),
+            style: target == null
+                ? AppTypography.label
+                : AppTypography.label.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700)),
         const SizedBox(width: 12),
         Expanded(
           child: FocusHighlight(
-            borderRadius: 8,
+            borderRadius: 10,
             scale: 1.0,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: LinearProgressIndicator(
-                    value: bufferFraction,
-                    minHeight: 5,
-                    backgroundColor: Colors.white24,
-                    color: Colors.white38,
-                  ),
-                ),
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 5,
-                    activeTrackColor: AppColors.accent,
-                    inactiveTrackColor: Colors.transparent,
-                    thumbShape:
-                        const RoundSliderThumbShape(enabledThumbRadius: 9),
-                    overlayShape:
-                        const RoundSliderOverlayShape(overlayRadius: 18),
-                  ),
-                  child: Slider(
-                    value: durationSeconds > 0
-                        ? position.inSeconds.clamp(0, durationSeconds).toDouble()
-                        : 0,
-                    max: durationSeconds > 0 ? durationSeconds.toDouble() : 1,
-                    onChanged: durationSeconds > 0
-                        ? (v) => setState(() => _dragSeekSeconds = v)
-                        : null,
-                    onChangeEnd: (v) {
-                      _player.seek(Duration(seconds: v.round()));
-                      setState(() => _dragSeekSeconds = null);
-                      _scheduleHide();
-                    },
-                  ),
-                ),
-              ],
+            child: Focus(
+              focusNode: _scrubFocus,
+              onKeyEvent: _onScrubKey,
+              child: ListenableBuilder(
+                listenable: _scrubFocus,
+                builder: (context, _) {
+                  final focused = _scrubFocus.hasFocus;
+                  final trackHeight = focused ? 8.0 : 5.0;
+                  final thumb = focused ? 20.0 : 14.0;
+                  return LayoutBuilder(builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+                    final played = fraction(position);
+                    Widget bar(double widthFactor, Color color) => Container(
+                          width: width * widthFactor,
+                          height: trackHeight,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius:
+                                BorderRadius.circular(trackHeight / 2),
+                          ),
+                        );
+                    return SizedBox(
+                      height: 44,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          bar(1, Colors.white24),
+                          bar(bufferFraction, Colors.white38),
+                          bar(played, AppColors.accent),
+                          if (target != null) ...[
+                            // The stretch you are about to skip over (or back
+                            // across), so the size of the jump is visible.
+                            Positioned(
+                              left: width *
+                                  (fraction(target) < played
+                                      ? fraction(target)
+                                      : played),
+                              child: bar(
+                                  (fraction(target) - played).abs(),
+                                  Colors.white70),
+                            ),
+                            Positioned(
+                              left: width * fraction(target) - 2,
+                              child: Container(
+                                  width: 4, height: 30, color: Colors.white),
+                            ),
+                            Positioned(
+                              top: -30,
+                              left: (width * fraction(target) - 60)
+                                  .clamp(0.0, (width - 120).clamp(0.0, width)),
+                              child: _scrubLabel(target, position),
+                            ),
+                          ],
+                          Positioned(
+                            left: width * played - thumb / 2,
+                            child: Container(
+                              width: thumb,
+                              height: thumb,
+                              decoration: BoxDecoration(
+                                color: focused ? Colors.white : AppColors.accent,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  });
+                },
+              ),
             ),
           ),
         ),
         const SizedBox(width: 12),
         Text(formatSeconds(durationSeconds), style: AppTypography.label),
       ],
+    );
+  }
+
+  /// "1:23:45 · +2:30" above the scrub marker.
+  Widget _scrubLabel(Duration target, Duration position) {
+    final delta = target - position;
+    final sign = delta.isNegative ? '−' : '+';
+    return Container(
+      width: 120,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '${formatSeconds(target.inSeconds)} · $sign'
+        '${formatSeconds(delta.abs().inSeconds)}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+            color: Colors.black, fontWeight: FontWeight.w700, fontSize: 13),
+      ),
     );
   }
 

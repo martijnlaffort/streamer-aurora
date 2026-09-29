@@ -33,6 +33,12 @@ class UpdateInfo {
 /// generous rate limit, once per launch. Any failure — offline, rate-limited,
 /// GitHub down — is "no update", never an error the user sees: an update
 /// prompt is a courtesy, and a courtesy must not turn into a nag.
+///
+/// Sideloaded builds only, opted into with `--dart-define=DAWN_SIDELOAD=true`.
+/// A store build must never point at an APK or a release page: Play forbids
+/// updating outside Play and Apple rejects it under 2.5.2, and the GitHub build
+/// numbers need not match the store's anyway. Opt-in rather than opt-out so a
+/// store build cannot ship it by forgetting a flag.
 class UpdateService {
   UpdateService({Dio? dio})
       : _dio = dio ??
@@ -49,7 +55,10 @@ class UpdateService {
 
   static final _tag = RegExp(r'^b(\d+)$');
 
+  static const _sideload = bool.fromEnvironment('DAWN_SIDELOAD');
+
   Future<UpdateInfo?> check() async {
+    if (!_sideload) return null;
     try {
       final info = await PackageInfo.fromPlatform();
       final current = int.tryParse(info.buildNumber) ?? 0;

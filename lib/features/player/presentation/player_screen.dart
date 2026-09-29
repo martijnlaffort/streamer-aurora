@@ -11,6 +11,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 
+import '../../../core/platform/screen_orientation.dart';
 import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -258,6 +259,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   StreamSubscription<CastStatus>? _castSub;
   CastStatus _cast = const CastStatus();
   bool _castAvailable = false;
+
+  /// Held from open to exit; null off mobile.
+  LandscapeLock? _landscape;
   DateTime _lastCastSave = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Live zapping state. Starts from the list position the caller handed over
@@ -317,15 +321,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _castSub = cast.status.listen(_onCastStatus);
     });
 
-    // Fullscreen + landscape lock is a mobile concern; on desktop these calls
-    // can pin the window to a broken size, so keep them phone/tablet-only.
-    if (_isMobile) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    }
+    // Fullscreen + landscape for as long as this player is open. Released when
+    // the route pops, so the app comes back upright (see LandscapeLock).
+    _landscape = LandscapeLock.acquire();
 
     _subs.add(_player.stream.playing.listen((v) {
       setState(() {
@@ -477,6 +475,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   @override
   void dispose() {
+    // First, so nothing that throws below can leave the app stuck sideways.
+    // Usually a no-op: the pop already released it.
+    _landscape?.release();
     _castSub?.cancel();
     _playbackActivity.leave();
     WidgetsBinding.instance.removeObserver(this);
@@ -501,10 +502,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final session = _audioSession;
     if (session != null) unawaited(session.setActive(false));
     _restoreBrightness();
-    if (_isMobile) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    }
     super.dispose();
   }
 
@@ -1764,7 +1761,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // film — a costly mistake with a remote.
       canPop: _keyboardFocus.hasPrimaryFocus,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _keyboardFocus.requestFocus();
+        if (!didPop) {
+          _keyboardFocus.requestFocus();
+          return;
+        }
+        // Now, not in dispose: dispose runs after the exit animation, so the
+        // screen underneath would slide in sideways first.
+        _landscape?.release();
       },
       child: Scaffold(
       backgroundColor: Colors.black,

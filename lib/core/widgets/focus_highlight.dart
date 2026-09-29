@@ -2,6 +2,38 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
+/// Brings a focused card in a horizontal rail into view the way Netflix and
+/// Google TV do: the ROW only moves when the card would otherwise be cut off,
+/// instead of re-centring on every press. Re-centring slid the whole row
+/// under the cursor with each step, so the eye had to find the card again
+/// every time. The page's own vertical scroll still centres the row.
+///
+/// Works for grids too: with no horizontal scrollable above, only the
+/// vertical centring applies.
+void revealRailItem(BuildContext context) {
+  final target = context.findRenderObject();
+  if (target == null) return;
+  const duration = Duration(milliseconds: 220);
+  const curve = Curves.easeOut;
+  final row = Scrollable.maybeOf(context, axis: Axis.horizontal)?.position;
+  if (row != null) {
+    // Each policy only ever scrolls one way, so of these two calls at most
+    // one moves: forward when the card runs off the end, back when it runs
+    // off the start, neither when it is already fully visible.
+    row.ensureVisible(target,
+        duration: duration,
+        curve: curve,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd);
+    row.ensureVisible(target,
+        duration: duration,
+        curve: curve,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart);
+  }
+  Scrollable.maybeOf(context, axis: Axis.vertical)
+      ?.position
+      .ensureVisible(target, alignment: 0.5, duration: duration, curve: curve);
+}
+
 /// Makes it unmistakable which control the remote is on.
 ///
 /// Material's own focus overlay is a faint colour wash — on this near-black

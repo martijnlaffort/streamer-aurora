@@ -9,11 +9,20 @@ import 'app_typography.dart';
 /// same function against a different [DawnPalette], so the two cannot drift
 /// apart as the theme grows.
 abstract final class AppTheme {
-  static ThemeData get dark => _build(DawnPalette.dark, Brightness.dark);
+  static ThemeData get dark => darkFor(tv: false);
 
-  static ThemeData get light => _build(DawnPalette.light, Brightness.light);
+  static ThemeData get light => lightFor(tv: false);
 
-  static ThemeData _build(DawnPalette p, Brightness brightness) {
+  /// [tv] adds the remote's cursor to every Material button and chip; see
+  /// [_tvFocus].
+  static ThemeData darkFor({required bool tv}) =>
+      _build(DawnPalette.dark, Brightness.dark, tv: tv);
+
+  static ThemeData lightFor({required bool tv}) =>
+      _build(DawnPalette.light, Brightness.light, tv: tv);
+
+  static ThemeData _build(DawnPalette p, Brightness brightness,
+      {required bool tv}) {
     final base = ThemeData(
       useMaterial3: true,
       brightness: brightness,
@@ -48,7 +57,7 @@ abstract final class AppTheme {
       labelMedium: AppTypography.label.copyWith(color: p.textSecondary),
     );
 
-    return base.copyWith(
+    final themed = base.copyWith(
       textTheme: textTheme,
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -84,6 +93,56 @@ abstract final class AppTheme {
       hoverColor: p.accent.withValues(alpha: 0.12),
       listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    return tv ? _tvFocus(themed, p) : themed;
+  }
+
+  /// The remote's cursor on every Material button and chip.
+  ///
+  /// Material 3 buttons ignore [ThemeData.focusColor] and mark focus with a
+  /// tint of about 10% — from a sofa, no cursor at all. That covered the back
+  /// arrows, app-bar actions, "See all", dialog buttons and chips: most of
+  /// "I can't tell where my cursor is". Icon buttons invert (a solid disc in
+  /// the focus colour), the way the player's transport already did; everything
+  /// else gets a solid ring, like the poster cards.
+  ///
+  /// Television only. A button is "focused" under touch too — a dialog's
+  /// autofocused action, say — and a ring there would read as selected.
+  /// Explicit per-widget styles still win over these.
+  static ThemeData _tvFocus(ThemeData t, DawnPalette p) {
+    bool focused(Set<WidgetState> s) => s.contains(WidgetState.focused);
+    final ring = BorderSide(color: p.focusRing, width: 3);
+    final side = WidgetStateProperty.resolveWith<BorderSide?>(
+        (s) => focused(s) ? ring : null);
+    ButtonStyle ringed(ButtonStyle? style) =>
+        (style ?? const ButtonStyle()).copyWith(side: side);
+    // On the dark palette the ring is white, so the glyph on it goes dark; on
+    // the light one the ring is the accent, and the glyph goes white.
+    final onRing = t.brightness == Brightness.dark
+        ? p.background
+        : const Color(0xFFFFFFFF);
+    return t.copyWith(
+      textButtonTheme:
+          TextButtonThemeData(style: ringed(t.textButtonTheme.style)),
+      filledButtonTheme:
+          FilledButtonThemeData(style: ringed(t.filledButtonTheme.style)),
+      outlinedButtonTheme:
+          OutlinedButtonThemeData(style: ringed(t.outlinedButtonTheme.style)),
+      elevatedButtonTheme:
+          ElevatedButtonThemeData(style: ringed(t.elevatedButtonTheme.style)),
+      iconButtonTheme: IconButtonThemeData(
+        style: (t.iconButtonTheme.style ?? const ButtonStyle()).copyWith(
+          backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => focused(s) ? p.focusRing : null),
+          foregroundColor:
+              WidgetStateProperty.resolveWith((s) => focused(s) ? onRing : null),
+          iconColor:
+              WidgetStateProperty.resolveWith((s) => focused(s) ? onRing : null),
+        ),
+      ),
+      chipTheme: t.chipTheme.copyWith(
+        side: WidgetStateBorderSide.resolveWith((s) => focused(s) ? ring : null),
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../platform/television.dart';
 import '../theme/app_typography.dart';
 import 'error_view.dart';
 
@@ -63,7 +65,34 @@ class _PagedPosterGridState<T> extends State<PagedPosterGrid<T>> {
   @override
   void dispose() {
     _scroll.dispose();
+    _gridFocus.dispose();
     super.dispose();
+  }
+
+  /// Wraps the grid so its first card can be found. Never takes focus itself.
+  final _gridFocus = FocusNode(
+      debugLabel: 'poster-grid', canRequestFocus: false, skipTraversal: true);
+
+  /// TV: once the first page is on screen, put the cursor on its first card —
+  /// but only when nothing real holds it. A grid opened with "See all" used
+  /// to start with no cursor at all, and the first press landed on the app
+  /// bar's back arrow.
+  void _focusFirstOnTv() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final tv = ProviderScope.containerOf(context, listen: false)
+              .read(isTelevisionProvider)
+              .value ??
+          false;
+      if (!tv) return;
+      final primary = FocusManager.instance.primaryFocus;
+      if (primary != null && primary is! FocusScopeNode) return;
+      _gridFocus.traversalDescendants
+          .where((n) =>
+              n is! FocusScopeNode && n.canRequestFocus && !n.skipTraversal)
+          .firstOrNull
+          ?.requestFocus();
+    });
   }
 
   void _onScroll() {
@@ -88,10 +117,12 @@ class _PagedPosterGridState<T> extends State<PagedPosterGrid<T>> {
     try {
       final page = await widget.fetchPage(_items.length, widget.pageSize);
       if (!mounted || gen != _generation) return;
+      final first = _items.isEmpty && page.isNotEmpty;
       setState(() {
         _items.addAll(page);
         if (page.length < widget.pageSize) _atEnd = true;
       });
+      if (first) _focusFirstOnTv();
     } catch (e) {
       if (mounted && gen == _generation) setState(() => _error = e);
     } finally {
@@ -130,17 +161,20 @@ class _PagedPosterGridState<T> extends State<PagedPosterGrid<T>> {
       final columns =
           (available / (maxCellWidth + spacing)).ceil().clamp(1, 1 << 10);
       final cellWidth = (available - spacing * (columns - 1)) / columns;
-      return GridView.builder(
-        controller: _scroll,
-        padding: const EdgeInsets.fromLTRB(sidePad, 8, sidePad, 24),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: columns,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: spacing,
-          mainAxisExtent: cellWidth * 1.5 + 6 + caption,
+      return Focus(
+        focusNode: _gridFocus,
+        child: GridView.builder(
+          controller: _scroll,
+          padding: const EdgeInsets.fromLTRB(sidePad, 8, sidePad, 24),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: spacing,
+            mainAxisExtent: cellWidth * 1.5 + 6 + caption,
+          ),
+          itemCount: _items.length,
+          itemBuilder: (context, i) => widget.itemBuilder(context, _items[i]),
         ),
-        itemCount: _items.length,
-        itemBuilder: (context, i) => widget.itemBuilder(context, _items[i]),
       );
     });
   }

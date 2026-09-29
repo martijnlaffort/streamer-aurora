@@ -5,6 +5,9 @@ import 'package:linked_scroll_controller/linked_scroll_controller.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/platform/television.dart';
+import '../../../core/widgets/focus_highlight.dart';
+import '../../../core/widgets/remote_press.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/notifications/reminder_service.dart';
 import '../../../data/providers.dart';
@@ -484,6 +487,10 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                                     onTap: (e) => _activateCell(e, c),
                                     onLongPress: (e) => _showProgramme(e, c),
                                     hasArchive: c.hasArchive,
+                                    // The remote starts on what is on now at
+                                    // the top of the guide, not on nothing.
+                                    autofocusNow: i == 0,
+                                    remote: isTelevisionOf(ref),
                                   );
                                 },
                               ),
@@ -630,7 +637,16 @@ class _ChannelRow extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     required this.hasArchive,
+    this.autofocusNow = false,
+    this.remote = false,
   });
+
+  /// Put the cursor on this row's current programme when the guide opens.
+  final bool autofocusNow;
+
+  /// Driven by a remote: holding OK opens the programme sheet, which was
+  /// otherwise long-press only and so unreachable on a TV.
+  final bool remote;
 
   final List<EpgEntry> programmes;
   final DateTime windowStart;
@@ -708,31 +724,49 @@ class _ChannelRow extends StatelessWidget {
         top: 4,
         bottom: 4,
         // InkWell so a D-pad OK press activates the block; GestureDetector
-        // takes focus on a TV and then ignores it.
-        child: InkWell(
-          onTap: () => onTap(e),
+        // takes focus on a TV and then ignores it. FocusHighlight because the
+        // InkWell's own highlight is painted UNDER the cell's opaque fill — the
+        // guide was the one grid in the app with no visible cursor at all. It
+        // also scrolls the focused cell into view along both axes.
+        child: FocusHighlight(
+          borderRadius: 6,
+          scale: 1.0,
+          ensureVisible: true,
           // Hold for the full sheet, the convention the whole category shares:
-          // OK does the obvious thing, hold opens everything else.
-          onLongPress: () => onLongPress(e),
-          borderRadius: BorderRadius.circular(6),
-          child: Opacity(
-            opacity: dead ? 0.45 : 1,
-            child: Container(
-              margin: const EdgeInsets.only(right: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: isNow
-                    ? AppColors.accent.withValues(alpha: 0.28)
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                    color: isNow ? AppColors.accent : AppColors.surfaceElevated),
+          // OK does the obvious thing, hold opens everything else — by touch,
+          // and now by remote too.
+          child: RemotePress(
+            enabled: remote,
+            onPressed: () => onTap(e),
+            onLongPress: () => onLongPress(e),
+            child: InkWell(
+              autofocus: autofocusNow && isNow,
+              onTap: () => onTap(e),
+              onLongPress: () => onLongPress(e),
+              borderRadius: BorderRadius.circular(6),
+              child: Opacity(
+                opacity: dead ? 0.45 : 1,
+                child: Container(
+                  margin: const EdgeInsets.only(right: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isNow
+                        ? AppColors.accent.withValues(alpha: 0.28)
+                        : AppColors.surface,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: isNow
+                            ? AppColors.accent
+                            : AppColors.surfaceElevated),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  child: Text(e.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.label),
+                ),
               ),
-              alignment: Alignment.centerLeft,
-              child: Text(e.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.label),
             ),
           ),
         ),

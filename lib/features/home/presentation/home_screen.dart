@@ -10,9 +10,11 @@ import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/account_warmup.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/focus_highlight.dart';
 import '../../../core/widgets/shell_actions.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/poster_card.dart';
+import '../../../core/widgets/remote_press.dart';
 import '../../../data/providers.dart';
 import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
@@ -494,112 +496,110 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
         // InkWell, not GestureDetector: a D-pad OK press is an ActivateIntent
         // and GestureDetector ignores it, so on a TV this row took focus and
         // then did nothing.
-        child: InkWell(
-          // A remote has no long-press, so on a TV the OK button opens the
-          // action menu (Resume / Details / Remove — all reachable), with
-          // Resume auto-focused. Touch keeps tap-to-resume, long-press-for-menu.
-          onTap: () => isTelevisionOf(ref)
-              ? _showMenu(context, ref)
-              : _resume(context, ref),
+        //
+        // OK resumes, as it does on Netflix; holding OK opens the menu
+        // (Resume / Details / Remove). It used to open the menu on every OK,
+        // because a remote's hold could not be told from a press — see
+        // RemotePress. Touch: tap resumes, long-press opens the menu.
+        child: RemotePress(
+          enabled: isTelevisionOf(ref),
+          onPressed: () => _resume(context, ref),
           onLongPress: () => _showMenu(context, ref),
-          borderRadius: BorderRadius.circular(10),
-          focusColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          onFocusChange: (focused) {
-            setState(() => _engaged = focused);
-            if (focused) {
-              Scrollable.ensureVisible(
-                context,
-                alignment: 0.5,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-              );
-            }
-          },
-          child: AnimatedScale(
-            scale: _engaged ? 1.08 : 1.0,
-            alignment: Alignment.topCenter,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOut,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Same affordance as PosterCard: a bright ring in the
-                // foreground (no layout shift) and an accent glow behind.
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  curve: Curves.easeOut,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: _engaged
-                        ? [
-                            BoxShadow(
-                              color: AppColors.accent.withValues(alpha: 0.6),
-                              blurRadius: 20,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : const [],
-                  ),
-                  foregroundDecoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color:
-                          _engaged ? AppColors.focusRing : Colors.transparent,
-                      width: 3,
+          child: InkWell(
+            onTap: () => _resume(context, ref),
+            onLongPress: () => _showMenu(context, ref),
+            borderRadius: BorderRadius.circular(10),
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            onFocusChange: (focused) {
+              setState(() => _engaged = focused);
+              if (focused) revealRailItem(context);
+            },
+            child: AnimatedScale(
+              scale: _engaged ? 1.08 : 1.0,
+              alignment: Alignment.topCenter,
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Same affordance as PosterCard: a bright ring in the
+                  // foreground (no layout shift) and an accent glow behind.
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeOut,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: _engaged
+                          ? [
+                              BoxShadow(
+                                color: AppColors.accent.withValues(alpha: 0.6),
+                                blurRadius: 20,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : const [],
                     ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (entry.imageUrl != null)
-                            CachedNetworkImage(
-                              imageUrl: entry.imageUrl!,
-                              fit: BoxFit.cover,
-                              memCacheWidth: 720,
-                              placeholder: (context, url) => ColoredBox(
-                                  color: AppColors.surfaceElevated),
-                              errorWidget: (context, url, error) =>
-                                  ColoredBox(
-                                      color: AppColors.surfaceElevated),
-                            )
-                          else
-                            ColoredBox(color: AppColors.surfaceElevated),
-                          Center(
-                            child: Icon(Icons.play_circle_outline,
-                                size: 40, color: AppColors.textPrimary),
-                          ),
-                          Align(
-                            alignment: Alignment.bottomCenter,
-                            child: LinearProgressIndicator(
-                              value: fraction,
-                              minHeight: 4,
-                              backgroundColor: Colors.transparent,
-                              color: AppColors.accent,
+                    foregroundDecoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color:
+                            _engaged ? AppColors.focusRing : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (entry.imageUrl != null)
+                              CachedNetworkImage(
+                                imageUrl: entry.imageUrl!,
+                                fit: BoxFit.cover,
+                                memCacheWidth: 720,
+                                placeholder: (context, url) => ColoredBox(
+                                    color: AppColors.surfaceElevated),
+                                errorWidget: (context, url, error) =>
+                                    ColoredBox(
+                                        color: AppColors.surfaceElevated),
+                              )
+                            else
+                              ColoredBox(color: AppColors.surfaceElevated),
+                            Center(
+                              child: Icon(Icons.play_circle_outline,
+                                  size: 40, color: AppColors.textPrimary),
                             ),
-                          ),
-                        ],
+                            Align(
+                              alignment: Alignment.bottomCenter,
+                              child: LinearProgressIndicator(
+                                value: fraction,
+                                minHeight: 4,
+                                backgroundColor: Colors.transparent,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(entry.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.label),
-                if (entry.subtitle != null)
-                  Text(entry.subtitle!,
+                  const SizedBox(height: 6),
+                  Text(entry.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: AppColors.textSecondary, fontSize: 12)),
-              ],
+                      style: AppTypography.label),
+                  if (entry.subtitle != null)
+                    Text(entry.subtitle!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 12)),
+                ],
+              ),
             ),
           ),
         ),

@@ -2007,7 +2007,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  /// Hand the current stream to a Chromecast.
+  /// Hand the current stream to a Chromecast (Android) or AirPlay (iPhone).
   Future<void> _startCasting() async {
     final account = await ref.read(activeAccountProvider.future);
     if (!mounted || account == null) return;
@@ -2023,8 +2023,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
     if (!mounted) return;
 
+    final cast = ref.read(castServiceProvider);
     // Decided in one place, because "can this be cast?" is entirely a question
-    // about the container — see castTargetFor.
+    // about the container — see castTargetFor. What neither kind of device
+    // can play is refused before anyone is asked to pick one.
     final target = castTargetFor(_current.streamRef, url);
     if (!target.canCast) {
       _toast(target.refusal!);
@@ -2039,9 +2041,35 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     final picked = await showCastPicker(context);
     if (!mounted) return;
-    if (picked != true) {
+    if (picked == null) {
       // Backed out — carry on watching here.
       if (!_cast.isCasting) await _player.play();
+      return;
+    }
+
+    // AirPlay (iPhone): Apple's own list chooses the device, and choosing one
+    // starts the stream on it. The status stream then shows the casting view,
+    // exactly as for a Chromecast.
+    if (picked == CastPick.airPlay) {
+      final airTarget =
+          castTargetFor(_current.streamRef, url, airPlay: true);
+      if (!airTarget.canCast) {
+        _toast(airTarget.refusal!);
+        await _player.play();
+        return;
+      }
+      ref
+          .read(castNowPlayingProvider.notifier)
+          .set(_current.title, _current.subtitle);
+      final started = await cast.airPlay(
+        url: airTarget.url!,
+        isLive: airTarget.isLive,
+        title: _current.title,
+        subtitle: _current.subtitle,
+        positionSeconds: _current.isLive ? 0 : _position.inSeconds,
+      );
+      // Closed without choosing a device — carry on watching here.
+      if (mounted && !started && !_cast.isCasting) await _player.play();
       return;
     }
 
@@ -2051,7 +2079,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         .read(castNowPlayingProvider.notifier)
         .set(_current.title, _current.subtitle);
     try {
-      await ref.read(castServiceProvider).load(
+      await cast.load(
             url: target.url!,
             contentType: target.contentType!,
             isLive: target.isLive,
@@ -2367,13 +2395,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cast_connected,
-                  size: 56, color: AppColors.accent),
+              Icon(castConnectedIcon, size: 56, color: AppColors.accent),
               const SizedBox(height: 20),
               Text(
                 _cast.deviceName == null
-                    ? 'Casting'
-                    : 'Casting to ${_cast.deviceName}',
+                    ? 'Playing on your TV'
+                    : 'Playing on ${_cast.deviceName}',
                 textAlign: TextAlign.center,
                 style: AppTypography.title,
               ),
@@ -3046,9 +3073,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                               IconButton(
                                 style: _tvTransportStyle,
                                 iconSize: 26,
-                                tooltip: 'Cast to a TV',
+                                tooltip: castActionLabel,
                                 onPressed: _startCasting,
-                                icon: const Icon(Icons.cast),
+                                icon: Icon(castIcon),
                               ),
                             IconButton(
                               style: _tvTransportStyle,
@@ -3301,9 +3328,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                     ),
                     if (_castAvailable)
                       IconButton(
-                        tooltip: 'Cast to a TV',
+                        tooltip: castActionLabel,
                         onPressed: _startCasting,
-                        icon: const Icon(Icons.cast),
+                        icon: Icon(castIcon),
                       ),
                     IconButton(
                       tooltip: 'Audio',

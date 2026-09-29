@@ -583,8 +583,8 @@ class _ChannelTile extends ConsumerWidget {
               ),
             if (canCast)
               ListTile(
-                leading: const Icon(Icons.cast),
-                title: const Text('Cast to a TV'),
+                leading: Icon(castIcon),
+                title: Text(castActionLabel),
                 // Live is cast as HLS where the panel offers it (castTargetFor
                 // swaps the .ts for .m3u8); a panel without HLS fails at the
                 // receiver, which surfaces as a normal cast error.

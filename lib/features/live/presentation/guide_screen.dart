@@ -265,8 +265,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                       Navigator.pop(context);
                       _castChannel(channel);
                     },
-                    icon: const Icon(Icons.cast),
-                    label: const Text('Cast to a TV'),
+                    icon: Icon(castIcon),
+                    label: Text(castActionLabel),
                   ),
                 ),
               // Only for programmes that have not started: a reminder for

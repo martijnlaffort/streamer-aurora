@@ -240,6 +240,9 @@ class PreferencesTable extends Table {
   /// Extra audio delay in ms for this device's display (schema v18).
   IntColumn get audioDelayMs => integer().nullable()();
 
+  /// The player's stats overlay, device-local (schema v21). Null → off.
+  BoolColumn get showPlaybackStats => boolean().nullable()();
+
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
 
@@ -555,7 +558,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -699,6 +702,12 @@ class AppDatabase extends _$AppDatabase {
           if (from < 20) {
             if (from >= 13) await _backfillChannelVariants();
             await delete(streamChoicesTable).go();
+          }
+          // v21: the player's stats overlay switch. Nullable, so nothing to
+          // backfill: absent means off.
+          if (from < 21) {
+            await m.addColumn(
+                preferencesTable, preferencesTable.showPlaybackStats);
           }
         },
         beforeOpen: (details) async {

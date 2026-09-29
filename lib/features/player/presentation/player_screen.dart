@@ -184,8 +184,54 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Set once the current media has actually produced playback, which is what
   /// makes a later failure a *drop* (worth retrying silently) rather than a
-  /// stream that never opened at all.
+  /// stream that never opened at all. See [_markReallyPlaying].
   bool _everPlayed = false;
+
+  /// The first position reported after the current open, for telling a clock
+  /// that is really moving from the one-off jump of a resume seek.
+  Duration? _positionAtOpen;
+
+  /// Whether THIS open (first try, reconnect or backup feed) has started.
+  bool _startedThisOpen = false;
+
+  /// Start-up timing and stall counts; see [_PlaybackStats].
+  final _stats = _PlaybackStats();
+
+  /// Live mpv readings for the stats overlay, polled while it is switched on.
+  Timer? _statsTimer;
+  Map<String, String> _mpvStats = const {};
+
+  /// What the overlay reads from mpv each second. Each is optional: a build
+  /// that does not know one simply leaves its line out.
+  static const _statsProperties = [
+    'video-params/w',
+    'video-params/h',
+    'video-codec',
+    'hwdec-current',
+    'estimated-vf-fps',
+    'audio-codec-name',
+    'cache-speed',
+    'demuxer-cache-duration',
+    'frame-drop-count',
+    'decoder-frame-drop-count',
+  ];
+
+  void _startStatsPolling() {
+    _statsTimer?.cancel();
+    _statsTimer = Timer.periodic(const Duration(seconds: 1), (_) async {
+      final platform = _player.platform;
+      if (!mounted || platform is! NativePlayer) return;
+      final values = <String, String>{};
+      for (final property in _statsProperties) {
+        try {
+          values[property] = await platform.getProperty(property);
+        } on Object {
+          // Unknown on this build, or nothing to report yet.
+        }
+      }
+      if (mounted) setState(() => _mpvStats = values);
+    });
+  }
 
   /// Everything worth trying for the current item, best first.
   ///
@@ -353,7 +399,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     unawaited(_configureAudioSession());
 
     ref.read(preferencesRepositoryProvider).get().then((prefs) {
-      if (mounted) _prefs = prefs;
+      if (!mounted) return;
+      _prefs = prefs;
+      if (prefs.showPlaybackStats) _startStatsPolling();
     });
 
     // Cast is Android + Play Services only, and is pointless on a television —
@@ -372,24 +420,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _landscape = LandscapeLock.acquire();
 
     _subs.add(_player.stream.playing.listen((v) {
-      setState(() {
-        _playing = v;
-        if (v) {
-          // Playback is live again: clear any recovery state so a *later*
-          // unrelated drop gets its own full set of attempts rather than
-          // inheriting a used-up budget.
-          _everPlayed = true;
-          _reconnectAttempt = 0;
-          _reconnecting = false;
-        }
-      });
-      if (v) {
-        // This candidate works: stand the watchdog down and remember it, so
-        // the next tune-in does not repeat the walk that found it.
-        _watchdog?.cancel();
-        _switchingFeed = false;
-        _rememberWinner();
-      }
+      // "Playing" is NOT proof that anything is playing: media_kit reports it
+      // inside open(), before a single byte has arrived. See
+      // _markReallyPlaying for what counts.
+      setState(() => _playing = v);
       // Save on pause (PRD §8.9).
       if (!v && _position > Duration.zero && _duration > Duration.zero) {
         _saveProgress();
@@ -397,10 +431,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }));
     _subs.add(_player.stream.buffering.listen((v) {
       setState(() => _buffering = v);
+      _stats.onBuffering(v, afterStart: _everPlayed);
+      if (!v && _everPlayed) _stats.mark('buffer filled');
     }));
     _subs.add(_player.stream.position.listen((v) {
       setState(() => _position = v);
+      // Audio-only streams (radio) never report a picture size, so the clock
+      // actually moving is the other proof of playback.
+      // Re-based when the clock goes backwards (the previous stream's last
+      // position can arrive after the open) and after a resume seek.
+      final start = _positionAtOpen;
+      if (start == null || v < start) {
+        _positionAtOpen = v;
+      } else if (v - start >= const Duration(seconds: 1)) {
+        _markReallyPlaying();
+      }
       _onPosition(v);
+    }));
+    _subs.add(_player.stream.width.listen((w) {
+      // A picture size means the decoder produced a frame.
+      if (w != null && w > 0) _markReallyPlaying();
     }));
     _subs.add(_player.stream.duration.listen((v) {
       setState(() => _duration = v);
@@ -447,9 +497,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       unawaited(
         platform.observeProperty('demuxer-cache-time', (value) async {
           final seconds = double.tryParse(value);
-          if (seconds == null || !mounted) return;
-          setState(() => _liveEdge =
-              Duration(milliseconds: (seconds * 1000).round()));
+          // Live only — the edge means nothing for a film — and only when it
+          // has moved a quarter second. This fires many times a second, and
+          // rebuilding the whole player on every one of them, films included,
+          // is CPU a modest TV needs for decoding.
+          if (seconds == null || !mounted || !_current.isLive) return;
+          final edge = Duration(milliseconds: (seconds * 1000).round());
+          final previous = _liveEdge;
+          if (previous != null &&
+              (edge - previous).abs() < const Duration(milliseconds: 250)) {
+            return;
+          }
+          setState(() => _liveEdge = edge);
         }).catchError((Object _) {}),
       );
       // Chapters, for the rare file that carries them. A chapter called
@@ -539,6 +598,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _watchdog?.cancel();
     _zapToastTimer?.cancel();
     _scrubCommitTimer?.cancel();
+    _statsTimer?.cancel();
     _keyboardFocus.dispose();
     _playPauseFocus.dispose();
     _scrubFocus.dispose();
@@ -680,6 +740,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (resume != null && resume < duration.inSeconds) {
       _pendingResumeSeconds = null;
       _player.seek(Duration(seconds: resume));
+      // The jump to the resume point is not playback; measure from there.
+      _positionAtOpen = null;
+      _stats.mark('resume seek');
     }
   }
 
@@ -735,6 +798,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// attempt counter running; anything else (a queue advance, a manual Retry)
   /// is a fresh start and resets it.
   Future<void> _openCurrent({int? resumeFrom, bool isRetry = false}) async {
+    // Start-up timing (Settings → Playback stats, and one logcat line): a
+    // fresh clock per item; a reconnect or backup feed is marked on the same
+    // clock, so its cost shows up in the total.
+    if (isRetry) {
+      _stats.mark(_switchingFeed ? 'next feed' : 'reconnect');
+    } else {
+      _stats.start();
+    }
     setState(() {
       _error = null;
       _upNextCountdown = null;
@@ -749,6 +820,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _liveEdge = null;
       _diagLog.clear();
       _showErrorDetails = false;
+      _startedThisOpen = false;
+      _positionAtOpen = null;
       if (!isRetry) {
         _reconnectAttempt = 0;
         _reconnecting = false;
@@ -772,6 +845,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         setState(() => _error = 'No active account.');
         return;
       }
+      _stats.mark('account');
       _autoTracksApplied = false;
       // No explicit resume request (queue advance, retry): pick up stored
       // progress silently when the §8.9 window says so. Live streams never
@@ -794,6 +868,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 .secondsBeforeEnd(account.id, seriesId);
       }
       if (!mounted) return;
+      _stats.mark('resume + feeds');
       final candidate = _candidates.isEmpty
           ? _StreamCandidate(
               streamId: _current.streamRef.streamId, hostAttempt: 0)
@@ -813,6 +888,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         candidate.hostAttempt,
       );
       if (!mounted) return;
+      _stats.mark('stream url');
+      _stats.feed = [
+        if (_candidates.length > 1)
+          'feed ${_candidateIndex + 1} of ${_candidates.length}',
+        if (candidate.hostAttempt > 0) 'backup host ${candidate.hostAttempt}',
+        'stream ${candidate.streamId}',
+      ].join(' · ');
       // Present a player User-Agent panels accept. Per account, because which
       // string a panel accepts is a property of the provider — see
       // Account.userAgent; kStreamUserAgent is the fallback.
@@ -837,8 +919,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         }
         await _configureCache(platform, live: _current.isLive);
       }
+      _stats.mark('player setup');
       await _player.open(Media(url));
       if (!mounted) return;
+      _stats.mark('open');
       _armWatchdog();
       _scheduleHide();
       if (_current.isLive) {
@@ -891,10 +975,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               .read(streamChoiceRepositoryProvider)
               .preferred(account.id, key);
           final ids = [for (final v in variants) v.id];
-          // The one that worked last time leads; everything else keeps its
-          // quality order behind it.
-          if (preferred != null && ids.remove(preferred)) {
-            ids.insert(0, preferred);
+          // A stream the viewer picked by hand leads; otherwise the one that
+          // worked last time; everything else keeps its quality order behind.
+          // Ignoring the hand pick meant choosing "HD" still opened 4K — on a
+          // modest TV or line, the slow start the pick was meant to avoid.
+          final lead = _current.pinnedStream ? ref0.streamId : preferred;
+          if (lead != null && ids.remove(lead)) {
+            ids.insert(0, lead);
           }
           _candidates = [
             for (final id in ids)
@@ -941,6 +1028,36 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       debugPrint('Candidate $_candidateIndex produced no playback; switching.');
       _tryNextCandidate();
     });
+  }
+
+  /// The current media has really started: a decoded frame, or a clock that
+  /// has moved a full second.
+  ///
+  /// Everything that depends on "this stream works" hangs off this rather than
+  /// media_kit's `playing`, which fires inside open() before any data arrives.
+  /// Trusting `playing` meant the "connected but nothing plays" watchdog never
+  /// fired, so backup feeds were never tried; the dead feed was saved as the
+  /// winner for next time; and every reconnect reset its own attempt counter.
+  void _markReallyPlaying() {
+    // Once per open — reconnects included, so a recovered stream clears its
+    // "Reconnecting…" overlay too.
+    if (_startedThisOpen || !mounted) return;
+    _startedThisOpen = true;
+    _stats.mark('first frame');
+    _stats.logSummary(_current.title);
+    setState(() {
+      _everPlayed = true;
+      // Playback is live again: clear any recovery state so a *later*
+      // unrelated drop gets its own full set of attempts rather than
+      // inheriting a used-up budget.
+      _reconnectAttempt = 0;
+      _reconnecting = false;
+    });
+    // This candidate works: stand the watchdog down and remember it, so the
+    // next tune-in does not repeat the walk that found it.
+    _watchdog?.cancel();
+    _switchingFeed = false;
+    _rememberWinner();
   }
 
   /// Records the stream that actually played, so the next tune-in starts there.
@@ -1093,6 +1210,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (!live) {
       await set('cache-on-disk', 'no');
       await set('demuxer-max-back-bytes', '${32 * 1024 * 1024}');
+      _stats.cacheMode = 'memory';
       return;
     }
 
@@ -1113,6 +1231,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     await set('demuxer-max-back-bytes', '$_timeshiftBackBytes');
     await set('demuxer-max-bytes', '$_timeshiftForwardBytes');
     await set('force-seekable', 'yes');
+    _stats.cacheMode =
+        dir != null ? 'disk (timeshift)' : 'memory (timeshift)';
   }
 
   /// Jump back to the live edge. Deliberately a second short of it — seeking to
@@ -2225,6 +2345,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
               _upNextCard(),
             if (_shouldShowNextEpisode()) _nextEpisodeButton(),
             _controlsOverlay(),
+            if (_prefs.showPlaybackStats) _statsOverlay(),
           ],
         ),
       ),
@@ -2637,6 +2758,74 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Settings → Playback stats: what the start cost and what is playing, on
+  /// the screen itself, so a slow start on a real TV can be read off (or
+  /// photographed) instead of guessed at. Never focusable, never tappable.
+  Widget _statsOverlay() {
+    final tv = isTelevisionOf(ref);
+    final s = _mpvStats;
+    String? v(String key) {
+      final value = s[key]?.trim();
+      return value == null || value.isEmpty ? null : value;
+    }
+
+    final width = v('video-params/w'), height = v('video-params/h');
+    final fps = double.tryParse(v('estimated-vf-fps') ?? '');
+    final speed = int.tryParse(v('cache-speed') ?? '');
+    final ahead = double.tryParse(v('demuxer-cache-duration') ?? '');
+    final dropped = [v('frame-drop-count'), v('decoder-frame-drop-count')]
+        .whereType<String>()
+        .join(' / ');
+    final lines = <String>[
+      'START-UP',
+      ..._stats.timeline(),
+      '',
+      'STREAM',
+      if (_stats.feed != null) _stats.feed!,
+      [
+        if (width != null && height != null) '$width×$height',
+        ?v('video-codec'),
+        if (fps != null) '${fps.toStringAsFixed(1)} fps',
+        if (v('hwdec-current') case final hw?) 'hw: $hw',
+      ].join(' · '),
+      if (v('audio-codec-name') case final audio?) 'audio: $audio',
+      '',
+      'NETWORK',
+      [
+        if (speed != null) 'download ${_PlaybackStats.rate(speed)}',
+        if (ahead != null) 'buffered ${ahead.toStringAsFixed(1)} s ahead',
+      ].join(' · '),
+      if (_stats.cacheMode != null) 'cache: ${_stats.cacheMode}',
+      'stalls after start: ${_stats.stallSummary()}',
+      if (dropped.isNotEmpty) 'dropped frames: $dropped',
+      'audio delay: ${(_audioDelaySeconds() * 1000).round()} ms',
+    ];
+    return Positioned(
+      left: tv ? 48 : 16,
+      top: tv ? 32 : 72,
+      child: IgnorePointer(
+        child: ExcludeFocus(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 520),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              lines.join('\n'),
+              style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  height: 1.35,
+                  color: Colors.white),
+            ),
           ),
         ),
       ),
@@ -3289,5 +3478,94 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         ),
       ),
     );
+  }
+}
+
+/// What the stats overlay reports about the current item's start, collected
+/// as it happens. One clock per item: a reconnect or a switch to a backup feed
+/// is marked on the same clock, so its cost shows in the total.
+class _PlaybackStats {
+  final _clock = Stopwatch();
+  final List<(String, Duration)> _marks = [];
+
+  /// "feed 2 of 3 · backup host 1 · stream 1234", when there is a choice.
+  String? feed;
+
+  /// Where mpv keeps its buffer: "memory", or "disk (timeshift)" for live.
+  String? cacheMode;
+
+  int _stalls = 0;
+  Duration _stalled = Duration.zero;
+  DateTime? _stallStarted;
+
+  void start() {
+    _marks.clear();
+    _stalls = 0;
+    _stalled = Duration.zero;
+    _stallStarted = null;
+    feed = null;
+    _clock
+      ..reset()
+      ..start();
+  }
+
+  void mark(String label) {
+    if (_clock.isRunning) _marks.add((label, _clock.elapsed));
+  }
+
+  /// Buffering that happens AFTER the first frame is a stall; before it, it is
+  /// just the start.
+  void onBuffering(bool buffering, {required bool afterStart}) {
+    if (!afterStart) return;
+    if (buffering) {
+      if (_stallStarted == null) {
+        _stalls++;
+        _stallStarted = DateTime.now();
+      }
+    } else if (_stallStarted != null) {
+      _stalled += DateTime.now().difference(_stallStarted!);
+      _stallStarted = null;
+    }
+  }
+
+  /// One line per step: how long it took, and the running total.
+  List<String> timeline() {
+    var previous = Duration.zero;
+    return [
+      for (final (label, at) in _marks)
+        () {
+          final step = at - previous;
+          previous = at;
+          return '${label.padRight(15)} +${_ms(step).padLeft(7)}'
+              '  = ${_ms(at)}';
+        }(),
+    ];
+  }
+
+  String stallSummary() {
+    final ongoing = _stallStarted == null
+        ? Duration.zero
+        : DateTime.now().difference(_stallStarted!);
+    return _stalls == 0
+        ? 'none'
+        : '$_stalls (${((_stalled + ongoing).inMilliseconds / 1000).toStringAsFixed(1)} s)';
+  }
+
+  /// The same timeline as a single line for `adb logcat`.
+  void logSummary(String title) {
+    debugPrint('[dawn] start "$title": '
+        '${_marks.map((m) => '${m.$1} ${m.$2.inMilliseconds}ms').join(' · ')}'
+        '${feed == null ? '' : ' · $feed'}'
+        '${cacheMode == null ? '' : ' · cache $cacheMode'}');
+  }
+
+  static String _ms(Duration d) => '${d.inMilliseconds} ms';
+
+  /// mpv's cache-speed (bytes per second) as something readable.
+  static String rate(int bytesPerSecond) {
+    final mbit = bytesPerSecond * 8 / 1e6;
+    return mbit >= 1
+        ? '${mbit.toStringAsFixed(1)} Mbit/s'
+        : '${(bytesPerSecond * 8 / 1e3).toStringAsFixed(0)} kbit/s';
   }
 }

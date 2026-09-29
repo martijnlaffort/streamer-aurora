@@ -471,6 +471,8 @@ class _ChannelTile extends ConsumerWidget {
             // disagree with what the row shows.
             contentKey: _contentKey,
             isLive: true,
+            // A quality picked from the sheet is played as picked.
+            pinnedStream: variant != null,
           ),
         ],
         zap: zap,

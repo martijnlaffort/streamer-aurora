@@ -716,6 +716,17 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _editAudioDelay(context, prefs, savePrefs),
           ),
+          SwitchListTile(
+            secondary: const Icon(Icons.query_stats_outlined),
+            title: const Text('Playback stats'),
+            subtitle: Text(
+                'Show start-up timing, stream quality and download speed '
+                'while playing — for finding the cause of buffering',
+                style: TextStyle(color: AppColors.textSecondary)),
+            value: prefs.showPlaybackStats,
+            activeThumbColor: AppColors.accent,
+            onChanged: (v) => savePrefs(prefs.copyWith(showPlaybackStats: v)),
+          ),
           if (kDebugMode) ...[
             const Divider(),
             const _SectionLabel('Developer'),

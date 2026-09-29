@@ -4754,6 +4754,20 @@ class $PreferencesTableTable extends PreferencesTable
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _showPlaybackStatsMeta = const VerificationMeta(
+    'showPlaybackStats',
+  );
+  @override
+  late final GeneratedColumn<bool> showPlaybackStats = GeneratedColumn<bool>(
+    'show_playback_stats',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_playback_stats" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _activeAccountIdMeta = const VerificationMeta(
     'activeAccountId',
   );
@@ -4779,6 +4793,7 @@ class $PreferencesTableTable extends PreferencesTable
     uiScale,
     groupChannelVariants,
     audioDelayMs,
+    showPlaybackStats,
     activeAccountId,
   ];
   @override
@@ -4889,6 +4904,15 @@ class $PreferencesTableTable extends PreferencesTable
         ),
       );
     }
+    if (data.containsKey('show_playback_stats')) {
+      context.handle(
+        _showPlaybackStatsMeta,
+        showPlaybackStats.isAcceptableOrUnknown(
+          data['show_playback_stats']!,
+          _showPlaybackStatsMeta,
+        ),
+      );
+    }
     if (data.containsKey('active_account_id')) {
       context.handle(
         _activeAccountIdMeta,
@@ -4955,6 +4979,10 @@ class $PreferencesTableTable extends PreferencesTable
         DriftSqlType.int,
         data['${effectivePrefix}audio_delay_ms'],
       ),
+      showPlaybackStats: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_playback_stats'],
+      ),
       activeAccountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}active_account_id'],
@@ -5008,6 +5036,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
   /// Extra audio delay in ms for this device's display (schema v18).
   final int? audioDelayMs;
 
+  /// The player's stats overlay, device-local (schema v21). Null → off.
+  final bool? showPlaybackStats;
+
   /// App state, not a user preference — which account the UI is showing.
   final String? activeAccountId;
   const PreferencesRow({
@@ -5023,6 +5054,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     this.uiScale,
     this.groupChannelVariants,
     this.audioDelayMs,
+    this.showPlaybackStats,
     this.activeAccountId,
   });
   @override
@@ -5057,6 +5089,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     }
     if (!nullToAbsent || audioDelayMs != null) {
       map['audio_delay_ms'] = Variable<int>(audioDelayMs);
+    }
+    if (!nullToAbsent || showPlaybackStats != null) {
+      map['show_playback_stats'] = Variable<bool>(showPlaybackStats);
     }
     if (!nullToAbsent || activeAccountId != null) {
       map['active_account_id'] = Variable<String>(activeAccountId);
@@ -5096,6 +5131,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       audioDelayMs: audioDelayMs == null && nullToAbsent
           ? const Value.absent()
           : Value(audioDelayMs),
+      showPlaybackStats: showPlaybackStats == null && nullToAbsent
+          ? const Value.absent()
+          : Value(showPlaybackStats),
       activeAccountId: activeAccountId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeAccountId),
@@ -5126,6 +5164,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
         json['groupChannelVariants'],
       ),
       audioDelayMs: serializer.fromJson<int?>(json['audioDelayMs']),
+      showPlaybackStats: serializer.fromJson<bool?>(json['showPlaybackStats']),
       activeAccountId: serializer.fromJson<String?>(json['activeAccountId']),
     );
   }
@@ -5147,6 +5186,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       'uiScale': serializer.toJson<double?>(uiScale),
       'groupChannelVariants': serializer.toJson<bool?>(groupChannelVariants),
       'audioDelayMs': serializer.toJson<int?>(audioDelayMs),
+      'showPlaybackStats': serializer.toJson<bool?>(showPlaybackStats),
       'activeAccountId': serializer.toJson<String?>(activeAccountId),
     };
   }
@@ -5164,6 +5204,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     Value<double?> uiScale = const Value.absent(),
     Value<bool?> groupChannelVariants = const Value.absent(),
     Value<int?> audioDelayMs = const Value.absent(),
+    Value<bool?> showPlaybackStats = const Value.absent(),
     Value<String?> activeAccountId = const Value.absent(),
   }) => PreferencesRow(
     id: id ?? this.id,
@@ -5188,6 +5229,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
         ? groupChannelVariants.value
         : this.groupChannelVariants,
     audioDelayMs: audioDelayMs.present ? audioDelayMs.value : this.audioDelayMs,
+    showPlaybackStats: showPlaybackStats.present
+        ? showPlaybackStats.value
+        : this.showPlaybackStats,
     activeAccountId: activeAccountId.present
         ? activeAccountId.value
         : this.activeAccountId,
@@ -5224,6 +5268,9 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
       audioDelayMs: data.audioDelayMs.present
           ? data.audioDelayMs.value
           : this.audioDelayMs,
+      showPlaybackStats: data.showPlaybackStats.present
+          ? data.showPlaybackStats.value
+          : this.showPlaybackStats,
       activeAccountId: data.activeAccountId.present
           ? data.activeAccountId.value
           : this.activeAccountId,
@@ -5245,6 +5292,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           ..write('uiScale: $uiScale, ')
           ..write('groupChannelVariants: $groupChannelVariants, ')
           ..write('audioDelayMs: $audioDelayMs, ')
+          ..write('showPlaybackStats: $showPlaybackStats, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -5264,6 +5312,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
     uiScale,
     groupChannelVariants,
     audioDelayMs,
+    showPlaybackStats,
     activeAccountId,
   );
   @override
@@ -5282,6 +5331,7 @@ class PreferencesRow extends DataClass implements Insertable<PreferencesRow> {
           other.uiScale == this.uiScale &&
           other.groupChannelVariants == this.groupChannelVariants &&
           other.audioDelayMs == this.audioDelayMs &&
+          other.showPlaybackStats == this.showPlaybackStats &&
           other.activeAccountId == this.activeAccountId);
 }
 
@@ -5298,6 +5348,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
   final Value<double?> uiScale;
   final Value<bool?> groupChannelVariants;
   final Value<int?> audioDelayMs;
+  final Value<bool?> showPlaybackStats;
   final Value<String?> activeAccountId;
   const PreferencesTableCompanion({
     this.id = const Value.absent(),
@@ -5312,6 +5363,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.uiScale = const Value.absent(),
     this.groupChannelVariants = const Value.absent(),
     this.audioDelayMs = const Value.absent(),
+    this.showPlaybackStats = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   PreferencesTableCompanion.insert({
@@ -5327,6 +5379,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     this.uiScale = const Value.absent(),
     this.groupChannelVariants = const Value.absent(),
     this.audioDelayMs = const Value.absent(),
+    this.showPlaybackStats = const Value.absent(),
     this.activeAccountId = const Value.absent(),
   });
   static Insertable<PreferencesRow> custom({
@@ -5342,6 +5395,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Expression<double>? uiScale,
     Expression<bool>? groupChannelVariants,
     Expression<int>? audioDelayMs,
+    Expression<bool>? showPlaybackStats,
     Expression<String>? activeAccountId,
   }) {
     return RawValuesInsertable({
@@ -5360,6 +5414,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       if (groupChannelVariants != null)
         'group_channel_variants': groupChannelVariants,
       if (audioDelayMs != null) 'audio_delay_ms': audioDelayMs,
+      if (showPlaybackStats != null) 'show_playback_stats': showPlaybackStats,
       if (activeAccountId != null) 'active_account_id': activeAccountId,
     });
   }
@@ -5377,6 +5432,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     Value<double?>? uiScale,
     Value<bool?>? groupChannelVariants,
     Value<int?>? audioDelayMs,
+    Value<bool?>? showPlaybackStats,
     Value<String?>? activeAccountId,
   }) {
     return PreferencesTableCompanion(
@@ -5393,6 +5449,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
       uiScale: uiScale ?? this.uiScale,
       groupChannelVariants: groupChannelVariants ?? this.groupChannelVariants,
       audioDelayMs: audioDelayMs ?? this.audioDelayMs,
+      showPlaybackStats: showPlaybackStats ?? this.showPlaybackStats,
       activeAccountId: activeAccountId ?? this.activeAccountId,
     );
   }
@@ -5440,6 +5497,9 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
     if (audioDelayMs.present) {
       map['audio_delay_ms'] = Variable<int>(audioDelayMs.value);
     }
+    if (showPlaybackStats.present) {
+      map['show_playback_stats'] = Variable<bool>(showPlaybackStats.value);
+    }
     if (activeAccountId.present) {
       map['active_account_id'] = Variable<String>(activeAccountId.value);
     }
@@ -5461,6 +5521,7 @@ class PreferencesTableCompanion extends UpdateCompanion<PreferencesRow> {
           ..write('uiScale: $uiScale, ')
           ..write('groupChannelVariants: $groupChannelVariants, ')
           ..write('audioDelayMs: $audioDelayMs, ')
+          ..write('showPlaybackStats: $showPlaybackStats, ')
           ..write('activeAccountId: $activeAccountId')
           ..write(')'))
         .toString();
@@ -12551,6 +12612,7 @@ typedef $$PreferencesTableTableCreateCompanionBuilder =
       Value<double?> uiScale,
       Value<bool?> groupChannelVariants,
       Value<int?> audioDelayMs,
+      Value<bool?> showPlaybackStats,
       Value<String?> activeAccountId,
     });
 typedef $$PreferencesTableTableUpdateCompanionBuilder =
@@ -12567,6 +12629,7 @@ typedef $$PreferencesTableTableUpdateCompanionBuilder =
       Value<double?> uiScale,
       Value<bool?> groupChannelVariants,
       Value<int?> audioDelayMs,
+      Value<bool?> showPlaybackStats,
       Value<String?> activeAccountId,
     });
 
@@ -12636,6 +12699,11 @@ class $$PreferencesTableTableFilterComposer
 
   ColumnFilters<int> get audioDelayMs => $composableBuilder(
     column: $table.audioDelayMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showPlaybackStats => $composableBuilder(
+    column: $table.showPlaybackStats,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12714,6 +12782,11 @@ class $$PreferencesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get showPlaybackStats => $composableBuilder(
+    column: $table.showPlaybackStats,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get activeAccountId => $composableBuilder(
     column: $table.activeAccountId,
     builder: (column) => ColumnOrderings(column),
@@ -12783,6 +12856,11 @@ class $$PreferencesTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get showPlaybackStats => $composableBuilder(
+    column: $table.showPlaybackStats,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get activeAccountId => $composableBuilder(
     column: $table.activeAccountId,
     builder: (column) => column,
@@ -12838,6 +12916,7 @@ class $$PreferencesTableTableTableManager
                 Value<double?> uiScale = const Value.absent(),
                 Value<bool?> groupChannelVariants = const Value.absent(),
                 Value<int?> audioDelayMs = const Value.absent(),
+                Value<bool?> showPlaybackStats = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion(
                 id: id,
@@ -12852,6 +12931,7 @@ class $$PreferencesTableTableTableManager
                 uiScale: uiScale,
                 groupChannelVariants: groupChannelVariants,
                 audioDelayMs: audioDelayMs,
+                showPlaybackStats: showPlaybackStats,
                 activeAccountId: activeAccountId,
               ),
           createCompanionCallback:
@@ -12868,6 +12948,7 @@ class $$PreferencesTableTableTableManager
                 Value<double?> uiScale = const Value.absent(),
                 Value<bool?> groupChannelVariants = const Value.absent(),
                 Value<int?> audioDelayMs = const Value.absent(),
+                Value<bool?> showPlaybackStats = const Value.absent(),
                 Value<String?> activeAccountId = const Value.absent(),
               }) => PreferencesTableCompanion.insert(
                 id: id,
@@ -12882,6 +12963,7 @@ class $$PreferencesTableTableTableManager
                 uiScale: uiScale,
                 groupChannelVariants: groupChannelVariants,
                 audioDelayMs: audioDelayMs,
+                showPlaybackStats: showPlaybackStats,
                 activeAccountId: activeAccountId,
               ),
           withReferenceMapper: (p0) => p0

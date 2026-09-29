@@ -231,6 +231,7 @@ class SyncService {
         uiScale: local.uiScale,
         groupChannelVariants: local.groupChannelVariants,
         audioDelayMs: local.audioDelayMs,
+        showPlaybackStats: local.showPlaybackStats,
       ));
       await _configStore.setPreferencesChangedAt(winner.updatedAt);
       return true;

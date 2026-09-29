@@ -8,6 +8,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import '../../../core/platform/screen_orientation.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
 import '../../player/presentation/player_screen.dart' show kStreamUserAgent;
@@ -170,7 +171,8 @@ class _CompanionPicker extends ConsumerWidget {
           child: options.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(
-                child: Text('$e', style: TextStyle(color: AppColors.error))),
+                child: Text(ErrorView.messageFor(e),
+                style: TextStyle(color: AppColors.error))),
             data: (list) {
               final choices = [
                 for (final c in list)
@@ -285,7 +287,7 @@ class _MultiPaneState extends ConsumerState<_MultiPane> {
       await _player.open(Media(url));
     } on Object catch (e) {
       // One pane failing must not take the other down with it.
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _error = ErrorView.messageFor(e));
     }
   }
 

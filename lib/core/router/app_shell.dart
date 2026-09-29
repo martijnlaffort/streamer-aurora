@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/providers.dart' show activeAccountProvider;
 import '../../features/player/presentation/cast_controls.dart';
 import '../platform/television.dart';
 import '../theme/app_colors.dart';
+import '../widgets/no_playlist_view.dart';
 
 /// Navigation chrome around the tab branches (PRD §8.2).
 ///
@@ -245,7 +247,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     (
       icon: Icons.apps_outlined,
       selected: Icons.apps,
-      label: 'Providers'
+      // "Services", not "Providers": in IPTV the provider is the company you
+      // pay for the line. This tab is Netflix, Prime Video, Disney+…
+      label: 'Services'
     ),
     (icon: Icons.search, selected: Icons.search, label: 'Search'),
     (icon: Icons.settings_outlined, selected: Icons.settings, label: 'Settings'),
@@ -316,11 +320,33 @@ class _AppShellState extends ConsumerState<AppShell> {
       ));
   }
 
+  /// Settings' branch — where a playlist is added, so never covered.
+  static const _settingsBranch = 6;
+
+  /// The page area. Without a playlist, every tab but Home (which shows the
+  /// same view itself) and Settings shows [NoPlaylistView] instead of its own
+  /// dead end ("No channels in this playlist."), and the tab behind it is kept
+  /// out of focus so the remote cannot land on its hidden chips.
+  Widget _content() {
+    final active = ref.watch(activeAccountProvider);
+    final cover = active.hasValue &&
+        active.value == null &&
+        shell.currentIndex != 0 &&
+        shell.currentIndex != _settingsBranch;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ExcludeFocus(excluding: cover, child: shell),
+        if (cover) const NoPlaylistView(),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isTelevisionOf(ref)) return _tvShell();
     return Scaffold(
-      body: shell,
+      body: _content(),
       // The cast mini bar rides directly above the navigation while something is
       // playing on a TV, so leaving the screen you cast from does not strand the
       // controls. It collapses to nothing when nothing is casting. Sitting inside
@@ -397,7 +423,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               // touched the rail would make the whole screen twitch.
               Padding(
                 padding: const EdgeInsets.only(left: _collapsedWidth),
-                child: FocusScope(node: _contentFocus, child: shell),
+                child: FocusScope(node: _contentFocus, child: _content()),
               ),
               // Pinned to the full height explicitly. Left to size itself in a
               // Stack it takes its content's height, which on a short landscape

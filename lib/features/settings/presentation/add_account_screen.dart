@@ -1,3 +1,5 @@
+import 'dart:io' show InternetAddress;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -61,7 +63,10 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     final server = _type == AccountType.xtream
         ? raw.replaceFirst(RegExp(r'/+$'), '')
         : raw;
-    final fallbackName = Uri.tryParse(server)?.host ?? '';
+    // The host names the playlist when the user did not — but not a bare IP
+    // address, which reads as nothing ("10.0.2.2") in the account list.
+    final host = Uri.tryParse(server)?.host ?? '';
+    final fallbackName = InternetAddress.tryParse(host) == null ? host : '';
     final username = _type == AccountType.xtream ? _username.text.trim() : '';
     return Account(
       // Derived from the playlist, never from the clock — so re-adding the same
@@ -93,6 +98,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     try {
       await ref.read(sourceFactoryProvider)(account).authenticate();
     } on SourceException catch (e) {
+      if (!mounted) return;
       setState(() {
         _flow = _Flow.editing;
         _error = e.message;
@@ -102,16 +108,30 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       // A malformed address fails inside Uri parsing before the source can
       // turn it into a SourceException. Uncaught, it left this button on
       // "Validating…" for good — seen on the TV emulator.
+      if (!mounted) return;
       setState(() {
         _flow = _Flow.editing;
         _error = 'That address is not a valid URL (${e.message}).';
       });
       return;
+    } on Object catch (e) {
+      // Anything else (a socket error, a certificate problem) used to escape
+      // and leave the button spinning for good as well.
+      debugPrint('[dawn] add playlist failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _flow = _Flow.editing;
+        _error = 'Couldn’t connect. Check the details and that this device '
+            'is online, then try again.';
+      });
+      return;
     }
+    if (!mounted) return;
 
     final accounts = ref.read(accountRepositoryProvider);
     await accounts.saveAccount(account);
     await accounts.setActiveAccount(account.id);
+    if (!mounted) return;
     ref.invalidate(accountsProvider);
     ref.invalidate(activeAccountProvider);
 
@@ -120,12 +140,13 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       _flow = _Flow.caching;
       _progress = [
         _KindProgress(CatalogKind.live, 'Live channels'),
-        _KindProgress(CatalogKind.vod, 'Movies'),
+        _KindProgress(CatalogKind.vod, 'Films'),
         _KindProgress(CatalogKind.series, 'Series'),
       ];
     });
     final catalog = ref.read(catalogRepositoryProvider);
     for (final p in _progress) {
+      if (!mounted) return;
       setState(() => p.status = _KindStatus.running);
       try {
         // Seed, don't sweep. Pulling every slice in full is minutes of waiting
@@ -141,22 +162,28 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           CatalogKind.vod => stats.movies,
           CatalogKind.series => stats.series,
         };
+        if (!mounted) return;
         setState(() => p.status = _KindStatus.done);
-      } on SourceException catch (e) {
-        // One slice failing shouldn't sink the account — keep going.
+      } on Object catch (e) {
+        // One slice failing shouldn't sink the account — keep going. Any
+        // error, not just a SourceException: an uncaught one stopped the loop
+        // and left "Getting…" on screen with no way on.
+        if (!mounted) return;
         setState(() {
           p.status = _KindStatus.failed;
-          p.error = e.message;
+          p.error = e is SourceException
+              ? e.message
+              : 'Couldn’t fetch these — they will load when you open them.';
         });
       }
     }
-    setState(() => _flow = _Flow.done);
+    if (mounted) setState(() => _flow = _Flow.done);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add account')),
+      appBar: AppBar(title: const Text('Add a playlist')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -172,21 +199,32 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   List<Widget> _form() {
     final validating = _flow == _Flow.validating;
     return [
+      // Named for what the provider sent, not the protocol: "Xtream" and
+      // "M3U" mean nothing to most people setting this up.
       SegmentedButton<AccountType>(
         segments: const [
           ButtonSegment(
               value: AccountType.xtream,
-              label: Text('Xtream'),
+              label: Text('Login details'),
               icon: Icon(Icons.dns_outlined)),
           ButtonSegment(
               value: AccountType.m3u,
-              label: Text('M3U'),
-              icon: Icon(Icons.playlist_play)),
+              label: Text('Playlist link'),
+              icon: Icon(Icons.link)),
         ],
         selected: {_type},
         onSelectionChanged: validating
             ? null
             : (s) => setState(() => _type = s.first),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        _type == AccountType.xtream
+            ? 'Your provider sent a server address, a username and a password '
+                '(sometimes called Xtream Codes).'
+            : 'Your provider sent a single link, usually ending in .m3u or '
+                '.m3u8.',
+        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
       ),
       const SizedBox(height: 16),
       TextField(
@@ -204,8 +242,12 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         autocorrect: false,
         keyboardType: TextInputType.url,
         decoration: InputDecoration(
-          labelText:
-              _type == AccountType.xtream ? 'Server URL' : 'Playlist URL or file',
+          labelText: _type == AccountType.xtream
+              ? 'Server address'
+              : 'Playlist link (or file)',
+          hintText: _type == AccountType.xtream
+              ? 'http://provider.example:8080'
+              : 'http://provider.example/playlist.m3u',
           border: const OutlineInputBorder(),
         ),
       ),
@@ -239,7 +281,8 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           autocorrect: false,
           keyboardType: TextInputType.url,
           decoration: const InputDecoration(
-            labelText: 'XMLTV EPG URL (optional)',
+            labelText: 'Programme guide link (optional)',
+            helperText: 'An XMLTV link, if your provider gave you one',
             border: OutlineInputBorder(),
           ),
         ),
@@ -268,21 +311,21 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2)),
                   SizedBox(width: 12),
-                  Text('Validating…'),
+                  Text('Connecting…'),
                 ],
               )
-            : const Text('Validate & save'),
+            : const Text('Connect'),
       ),
     ];
   }
 
   List<Widget> _cachingProgress() {
     return [
-      Text('Caching catalog',
+      Text('Getting your channels and films',
           style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 4),
       Text(
-        'Fetching everything once so browsing is instant — even offline.',
+        'Saved on this device once, so browsing is instant — even offline.',
         style: TextStyle(color: AppColors.textSecondary),
       ),
       const SizedBox(height: 16),
@@ -303,7 +346,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           },
           title: Text(p.label),
           subtitle: switch (p.status) {
-            _KindStatus.done => Text('${p.count} items',
+            _KindStatus.done => Text('${p.count} found',
                 style: TextStyle(color: AppColors.textSecondary)),
             _KindStatus.failed => Text(p.error ?? 'failed',
                 style: TextStyle(color: AppColors.error)),
@@ -312,8 +355,11 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         ),
       const SizedBox(height: 16),
       FilledButton(
-        onPressed: _flow == _Flow.done ? () => context.pop() : null,
-        child: Text(_flow == _Flow.done ? 'Finish' : 'Caching…'),
+        // Home, not back to the Accounts list: the point of adding a playlist
+        // is to watch it.
+        autofocus: true,
+        onPressed: _flow == _Flow.done ? () => context.go('/') : null,
+        child: Text(_flow == _Flow.done ? 'Start watching' : 'Getting…'),
       ),
     ];
   }

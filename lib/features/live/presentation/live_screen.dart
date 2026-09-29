@@ -255,7 +255,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                     selectedId: _categoryId,
                     leading: [
                       if (favorites.isNotEmpty)
-                        (id: favoritesCategoryId, label: 'Favourites'),
+                        (id: favoritesCategoryId, label: 'My List'),
                       // The user's own groups sit with Favourites, ahead of the
                       // playlist's categories: both are things this person
                       // chose, not things the provider handed down.
@@ -362,7 +362,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   Widget _favoritesList(List<Channel> favorites) {
     if (favorites.isEmpty) {
       return Center(
-        child: Text('No favourite channels yet.',
+        child: Text('No channels in My List yet.',
             style: TextStyle(color: AppColors.textSecondary)),
       );
     }
@@ -888,7 +888,7 @@ class _ChannelTile extends ConsumerWidget {
             borderRadius: 24,
             scale: 1.0,
             child: IconButton(
-              tooltip: favorite ? 'Remove from favourites' : 'Add to favourites',
+              tooltip: favorite ? 'Remove from My List' : 'Add to My List',
               icon: Icon(favorite ? Icons.favorite : Icons.favorite_border,
                   size: 22,
                   color: favorite ? AppColors.accent : AppColors.textSecondary),

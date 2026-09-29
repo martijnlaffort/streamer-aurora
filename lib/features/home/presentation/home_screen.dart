@@ -11,6 +11,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/account_warmup.dart';
 import '../../../core/widgets/error_view.dart';
 import '../../../core/widgets/focus_highlight.dart';
+import '../../../core/widgets/no_playlist_view.dart';
 import '../../../core/widgets/shell_actions.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/poster_card.dart';
@@ -43,58 +44,7 @@ class HomeScreen extends ConsumerWidget {
             onRetry: () => ref.invalidate(homeDataProvider)),
 
         data: (data) =>
-            data == null ? const _NoAccount() : _HomeContent(data: data),
-      ),
-    );
-  }
-}
-
-class _NoAccount extends ConsumerWidget {
-  const _NoAccount();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tv = isTelevisionOf(ref);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Dawn Player', style: AppTypography.display),
-          const SizedBox(height: 8),
-          Text(
-            tv
-                ? 'Pair with your phone to bring your playlists across.'
-                : 'Add a playlist to light this screen up.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 16),
-          // On a television, pairing is THE way in — typing a server URL, a
-          // username and a password with a D-pad is the thing pairing exists to
-          // avoid. It was previously reachable only through Settings, i.e. only
-          // through the rail, which left a fresh TV with no way to reach it at
-          // all. It leads here, and takes the initial focus so the remote has
-          // somewhere to start.
-          if (tv) ...[
-            FilledButton.icon(
-              autofocus: true,
-              onPressed: () => context.push('/pair/receive'),
-              icon: const Icon(Icons.phonelink_ring),
-              label: const Text('Pair with your phone'),
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => context.push('/accounts'),
-              icon: const Icon(Icons.add),
-              label: const Text('Or add a playlist manually'),
-            ),
-          ] else
-            FilledButton.icon(
-              onPressed: () => context.push('/accounts'),
-              icon: const Icon(Icons.add),
-              label: const Text('Add your first account'),
-            ),
-        ],
+            data == null ? const NoPlaylistView() : _HomeContent(data: data),
       ),
     );
   }

@@ -25,7 +25,7 @@ class ProviderDetailScreen extends ConsumerWidget {
     final shelf = ref.watch(providerShelfProvider(brandId));
 
     return Scaffold(
-      appBar: AppBar(title: Text(shelf.value?.brand.name ?? 'Provider')),
+      appBar: AppBar(title: Text(shelf.value?.brand.name ?? 'Service')),
       body: shelf.when(
         skipLoadingOnReload: true,
         loading: () => const Center(child: CircularProgressIndicator()),

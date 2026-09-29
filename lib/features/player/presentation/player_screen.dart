@@ -158,6 +158,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   static const _defaultOutroSeconds = 45;
   int? _learnedOutroSeconds;
 
+  /// The last duration that moved by more than a couple of seconds, and when.
+  /// An MPEG-TS episode reports a small, growing length before the real one
+  /// lands; anything "near the end" of that is the middle of the episode.
+  Duration _settledDuration = Duration.zero;
+  DateTime _durationSettledAt = DateTime.now();
+
   /// Automatic recovery from a dropped stream.
   ///
   /// IPTV transports drop constantly — a few seconds of bad wifi, a panel
@@ -167,6 +173,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// only fall through to the error screen once it is clear the stream is
   /// genuinely gone.
   static const _maxReconnectAttempts = 3;
+
+  /// Where the last early end-of-file happened and how many times running it
+  /// has happened there; see [_onCompleted].
+  Duration? _cutShortAt;
+  int _cutShortCount = 0;
   int _reconnectAttempt = 0;
   bool _reconnecting = false;
   Timer? _reconnectTimer;
@@ -559,24 +570,52 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// default sized for television credits. Whatever the source, this is a
   /// button and never a countdown — the moment is inferred, and auto-advancing
   /// on an inference would cut off the ending of every episode it got wrong.
+  ///
+  /// Seeking back to well before the offer point withdraws it and re-arms it,
+  /// so it comes back when the credits come round again instead of hanging
+  /// over the rest of the episode.
   void _maybeOfferNext(Duration position) {
-    if (_earlyPrompted || _next == null || _current.isLive) return;
-    if (_current.streamRef.isCatchup) return;
-    final remaining = _duration - position;
-    // A TS file reports a small growing duration before the real one lands;
-    // a "remaining" computed from that would fire at the very start.
-    if (_duration < const Duration(minutes: 3)) return;
-
-    final Duration lead;
-    final credits = _creditsStart;
-    if (credits != null && credits < _duration) {
-      lead = _duration - credits;
-    } else {
-      lead = Duration(seconds: _learnedOutroSeconds ?? _defaultOutroSeconds);
+    if (_next == null || _current.isLive || _current.streamRef.isCatchup) {
+      return;
     }
-    if (remaining > lead) return;
+    if (!_endIsKnown) return;
+    final offerAt = _offerPoint();
+    if (_earlyPrompted) {
+      if (position < offerAt - const Duration(seconds: 5)) {
+        _earlyPrompted = false;
+        if (_upNextEarly) setState(() => _upNextEarly = false);
+      }
+      return;
+    }
+    if (position < offerAt) return;
     _earlyPrompted = true;
     setState(() => _upNextEarly = true);
+  }
+
+  /// Whether "near the end" can be trusted: long enough to be an episode, and
+  /// a length that has stopped moving. Both next-episode prompts depend on it.
+  /// Without it a TS episode reporting ten minutes of a forty-five minute file
+  /// put "Next episode" on screen nine minutes in.
+  bool get _endIsKnown =>
+      _duration >= const Duration(minutes: 5) &&
+      DateTime.now().difference(_durationSettledAt) >=
+          const Duration(seconds: 10);
+
+  /// Where to offer the next episode.
+  ///
+  /// A chapter the file names as the credits is trusted, but only in the last
+  /// 30% — an "Opening Credits" chapter, or a recap, is not the end. Otherwise
+  /// what the show has taught us, or the television default, held to at most
+  /// a tenth of the runtime (and three minutes): a learned value can be wrong,
+  /// and it must never be able to put the prompt in the middle of an episode.
+  Duration _offerPoint() {
+    final credits = _creditsStart;
+    if (credits != null && credits >= _duration * 0.7 && credits < _duration) {
+      return credits;
+    }
+    final maxLead = (_duration.inSeconds ~/ 10).clamp(15, 180);
+    final lead = (_learnedOutroSeconds ?? _defaultOutroSeconds).clamp(15, maxLead);
+    return _duration - Duration(seconds: lead);
   }
 
   /// The media just reported its length — this is the moment a pending
@@ -591,6 +630,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// Movies are clean MP4/MKV that report a correct duration at once, which is
   /// why only episodes were affected. Waiting for a usable duration fixes it.
   void _onDuration(Duration duration) {
+    if ((duration - _settledDuration).abs() > const Duration(seconds: 2)) {
+      _settledDuration = duration;
+      _durationSettledAt = DateTime.now();
+    }
     final resume = _pendingResumeSeconds;
     if (resume != null && resume < duration.inSeconds) {
       _pendingResumeSeconds = null;
@@ -656,6 +699,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _upNextEarly = false;
       _earlyPrompted = false;
       _creditsStart = null;
+      _settledDuration = Duration.zero;
+      _durationSettledAt = DateTime.now();
       _liveNow = null;
       // A new stream has a new buffer; keeping the old edge would report a
       // wildly wrong "behind live" until mpv next reported.
@@ -666,6 +711,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _reconnectAttempt = 0;
         _reconnecting = false;
         _everPlayed = false;
+        _cutShortAt = null;
+        _cutShortCount = 0;
         // A different item starts its own walk: the backup that rescued the
         // last channel says nothing about this one.
         _candidateIndex = 0;
@@ -881,9 +928,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// and only for series episodes — a film has no next episode to learn for.
   void _recordOutroHint() {
     final seriesId = _current.seriesId;
-    if (seriesId == null || _current.isLive || _duration == Duration.zero) {
-      return;
-    }
+    if (seriesId == null || _current.isLive || !_endIsKnown) return;
     final remaining = (_duration - _position).inSeconds;
     final accountId = _current.streamRef.accountId;
     unawaited(ref.read(outroHintsRepositoryProvider).record(
@@ -905,15 +950,23 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final title = RegExp(r'"title"\s*:\s*"([^"]*)"');
     final time = RegExp(r'"time"\s*:\s*([0-9.]+)');
     final credits = RegExp(r'credit|outro|end\s*card|closing', caseSensitive: false);
+    // "Opening Credits" and "Intro" match the word but are the other end of
+    // the episode; the first match used to win, so the prompt fired as soon as
+    // the opening titles were over.
+    final opening = RegExp(r'open|intro|begin|start', caseSensitive: false);
+    Duration? latest;
     for (final e in entries) {
       final chunk = e.group(0)!;
       final t = title.firstMatch(chunk)?.group(1);
-      if (t == null || !credits.hasMatch(t)) continue;
+      if (t == null || !credits.hasMatch(t) || opening.hasMatch(t)) continue;
       final seconds = double.tryParse(time.firstMatch(chunk)?.group(1) ?? '');
       if (seconds == null) continue;
-      return Duration(milliseconds: (seconds * 1000).round());
+      final at = Duration(milliseconds: (seconds * 1000).round());
+      // The LAST credits chapter: end credits come after anything else named
+      // like them.
+      if (latest == null || at > latest) latest = at;
     }
-    return null;
+    return latest;
   }
 
   /// How long to hold the audio back, in seconds.
@@ -1105,6 +1158,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       }
       return;
     }
+    // A dropped connection can surface as end-of-file. Only a position at the
+    // end is the end: anything earlier is recovered like an error, resuming
+    // where it stopped — not marked watched, and no countdown to the next
+    // episode. Once the retries are spent, fall through and treat it as the
+    // end after all: a file whose header overstates its length really does
+    // finish early, every time.
+    final cutShort = _duration > Duration.zero &&
+        _position < _duration * 0.97 &&
+        _duration - _position > const Duration(seconds: 10);
+    if (cutShort) {
+      // Counted per spot rather than by _reconnectAttempt, which a successful
+      // reopen resets — a file that always ends at the same place would
+      // otherwise reconnect forever.
+      final last = _cutShortAt;
+      final again = last != null &&
+          (_position - last).abs() < const Duration(seconds: 15);
+      _cutShortCount = again ? _cutShortCount + 1 : 1;
+      _cutShortAt = _position;
+      if (_cutShortCount <= 2 && _reconnectAttempt < _maxReconnectAttempts) {
+        _scheduleReconnect();
+        return;
+      }
+    }
     // Completion drops it from Continue Watching and, for series,
     // advances the next-unwatched pointer (PRD §8.9).
     _progressRepo.markCompleted(_current.contentKey);
@@ -1140,15 +1216,25 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   bool get _hasPrevious => _index > 0;
 
-  void _playNext() {
+  /// [fromOffer] marks a press on one of the next-episode prompts, as opposed
+  /// to the transport's skip button or the remote's next key.
+  void _playNext({bool fromOffer = false}) {
     if (_next == null) return;
     // Moving on with time still to play is the signal this whole feature
     // learns from: it says where THIS show's credits start. Recorded before
-    // anything about the current item is cleared.
-    _recordOutroHint();
+    // anything about the current item is cleared — but only from the prompt,
+    // or a skip in the last 15%. A skip ten minutes in is "not this one", not
+    // "the credits start here"; learning from it walked the prompt forward
+    // into the middle of every later episode.
+    if (fromOffer || (_endIsKnown && _position >= _duration * 0.85)) {
+      _recordOutroHint();
+    }
     // Manual skip: save where we left the current item first (PRD §8.9).
     _saveProgress();
     _upNextTimer?.cancel();
+    // A reconnect scheduled for THIS item would otherwise reopen the next one
+    // at this one's position.
+    _reconnectTimer?.cancel();
     setState(() {
       _index += 1;
       _upNextCountdown = null;
@@ -1166,6 +1252,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (!_hasPrevious) return;
     _saveProgress();
     _upNextTimer?.cancel();
+    _reconnectTimer?.cancel();
     setState(() {
       _index -= 1;
       _upNextCountdown = null;
@@ -2099,26 +2186,40 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// How close to the end the "Next Episode" button appears.
   static const _nextEpisodeWindow = Duration(seconds: 20);
 
-  /// Netflix/HBO-style: a "Next Episode" button appears near the end of an
-  /// episode (once past halfway, so short clips don't trigger it early) so you
-  /// can skip the outro. Distinct from the on-completion autoplay countdown.
+  /// Netflix/HBO-style: a "Next Episode" button in the last seconds, so the
+  /// outro can be skipped even after "Keep watching". Distinct from the
+  /// on-completion autoplay countdown, and never shown alongside the up-next
+  /// card — the two used to sit in the same spot, one on top of the other.
   bool _shouldShowNextEpisode() {
     if (_next == null || _current.isLive || _upNextCountdown != null) {
       return false;
     }
-    if (_duration <= Duration.zero) return false;
+    if (_upNextEarly || !_endIsKnown) return false;
     final remaining = _duration - _position;
-    return remaining > Duration.zero &&
-        remaining <= _nextEpisodeWindow &&
-        _position > _duration * 0.5;
+    return remaining > Duration.zero && remaining <= _nextEpisodeWindow;
+  }
+
+  /// Where the next-episode prompts sit: bottom right, inside a television's
+  /// overscan margin. On a TV the controls are a tall block (title, seek bar,
+  /// transport row), so the prompt lifts clear of them while they show — it
+  /// used to be drawn underneath them. A phone's controls end in a single seek
+  /// row that 96 px already clears.
+  Widget _nextPromptSlot({required Widget child}) {
+    final tv = isTelevisionOf(ref);
+    final bottom = tv ? (_controlsVisible ? 232.0 : 56.0) : 96.0;
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      right: tv ? 48 : 24,
+      bottom: bottom,
+      child: child,
+    );
   }
 
   Widget _nextEpisodeButton() {
-    return Positioned(
-      right: 24,
-      bottom: 96,
+    return _nextPromptSlot(
       child: FilledButton.icon(
-        onPressed: _playNext,
+        onPressed: () => _playNext(fromOffer: true),
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.textPrimary,
           foregroundColor: Colors.black,
@@ -2132,60 +2233,67 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   Widget _upNextCard() {
     final next = _next!;
-    return Positioned(
-      right: 24,
-      bottom: 96,
-      child: Container(
-        width: 260,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceElevated.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Two moments, two cards. Before the end we are guessing where the
-            // credits start, so it is an offer with no clock on it. At the end
-            // the episode is over and the countdown is the right thing.
-            Text(
-                _upNextCountdown != null
-                    ? 'Up next in $_upNextCountdown…'
-                    : 'Up next',
-                style: AppTypography.label
-                    .copyWith(color: AppColors.accentAlt)),
-            const SizedBox(height: 6),
-            Text(next.subtitle ?? next.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.body),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                FilledButton(
-                  // Takes focus when the early card appears, so on a
-                  // television one OK press is enough - the whole point of
-                  // showing it as the credits start.
-                  autofocus: _upNextCountdown == null,
-                  onPressed: _playNext,
-                  child: Text(
-                      _upNextCountdown != null ? 'Play now' : 'Next episode'),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () {
-                    _upNextTimer?.cancel();
-                    setState(() {
-                      _upNextCountdown = null;
-                      _upNextEarly = false;
-                    });
-                  },
-                  child: Text(
-                      _upNextCountdown != null ? 'Cancel' : 'Keep watching'),
-                ),
-              ],
-            ),
-          ],
+    final tv = isTelevisionOf(ref);
+    final early = _upNextCountdown == null;
+    return _nextPromptSlot(
+      // A width cap rather than a fixed width: the text-size setting scales
+      // everything inside, and a fixed 260 px put the second button outside
+      // the card at anything above Standard.
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: tv ? 440 : 320),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceElevated.withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Two moments, two cards. Before the end we are guessing where
+              // the credits start, so it is an offer with no clock on it. At
+              // the end the episode is over and the countdown is right.
+              Text(early ? 'Up next' : 'Up next in $_upNextCountdown…',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.label
+                      .copyWith(color: AppColors.accentAlt)),
+              const SizedBox(height: 6),
+              Text(next.subtitle ?? next.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.body),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton(
+                    // Only in the final minute. Earlier, taking focus would
+                    // turn the OK press someone meant as "pause" into "skip
+                    // to the next episode".
+                    autofocus: early &&
+                        _duration - _position <= const Duration(seconds: 60),
+                    onPressed: () => _playNext(fromOffer: early),
+                    child: Text(early ? 'Next episode' : 'Play now',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      _upNextTimer?.cancel();
+                      setState(() {
+                        _upNextCountdown = null;
+                        _upNextEarly = false;
+                      });
+                    },
+                    child: Text(early ? 'Keep watching' : 'Cancel',
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

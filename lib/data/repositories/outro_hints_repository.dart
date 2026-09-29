@@ -31,6 +31,12 @@ class OutroHintsRepository {
   ///
   /// The MEDIAN of the recent presses, not the mean: one early exit must not
   /// drag the prompt forward for every episode after it.
+  ///
+  /// Three presses before trusting it, and the LOWER median of an even count.
+  /// With two, `sorted[1]` was the larger — the earlier of the two presses —
+  /// so a single early skip was enough to move the prompt forward, and tapping
+  /// that earlier prompt recorded it again. Erring late is the safe side: a
+  /// prompt during the credits is fine, one during the last scene is not.
   Future<int?> secondsBeforeEnd(String accountId, String seriesId) async {
     final rows = await (db.select(db.outroHintsTable)
           ..where((t) =>
@@ -38,9 +44,9 @@ class OutroHintsRepository {
           ..orderBy([(t) => OrderingTerm.desc(t.observedAtMillisUtc)])
           ..limit(keep))
         .get();
-    if (rows.length < 2) return null; // One press is an accident, not a pattern.
+    if (rows.length < 3) return null; // Too few presses to be a pattern.
     final sorted = [for (final r in rows) r.secondsBeforeEnd]..sort();
-    return sorted[sorted.length ~/ 2];
+    return sorted[(sorted.length - 1) ~/ 2];
   }
 
   /// The user moved on with [secondsBeforeEnd] still to play.

@@ -13,13 +13,21 @@ abstract final class AppTheme {
 
   static ThemeData get light => lightFor(tv: false);
 
-  /// [tv] adds the remote's cursor to every Material button and chip; see
-  /// [_tvFocus].
-  static ThemeData darkFor({required bool tv}) =>
-      _build(DawnPalette.dark, Brightness.dark, tv: tv);
+  /// [tv] adds the remote's cursor to every Material button; see [_tvFocus].
+  ///
+  /// Built once per variant and reused. The TV styles are closures, so two
+  /// separately built themes never compare equal — and MaterialApp animates
+  /// between any two unequal themes, which re-ran a whole-app theme animation
+  /// every time the app widget rebuilt.
+  static ThemeData darkFor({required bool tv}) => _cache.putIfAbsent(
+      (Brightness.dark, tv),
+      () => _build(DawnPalette.dark, Brightness.dark, tv: tv));
 
-  static ThemeData lightFor({required bool tv}) =>
-      _build(DawnPalette.light, Brightness.light, tv: tv);
+  static ThemeData lightFor({required bool tv}) => _cache.putIfAbsent(
+      (Brightness.light, tv),
+      () => _build(DawnPalette.light, Brightness.light, tv: tv));
+
+  static final _cache = <(Brightness, bool), ThemeData>{};
 
   static ThemeData _build(DawnPalette p, Brightness brightness,
       {required bool tv}) {
@@ -141,9 +149,12 @@ abstract final class AppTheme {
               WidgetStateProperty.resolveWith((s) => focused(s) ? onRing : null),
         ),
       ),
-      chipTheme: t.chipTheme.copyWith(
-        side: WidgetStateBorderSide.resolveWith((s) => focused(s) ? ring : null),
-      ),
+      // No chipTheme here, on purpose. A chip side that resolves to null when
+      // unfocused crashes ChipThemeData.lerp (it null-asserts the resolved
+      // side), and the theme IS lerped — from the phone theme to this one the
+      // moment TV detection resolves after launch. Every frame of that
+      // animation threw, which rendered the player as a grey error screen.
+      // The chip rows wrap their chips in FocusHighlight instead.
     );
   }
 }

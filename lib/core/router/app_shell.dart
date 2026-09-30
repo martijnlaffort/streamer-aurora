@@ -161,10 +161,20 @@ class _AppShellState extends ConsumerState<AppShell> {
       _enterRail();
       return;
     }
-    // A real leaf is remembered from last time on this tab: restore it (the
-    // branch scope cascades focus back down to it). Otherwise take the first.
-    if (scope.focusedChild != null) {
-      scope.requestFocus();
+    // A real control remembered from last time on this tab is restored;
+    // otherwise the first one. "Remembered" is followed down through the
+    // nested scopes to an actual widget: the branch's route scope is always
+    // somebody's focusedChild, so trusting `scope.focusedChild != null` put
+    // the cursor on that bare scope — at launch and on every first visit to a
+    // tab — and nothing was highlighted until the first press.
+    FocusNode? remembered = scope.focusedChild;
+    while (remembered is FocusScopeNode) {
+      remembered = remembered.focusedChild;
+    }
+    if (remembered != null &&
+        remembered.canRequestFocus &&
+        remembered.context != null) {
+      remembered.requestFocus();
     } else {
       first.requestFocus();
     }
@@ -172,11 +182,27 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _enterRail() => _railItemFocus[shell.currentIndex].requestFocus();
 
+  /// The remote's BACK, as a key.
+  static bool _isBack(LogicalKeyboardKey key) =>
+      key == LogicalKeyboardKey.goBack ||
+      key == LogicalKeyboardKey.browserBack ||
+      key == LogicalKeyboardKey.escape;
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    final key = event.logicalKey;
+    // BACK at a tab's top level is handled here, as a key, before Android
+    // turns it into "leave the app". The PopScope below alone was never asked:
+    // with nothing on the tab to pop, the router reported "can't pop" and the
+    // system closed the app — from anywhere, on the first press. A page pushed
+    // INSIDE a tab (a category grid) still closes as usual; the up of the
+    // press is swallowed too, so Android never sees half of it.
+    if (_isBack(key) && !GoRouter.of(context).canPop()) {
+      if (event is KeyDownEvent) _onTvBack();
+      return KeyEventResult.handled;
+    }
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    final key = event.logicalKey;
     // The shell node holds focus only in the brief limbo before anything real
     // does — on first launch, or just after a tab switch. Any directional
     // press from there should land on actual content rather than do nothing,

@@ -93,8 +93,13 @@ class CatalogRepository {
         await _upsertChunked(
             _db.channelsTable, [for (final c in channels) c.toCompanion()]);
         await _markSeen(channels.map((c) => c.id));
-        await _deleteUnseen(
-            _db.channelsTable, _db.channelsTable.id, account.id);
+        // No channels at all is a refused request, not a line gone dark — see
+        // [_refreshCategory]. Deleting on it emptied the Live tab.
+        if (channels.isNotEmpty ||
+            !await _hasCachedItems(account, CatalogKind.live)) {
+          await _deleteUnseen(
+              _db.channelsTable, _db.channelsTable.id, account.id);
+        }
         await _touchMeta(account, kind);
       case CatalogKind.vod:
         final categories = await source.getVodCategories();
@@ -239,28 +244,41 @@ class CatalogRepository {
   Future<void> _refreshCategory(Account account, PlaylistSource source,
       CatalogKind kind, String categoryId) async {
     await _beginSeen();
+    // An empty answer for a category we hold rows for is far likelier a panel
+    // refusing a request (overloaded, over its connection limit) than a
+    // category emptied out, and deleting on it made a whole category vanish
+    // until its next refresh. The rows stay in that case.
+    Future<bool> refused(List<Object> fetched) async =>
+        fetched.isEmpty &&
+        await _hasCachedItems(account, kind, categoryId: categoryId);
     switch (kind) {
       case CatalogKind.live:
         final channels = await source.getLiveStreams(categoryId: categoryId);
         await _upsertChunked(
             _db.channelsTable, [for (final c in channels) c.toCompanion()]);
         await _markSeen(channels.map((c) => c.id));
-        await _deleteUnseenInCategory(
-            _db.channelsTable, _db.channelsTable.id, account.id, categoryId);
+        if (!await refused(channels)) {
+          await _deleteUnseenInCategory(
+              _db.channelsTable, _db.channelsTable.id, account.id, categoryId);
+        }
       case CatalogKind.vod:
         final movies = await source.getVodStreams(categoryId: categoryId);
         await _upsertChunked(
             _db.moviesTable, [for (final m in movies) m.toCompanion()]);
         await _markSeen(movies.map((m) => m.id));
-        await _deleteUnseenInCategory(
-            _db.moviesTable, _db.moviesTable.id, account.id, categoryId);
+        if (!await refused(movies)) {
+          await _deleteUnseenInCategory(
+              _db.moviesTable, _db.moviesTable.id, account.id, categoryId);
+        }
       case CatalogKind.series:
         final series = await source.getSeries(categoryId: categoryId);
         await _upsertChunked(
             _db.seriesTable, [for (final s in series) s.toCompanion()]);
         await _markSeen(series.map((s) => s.id));
-        await _deleteUnseenInCategory(
-            _db.seriesTable, _db.seriesTable.id, account.id, categoryId);
+        if (!await refused(series)) {
+          await _deleteUnseenInCategory(
+              _db.seriesTable, _db.seriesTable.id, account.id, categoryId);
+        }
     }
     await _touchCategoryMeta(account, kind, categoryId);
   }
@@ -491,6 +509,20 @@ class CatalogRepository {
         CatalogKind.vod => await source.getVodCategories(),
         CatalogKind.series => await source.getSeriesCategories(),
       };
+      // An empty list from a line that had categories is a panel hiccup (an
+      // overloaded or connection-limited panel answers `[]`), not a line that
+      // emptied overnight. Replacing on it wiped every rail in the tab until
+      // the next refresh; keep what we have and try again next time.
+      if (categories.isEmpty &&
+          await (_db.categoriesTable.select()
+                    ..where((t) =>
+                        t.accountId.equals(account.id) &
+                        t.type.equalsValue(type))
+                    ..limit(1))
+                  .getSingleOrNull() !=
+              null) {
+        return;
+      }
       await _replaceCategories(account, type, categories);
       await _touchMeta(account, kind);
     }).whenComplete(() {

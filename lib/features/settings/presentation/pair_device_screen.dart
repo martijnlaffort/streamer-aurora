@@ -150,6 +150,18 @@ class _PairDeviceScreenState extends ConsumerState<PairDeviceScreen> {
     if (payload.accounts.isNotEmpty) {
       await accounts.setActiveAccount(payload.accounts.first.id);
     }
+    // The TMDB key fills in only where this device has none — a key someone
+    // already entered here is theirs to keep.
+    final tmdbKey = payload.tmdbApiKey?.trim() ?? '';
+    if (tmdbKey.isNotEmpty) {
+      final prefs = await ref.read(preferencesProvider.future);
+      if (prefs.tmdbApiKey == null || prefs.tmdbApiKey!.isEmpty) {
+        await ref
+            .read(preferencesRepositoryProvider)
+            .save(prefs.copyWith(tmdbApiKey: tmdbKey));
+        ref.invalidate(preferencesProvider);
+      }
+    }
     final sync = payload.sync;
     var pulled = false;
     if (sync != null && (sync.token?.isNotEmpty ?? false)) {

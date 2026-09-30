@@ -63,10 +63,12 @@ class _PairTvScreenState extends ConsumerState<PairTvScreen> {
         });
         return;
       }
+      final prefs = await ref.read(preferencesProvider.future);
       await PairingService(baseUrl: backend ?? baseUrl).claim(
         code: _code.text,
         token: token,
-        payload: PairingPayload(accounts: accounts, sync: config),
+        payload: PairingPayload(
+            accounts: accounts, sync: config, tmdbApiKey: prefs.tmdbApiKey),
       );
       if (!mounted) return;
       setState(() {

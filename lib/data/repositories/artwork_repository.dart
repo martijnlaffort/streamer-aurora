@@ -45,8 +45,28 @@ class ArtworkRepository {
   /// A modest ceiling on concurrent TMDB calls. The API tolerates far more, but
   /// it is rate-limited *by IP*, and racing dozens of requests off one scroll
   /// risks a 429 that would affect the discovery rails too.
+  ///
+  /// Lookups over the ceiling WAIT for a slot. They used to return "no
+  /// artwork" instead, and the card kept that answer for five minutes — so on
+  /// a rail with several posterless titles, everything past the fourth stayed
+  /// a grey tile even with a key configured.
   static const _maxConcurrent = 4;
   int _active = 0;
+  final List<Completer<void>> _waiting = [];
+
+  Future<void> _acquire() async {
+    while (_active >= _maxConcurrent) {
+      final turn = Completer<void>();
+      _waiting.add(turn);
+      await turn.future;
+    }
+    _active++;
+  }
+
+  void _release() {
+    _active--;
+    if (_waiting.isNotEmpty) _waiting.removeAt(0).complete();
+  }
 
   /// Cached poster for [name], or null if we do not have one.
   ///
@@ -92,8 +112,7 @@ class ArtworkRepository {
   }) async {
     final tmdb = _tmdb();
     if (tmdb == null) return null; // No key configured — nothing to ask.
-    if (_active >= _maxConcurrent) return null;
-    _active++;
+    await _acquire();
     try {
       final found =
           await tmdb.findArtwork(title: name, year: year, isTv: isSeries);
@@ -114,7 +133,7 @@ class ArtworkRepository {
       // nothing is written and the next attempt is free to retry.
       return null;
     } finally {
-      _active--;
+      _release();
     }
   }
 }

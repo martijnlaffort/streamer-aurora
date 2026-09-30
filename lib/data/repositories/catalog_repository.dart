@@ -319,6 +319,69 @@ class CatalogRepository {
     await _refreshCategoryOnce(account, kind, categoryId);
   }
 
+  /// The account [fillInBackground] is working for. Switching accounts stops
+  /// the old fill at its next category.
+  String? _fillingFor;
+
+  /// Fetches, one category at a time, every series and film category this
+  /// device has never loaded.
+  ///
+  /// The per-category design only ever cached what was browsed: six seeded
+  /// categories plus the ones a user happened to open. Everything that spans
+  /// categories — the "All" grids, search, a service's page, Home's Popular —
+  /// reads that cache, so on a fresh install most of a large line was simply
+  /// absent ("I am missing a lot of series"). This fills the rest in without
+  /// bringing back what the per-category design was for: one small response
+  /// at a time (memory stays flat), a pause between them, never behind a
+  /// playing video, and resumable — progress is the per-category meta, so an
+  /// app killed halfway picks up where it stopped instead of starting over.
+  ///
+  /// Series first: the slice is smaller and it is the one people notice.
+  /// Categories already fetched are left to their own TTL on demand.
+  Future<void> fillInBackground(Account account) async {
+    if (!_supportsCategoryFetch(account)) return; // Fetched whole already.
+    if (_fillingFor == account.id) return;
+    _fillingFor = account.id;
+    var failuresInARow = 0;
+    try {
+      for (final kind in const [CatalogKind.series, CatalogKind.vod]) {
+        final fetched = {
+          for (final m in await (_db.catalogCategoryMetaTable.select()
+                ..where((t) =>
+                    t.accountId.equals(account.id) & t.kind.equalsValue(kind)))
+              .get())
+            m.categoryId,
+        };
+        final categories = await (_db.categoriesTable.select()
+              ..where((t) =>
+                  t.accountId.equals(account.id) &
+                  t.type.equalsValue(_typeOf(kind)))
+              ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+            .get();
+        for (final category in categories) {
+          if (fetched.contains(category.id)) continue;
+          await _playback?.whenIdle();
+          if (_fillingFor != account.id) return;
+          try {
+            await _refreshCategoryOnce(account, kind, category.id);
+            failuresInARow = 0;
+          } on Object catch (e) {
+            developer.log('background fill of $kind/${category.id} failed: $e',
+                name: 'CatalogRepository');
+            // One broken category is skipped; several in a row means the
+            // panel or the connection is down, and the next launch resumes.
+            if (++failuresInARow >= 3) return;
+          }
+          // Leaves room for anything the user opens meanwhile: refreshes are
+          // serialized, so a screen waits behind at most one category.
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
+      }
+    } finally {
+      if (_fillingFor == account.id) _fillingFor = null;
+    }
+  }
+
   /// Whether this account's panel can fetch a single category. Cached because
   /// every read consults it and building a source allocates an HTTP client.
   final Map<String, bool> _categoryFetchSupport = {};

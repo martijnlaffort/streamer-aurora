@@ -268,6 +268,7 @@ extension PreferencesRowMapper on PreferencesRow {
         uiScale: uiScale ?? 1.0,
         groupChannelVariants: groupChannelVariants ?? true,
         audioDelayMs: audioDelayMs ?? 0,
+        showPlaybackStats: showPlaybackStats ?? false,
       );
 }
 

@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/providers.dart' show activeAccountProvider;
 import '../../features/player/presentation/cast_controls.dart';
 import '../platform/television.dart';
 import '../theme/app_colors.dart';
+import '../widgets/no_playlist_view.dart';
 
 /// Navigation chrome around the tab branches (PRD §8.2).
 ///
@@ -67,20 +69,55 @@ class _AppShellState extends ConsumerState<AppShell> {
         if (mounted) setState(() {});
       });
     }
-    // Put the cursor somewhere real as soon as the first tab has built, so the
-    // app opens with something visibly highlighted instead of waiting for a
-    // press to reveal where focus is. Two frames: one for the shell, one for the
-    // branch's own content.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !isTelevisionOf(ref)) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && !_railHasFocus) _enterContent();
-      });
+    // Put the cursor somewhere real as soon as there is something to put it
+    // on, so the app opens with a highlighted card instead of waiting for a
+    // press to reveal where focus is.
+    //
+    // This used to try once, two frames in — and bail out, because the "is
+    // this a TV" answer is asynchronous and had not arrived yet; even when it
+    // had, Home's rails were still loading. So the app opened with nothing
+    // highlighted and the first press was spent finding the cursor.
+    Future(() async {
+      final tv = await ref.read(isTelevisionProvider.future);
+      if (tv) await _enterContentWhenReady(const Duration(seconds: 6));
     });
   }
 
+  /// Focuses the page's first card once it exists, waiting up to [timeout] for
+  /// it to load; falls back to the rail. Gives up at once if the viewer has
+  /// already put the cursor somewhere themselves.
+  Future<void> _enterContentWhenReady(Duration timeout) async {
+    final deadline = DateTime.now().add(timeout);
+    while (mounted) {
+      final primary = FocusManager.instance.primaryFocus;
+      final settled = primary != null &&
+          primary != _shellFocus &&
+          primary is! FocusScopeNode &&
+          !_railHasFocus;
+      if (settled) return;
+      if (_firstContentLeaf() != null) {
+        _enterContent();
+        return;
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        if (!_railHasFocus) _enterRail();
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+    }
+  }
+
+  /// The shell's own key node. It holds focus only in the limbo before
+  /// anything real does.
+  final _shellFocus =
+      FocusNode(debugLabel: 'tv-shell', skipTraversal: true);
+
+  /// When BACK was last pressed on Home's menu, for "press again to exit".
+  DateTime? _exitArmedAt;
+
   @override
   void dispose() {
+    _shellFocus.dispose();
     _contentFocus.dispose();
     for (final n in _railItemFocus) {
       n.dispose();
@@ -98,21 +135,25 @@ class _AppShellState extends ConsumerState<AppShell> {
   ///
   /// A scope remembers where focus last sat, so re-entering the page returns
   /// you to the card you left rather than jumping back to the top.
+  /// The first REAL widget on the page, or null when it has none (yet).
+  ///
+  /// Scopes are excluded on purpose: go_router wraps each branch in a
+  /// Navigator (a FocusScopeNode), and that scope is always present, so its
+  /// mere existence says nothing about whether the page has content.
+  /// traversalDescendants recurses into it, so the leaves (poster cards, list
+  /// rows) are found here when they exist.
+  FocusNode? _firstContentLeaf() => _contentFocus.traversalDescendants
+      .where((n) =>
+          n is! FocusScopeNode && n.canRequestFocus && !n.skipTraversal)
+      .firstOrNull;
+
   void _enterContent() {
     final scope = _contentFocus;
-    // Whether the page has any REAL widget to land on. Scopes are excluded on
-    // purpose: go_router wraps each branch in a Navigator (a FocusScopeNode),
-    // and that scope is always present, so its mere existence says nothing
-    // about whether the page has content. traversalDescendants recurses into
-    // it, so the leaves (poster cards, list rows) are found here when they
-    // exist. Computed BEFORE the restore check below — that check keys off the
+    // Computed BEFORE the restore check below — that check keys off the
     // branch scope, which is non-null even on an empty page, and letting it win
     // first is exactly what parked focus on a bare scope: invisible cursor,
     // dead UP/DOWN/OK, and only LEFT (which handles bare scopes) still working.
-    final first = scope.traversalDescendants
-        .where((n) =>
-            n is! FocusScopeNode && n.canRequestFocus && !n.skipTraversal)
-        .firstOrNull;
+    final first = _firstContentLeaf();
     if (first == null) {
       // Nothing to focus — Home still loading, an empty tab, an error with no
       // button. The rail is the one thing always on screen, so the cursor goes
@@ -120,10 +161,20 @@ class _AppShellState extends ConsumerState<AppShell> {
       _enterRail();
       return;
     }
-    // A real leaf is remembered from last time on this tab: restore it (the
-    // branch scope cascades focus back down to it). Otherwise take the first.
-    if (scope.focusedChild != null) {
-      scope.requestFocus();
+    // A real control remembered from last time on this tab is restored;
+    // otherwise the first one. "Remembered" is followed down through the
+    // nested scopes to an actual widget: the branch's route scope is always
+    // somebody's focusedChild, so trusting `scope.focusedChild != null` put
+    // the cursor on that bare scope — at launch and on every first visit to a
+    // tab — and nothing was highlighted until the first press.
+    FocusNode? remembered = scope.focusedChild;
+    while (remembered is FocusScopeNode) {
+      remembered = remembered.focusedChild;
+    }
+    if (remembered != null &&
+        remembered.canRequestFocus &&
+        remembered.context != null) {
+      remembered.requestFocus();
     } else {
       first.requestFocus();
     }
@@ -131,11 +182,27 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _enterRail() => _railItemFocus[shell.currentIndex].requestFocus();
 
+  /// The remote's BACK, as a key.
+  static bool _isBack(LogicalKeyboardKey key) =>
+      key == LogicalKeyboardKey.goBack ||
+      key == LogicalKeyboardKey.browserBack ||
+      key == LogicalKeyboardKey.escape;
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    final key = event.logicalKey;
+    // BACK at a tab's top level is handled here, as a key, before Android
+    // turns it into "leave the app". The PopScope below alone was never asked:
+    // with nothing on the tab to pop, the router reported "can't pop" and the
+    // system closed the app — from anywhere, on the first press. A page pushed
+    // INSIDE a tab (a category grid) still closes as usual; the up of the
+    // press is swallowed too, so Android never sees half of it.
+    if (_isBack(key) && !GoRouter.of(context).canPop()) {
+      if (event is KeyDownEvent) _onTvBack();
+      return KeyEventResult.handled;
+    }
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    final key = event.logicalKey;
     // The shell node holds focus only in the brief limbo before anything real
     // does — on first launch, or just after a tab switch. Any directional
     // press from there should land on actual content rather than do nothing,
@@ -206,7 +273,9 @@ class _AppShellState extends ConsumerState<AppShell> {
     (
       icon: Icons.apps_outlined,
       selected: Icons.apps,
-      label: 'Providers'
+      // "Services", not "Providers": in IPTV the provider is the company you
+      // pay for the line. This tab is Netflix, Prime Video, Disney+…
+      label: 'Services'
     ),
     (icon: Icons.search, selected: Icons.search, label: 'Search'),
     (icon: Icons.settings_outlined, selected: Icons.settings, label: 'Settings'),
@@ -238,17 +307,72 @@ class _AppShellState extends ConsumerState<AppShell> {
     // direction press is spent getting into the content instead of moving
     // within it. A post-frame hand-off means the tab is live the moment it
     // appears.
+    //
+    // Waits for the page's first card rather than trying once after a frame: a
+    // tab visited for the first time builds its content later than that, and
+    // the one-shot attempt found nothing and left the cursor nowhere.
     if (!isTelevisionOf(ref)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _enterContent();
+      if (mounted) _enterContentWhenReady(const Duration(milliseconds: 1500));
     });
+  }
+
+  /// BACK at the top level of a tab, on a TV. Netflix's order: the page hands
+  /// the cursor to the menu, the menu goes Home, and only BACK on Home's menu
+  /// leaves — after a second press, since one stray BACK used to close the app
+  /// from anywhere.
+  void _onTvBack() {
+    if (!_railHasFocus) {
+      _enterRail();
+      return;
+    }
+    if (shell.currentIndex != 0) {
+      _go(0);
+      _railItemFocus[0].requestFocus();
+      return;
+    }
+    final armed = _exitArmedAt;
+    if (armed != null &&
+        DateTime.now().difference(armed) < const Duration(seconds: 3)) {
+      SystemNavigator.pop();
+      return;
+    }
+    _exitArmedAt = DateTime.now();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(
+        content: Text('Press BACK again to exit'),
+        duration: Duration(seconds: 3),
+      ));
+  }
+
+  /// Settings' branch — where a playlist is added, so never covered.
+  static const _settingsBranch = 6;
+
+  /// The page area. Without a playlist, every tab but Home (which shows the
+  /// same view itself) and Settings shows [NoPlaylistView] instead of its own
+  /// dead end ("No channels in this playlist."), and the tab behind it is kept
+  /// out of focus so the remote cannot land on its hidden chips.
+  Widget _content() {
+    final active = ref.watch(activeAccountProvider);
+    final cover = active.hasValue &&
+        active.value == null &&
+        shell.currentIndex != 0 &&
+        shell.currentIndex != _settingsBranch;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ExcludeFocus(excluding: cover, child: shell),
+        if (cover) const NoPlaylistView(),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (isTelevisionOf(ref)) return _tvShell();
     return Scaffold(
-      body: shell,
+      body: _content(),
       // The cast mini bar rides directly above the navigation while something is
       // playing on a TV, so leaving the screen you cast from does not strand the
       // controls. It collapses to nothing when nothing is casting. Sitting inside
@@ -283,8 +407,21 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   Widget _tvShell() {
+    // Only consulted when no page inside can pop: a pushed detail screen
+    // still closes with BACK as before.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _onTvBack();
+      },
+      child: _tvShellBody(),
+    );
+  }
+
+  Widget _tvShellBody() {
     return Scaffold(
       body: Focus(
+        focusNode: _shellFocus,
         onKeyEvent: _onKey,
         // Holds focus on first build so the very first D-pad press is handled
         // rather than lost to the root view (which left the remote apparently
@@ -312,7 +449,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               // touched the rail would make the whole screen twitch.
               Padding(
                 padding: const EdgeInsets.only(left: _collapsedWidth),
-                child: FocusScope(node: _contentFocus, child: shell),
+                child: FocusScope(node: _contentFocus, child: _content()),
               ),
               // Pinned to the full height explicitly. Left to size itself in a
               // Stack it takes its content's height, which on a short landscape

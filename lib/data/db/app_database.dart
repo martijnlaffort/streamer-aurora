@@ -240,6 +240,9 @@ class PreferencesTable extends Table {
   /// Extra audio delay in ms for this device's display (schema v18).
   IntColumn get audioDelayMs => integer().nullable()();
 
+  /// The player's stats overlay, device-local (schema v21). Null → off.
+  BoolColumn get showPlaybackStats => boolean().nullable()();
+
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
 
@@ -555,7 +558,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -665,8 +668,14 @@ class AppDatabase extends _$AppDatabase {
           // real, current curation and should win over an empty server, not
           // lose to it.
           if (from < 17) {
-            await m.addColumn(
-                catalogOverridesTable, catalogOverridesTable.updatedAtMillisUtc);
+            // Only a table created by the v11 step of an EARLIER upgrade lacks
+            // the column. When this same run created it (from < 11) it was
+            // built from today's definition, which already has it, and adding
+            // it again fails with "duplicate column name" — on every launch.
+            if (from >= 11) {
+              await m.addColumn(catalogOverridesTable,
+                  catalogOverridesTable.updatedAtMillisUtc);
+            }
             await customStatement(
                 'UPDATE catalog_overrides SET updated_at_millis_utc = ?',
                 [DateTime.now().toUtc().millisecondsSinceEpoch]);
@@ -683,6 +692,22 @@ class AppDatabase extends _$AppDatabase {
           if (from < 19) {
             await m.addColumn(channelsTable, channelsTable.sortName);
             await _backfillChannelSortNames();
+          }
+          // v20: variant keys keep non-Latin letters. Re-derive them for every
+          // cached channel — before this, all Cyrillic/Greek/Arabic/CJK channels
+          // on a line shared one key and showed as a single row — and forget
+          // which stream "won" per key, since those choices were recorded under
+          // the merged keys and could tune a different channel. Losing them
+          // costs one extra failover and nothing else.
+          if (from < 20) {
+            if (from >= 13) await _backfillChannelVariants();
+            await delete(streamChoicesTable).go();
+          }
+          // v21: the player's stats overlay switch. Nullable, so nothing to
+          // backfill: absent means off.
+          if (from < 21) {
+            await m.addColumn(
+                preferencesTable, preferencesTable.showPlaybackStats);
           }
         },
         beforeOpen: (details) async {
@@ -737,8 +762,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _backfillChannelVariants() async {
     const pageSize = 2000;
     for (var offset = 0;; offset += pageSize) {
-      final rows = await (select(channelsTable)..limit(pageSize, offset: offset))
-          .get();
+      final rows = await _channelNamesPage(pageSize, offset);
       if (rows.isEmpty) break;
       await batch((b) {
         for (final row in rows) {
@@ -765,8 +789,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _backfillChannelSortNames() async {
     const pageSize = 2000;
     for (var offset = 0;; offset += pageSize) {
-      final rows = await (select(channelsTable)..limit(pageSize, offset: offset))
-          .get();
+      final rows = await _channelNamesPage(pageSize, offset);
       if (rows.isEmpty) break;
       await batch((b) {
         for (final row in rows) {
@@ -780,5 +803,30 @@ class AppDatabase extends _$AppDatabase {
       });
       if (rows.length < pageSize) break;
     }
+  }
+
+  /// One page of channel keys and names, for the migration backfills.
+  ///
+  /// Selects only these three columns on purpose. A backfill runs mid-upgrade,
+  /// when the table has only the columns of the version being migrated
+  /// through; `select(channelsTable)` asks for every column of the CURRENT
+  /// schema, so the v13 backfill failed with "no such column: sort_name" on
+  /// any install coming from before v13.
+  Future<List<({String accountId, String id, String name})>> _channelNamesPage(
+      int limit, int offset) async {
+    final ch = channelsTable;
+    final query = selectOnly(ch)
+      ..addColumns([ch.accountId, ch.id, ch.name])
+      ..orderBy([OrderingTerm.asc(ch.accountId), OrderingTerm.asc(ch.id)])
+      ..limit(limit, offset: offset);
+    final rows = await query.get();
+    return [
+      for (final r in rows)
+        (
+          accountId: r.read(ch.accountId)!,
+          id: r.read(ch.id)!,
+          name: r.read(ch.name)!,
+        ),
+    ];
   }
 }

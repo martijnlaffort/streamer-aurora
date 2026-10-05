@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/models/models.dart' show Account;
@@ -67,6 +69,9 @@ Future<void> warmAccount(WidgetRef ref, Account account) async {
     ref.invalidate(homeDataProvider);
     ref.invalidate(myListProvider);
     ref.invalidate(discoveryRailsProvider);
+    // The rest of the line, a category at a time, long after the screens
+    // above are usable. Not awaited: it can take many minutes on a big line.
+    unawaited(catalog.fillInBackground(account).catchError((Object _) {}));
   } finally {
     warming.set(false);
   }

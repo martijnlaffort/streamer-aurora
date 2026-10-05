@@ -42,6 +42,7 @@ class Preferences extends Equatable {
     this.uiScale = 1.0,
     this.groupChannelVariants = true,
     this.audioDelayMs = 0,
+    this.showPlaybackStats = false,
   });
 
   const Preferences.defaults() : this();
@@ -95,6 +96,12 @@ class Preferences extends Equatable {
   /// describes the display this device is plugged into, not the account.
   final int audioDelayMs;
 
+  /// Show the playback stats overlay in the player: how long each start-up
+  /// step took, which stream is playing at what resolution, the download
+  /// speed and how often it stalled. For telling "the line is slow" from "the
+  /// app is slow" on a real set. Device-local, like [audioDelayMs].
+  final bool showPlaybackStats;
+
   /// Prefer this over constructing a whole [Preferences] when saving one
   /// setting: a full construction silently drops any field the caller forgot,
   /// which is how a language change would wipe the TMDB key.
@@ -113,8 +120,10 @@ class Preferences extends Equatable {
     double? uiScale,
     bool? groupChannelVariants,
     int? audioDelayMs,
+    bool? showPlaybackStats,
     bool clearTmdbApiKey = false,
     bool clearContentLanguages = false,
+    bool clearDiscoveryRegion = false,
   }) {
     return Preferences(
       preferredAudioLang: preferredAudioLang ?? this.preferredAudioLang,
@@ -126,12 +135,15 @@ class Preferences extends Equatable {
           ? null
           : (contentLanguages ?? this.contentLanguages),
       tmdbApiKey: clearTmdbApiKey ? null : (tmdbApiKey ?? this.tmdbApiKey),
-      discoveryRegion: discoveryRegion ?? this.discoveryRegion,
+      discoveryRegion: clearDiscoveryRegion
+          ? null
+          : (discoveryRegion ?? this.discoveryRegion),
       themeMode: themeMode ?? this.themeMode,
       uiScale: uiScale ?? this.uiScale,
       groupChannelVariants:
           groupChannelVariants ?? this.groupChannelVariants,
       audioDelayMs: audioDelayMs ?? this.audioDelayMs,
+      showPlaybackStats: showPlaybackStats ?? this.showPlaybackStats,
     );
   }
 
@@ -148,6 +160,7 @@ class Preferences extends Equatable {
         uiScale,
         groupChannelVariants,
         audioDelayMs,
+        showPlaybackStats,
       ];
 
   @override

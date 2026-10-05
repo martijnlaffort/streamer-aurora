@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io';
 
@@ -52,6 +53,28 @@ class M3uSource implements PlaylistSource {
 
   M3uPlaylist? _playlist;
 
+  /// Stream id → URL for playlists loaded recently, shared by every instance.
+  ///
+  /// The app builds a fresh source for every playback, channel zap and
+  /// backup-feed retry, and each one downloaded and parsed the WHOLE playlist
+  /// to resolve a single URL — seconds before anything started, repeated on
+  /// every channel change. Only [buildStreamUrl] reads this; refreshes still
+  /// fetch the playlist fresh. Ids are hashes of the URLs themselves, so an
+  /// entry can never point at the wrong stream, and one that is missing falls
+  /// back to a real load. Dropped after [_urlCacheIdle] unused, so a large
+  /// playlist does not sit in memory all evening.
+  static final Map<String, Map<String, String>> _urlCache = {};
+  static final Map<String, Timer> _urlCacheExpiry = {};
+  static const _urlCacheIdle = Duration(minutes: 30);
+
+  static void _touchUrlCache(String location) {
+    _urlCacheExpiry.remove(location)?.cancel();
+    _urlCacheExpiry[location] = Timer(_urlCacheIdle, () {
+      _urlCache.remove(location);
+      _urlCacheExpiry.remove(location);
+    });
+  }
+
   /// EPG URL that ends up effective: the explicit one wins over the
   /// playlist header's `url-tvg`. Meaningful after the playlist is loaded.
   String? get effectiveEpgUrl => epgUrl ?? _playlist?.epgUrl;
@@ -83,6 +106,10 @@ class M3uSource implements PlaylistSource {
       throw const SourceException('Not a valid M3U playlist');
     }
     _playlist = playlist;
+    _urlCache[location] = {
+      for (final entry in playlist.entries) stableId(entry.url): entry.url,
+    };
+    _touchUrlCache(location);
     return playlist;
   }
 
@@ -221,9 +248,15 @@ class M3uSource implements PlaylistSource {
 
   @override
   Future<String> buildStreamUrl(StreamRef ref) async {
-    // Resolve the id against the playlist, loading it if this is a fresh
-    // instance (the app builds a new source per playback). Cached after the
-    // first load for the life of this instance.
+    // A recent load (by any instance) already knows the URL; see _urlCache.
+    final location = account.serverUrl.trim();
+    final known = _urlCache[location]?[ref.streamId];
+    if (known != null) {
+      _touchUrlCache(location);
+      return known;
+    }
+    // Otherwise resolve the id against the playlist, loading it if this is a
+    // fresh instance.
     final playlist = await _load();
     for (final entry in playlist.entries) {
       if (stableId(entry.url) == ref.streamId) return entry.url;

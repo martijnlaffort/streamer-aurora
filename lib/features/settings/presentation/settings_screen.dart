@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/platform/television.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/tv_initial_focus.dart';
 import '../../../data/db/app_database.dart' show CatalogKind;
 import '../../../data/notifications/reminder_service.dart';
 import '../../../data/providers.dart';
@@ -27,7 +29,7 @@ final cacheStatsProvider = FutureProvider<
 /// (code, display name) — the short list that covers real IPTV playlists.
 /// null code = no preference; [Preferences.subsOff] = explicit off (subs).
 const _languages = <(String?, String)>[
-  (null, 'No preference'),
+  (null, 'Stream default'),
   ('en', 'English'),
   ('nl', 'Dutch'),
   ('de', 'German'),
@@ -39,6 +41,45 @@ const _languages = <(String?, String)>[
   ('pl', 'Polish'),
   ('pt', 'Portuguese'),
 ];
+
+/// The pages Settings is split into.
+///
+/// Settings used to be one list of about thirty rows — with Sync, About and
+/// Update filed under "Library", and Audio sync under "Appearance". The
+/// top level is now a short list of subjects, each opening its own page, and
+/// everything a normal viewer never needs lives under [advanced].
+enum SettingsSection {
+  playback('Playback', Icons.play_circle_outline),
+  audio('Audio & subtitles', Icons.subtitles_outlined),
+  channels('Channels & guide', Icons.live_tv_outlined),
+  appearance('Appearance', Icons.palette_outlined),
+  devices('Devices & sync', Icons.devices_outlined),
+  advanced('Advanced', Icons.tune);
+
+  const SettingsSection(this.title, this.icon);
+
+  final String title;
+  final IconData icon;
+
+  static SettingsSection? byName(String? name) =>
+      values.where((s) => s.name == name).firstOrNull;
+}
+
+/// Saves a preference change the way every row does: write it, stamp it so
+/// sync's last-write-wins favours this edit (§9), and refresh the readers.
+Future<void> Function(Preferences) _prefsSaver(WidgetRef ref) =>
+    (updated) async {
+      await ref.read(preferencesRepositoryProvider).save(updated);
+      await ref
+          .read(syncConfigStoreProvider)
+          .setPreferencesChangedAt(DateTime.now().toUtc());
+      ref.invalidate(preferencesProvider);
+    };
+
+Preferences _prefsOf(WidgetRef ref) =>
+    ref.watch(preferencesProvider).value ?? const Preferences.defaults();
+
+TextStyle get _secondary => TextStyle(color: AppColors.textSecondary);
 
 /// Sheet for the TMDB key + region behind the discovery rails.
 ///
@@ -121,13 +162,15 @@ Future<void> _editDiscovery(
                     return;
                   }
                 }
-                await savePrefs(key.isEmpty
-                    ? prefs.copyWith(
-                        clearTmdbApiKey: true,
-                        discoveryRegion: region.isEmpty ? null : region)
-                    : prefs.copyWith(
-                        tmdbApiKey: key,
-                        discoveryRegion: region.isEmpty ? null : region));
+                // An emptied region field goes back to the device region.
+                // Passing null to copyWith meant "keep the old one", so a
+                // region, once set, could never be cleared.
+                await savePrefs(prefs.copyWith(
+                  tmdbApiKey: key.isEmpty ? null : key,
+                  clearTmdbApiKey: key.isEmpty,
+                  discoveryRegion: region.isEmpty ? null : region,
+                  clearDiscoveryRegion: region.isEmpty,
+                ));
                 // New key/region → refetch the lists and re-resolve.
                 ref.invalidate(discoveryRailsProvider);
                 if (sheetContext.mounted) {
@@ -155,12 +198,15 @@ Future<void> _editDiscovery(
 /// What is left is the screen's: a television's picture processing, a soundbar
 /// over ARC. That differs per display and cannot be measured from inside the
 /// app, so it is a control — steps rather than a slider, because a slider is
-/// miserable with a remote and 10 ms is below what anyone can hear anyway.
+/// miserable with a remote. 20 ms a step: at 10 it took thirty presses to
+/// reach the end of the range, and 20 ms is about the smallest shift anyone
+/// can hear.
 Future<void> _editAudioDelay(
   BuildContext context,
   Preferences prefs,
   Future<void> Function(Preferences) savePrefs,
 ) async {
+  const step = 20, limit = 300;
   var value = prefs.audioDelayMs;
   await showDialog<void>(
     context: context,
@@ -182,8 +228,8 @@ Future<void> _editAudioDelay(
               children: [
                 IconButton.filledTonal(
                   tooltip: 'Sound earlier',
-                  onPressed: value > -300
-                      ? () => setState(() => value -= 10)
+                  onPressed: value > -limit
+                      ? () => setState(() => value -= step)
                       : null,
                   icon: const Icon(Icons.remove),
                 ),
@@ -192,7 +238,7 @@ Future<void> _editAudioDelay(
                   child: Text(
                     value == 0
                         ? 'Automatic'
-                        : '${value > 0 ? '+' : ''}$value ms',
+                        : '${value > 0 ? '+' : '−'}${value.abs()} ms',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.w600),
@@ -200,8 +246,8 @@ Future<void> _editAudioDelay(
                 ),
                 IconButton.filledTonal(
                   tooltip: 'Sound later',
-                  onPressed: value < 300
-                      ? () => setState(() => value += 10)
+                  onPressed: value < limit
+                      ? () => setState(() => value += step)
                       : null,
                   icon: const Icon(Icons.add),
                 ),
@@ -209,11 +255,8 @@ Future<void> _editAudioDelay(
             ),
             const SizedBox(height: 6),
             Text(
-              value > 0
-                  ? 'Sound delayed'
-                  : value < 0
-                      ? 'Sound brought forward'
-                      : 'Only the app\'s own latency is corrected',
+              _audioDelayLabel(value) ??
+                  'Only the app\'s own latency is corrected',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
           ],
@@ -223,11 +266,12 @@ Future<void> _editAudioDelay(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          if (value != 0)
-            TextButton(
-              onPressed: () => setState(() => value = 0),
-              child: const Text('Reset'),
-            ),
+          // Always there, just disabled at zero: appearing and disappearing
+          // moved the other buttons under the remote's cursor.
+          TextButton(
+            onPressed: value == 0 ? null : () => setState(() => value = 0),
+            child: const Text('Reset'),
+          ),
           FilledButton(
             autofocus: true,
             onPressed: () async {
@@ -242,8 +286,16 @@ Future<void> _editAudioDelay(
   );
 }
 
+/// "Sound delayed 40 ms" / "Sound brought forward 40 ms", or null at zero.
+/// The old wording read "Sound delayed -40 ms" for the second case.
+String? _audioDelayLabel(int ms) => ms > 0
+    ? 'Sound delayed $ms ms'
+    : ms < 0
+        ? 'Sound brought forward ${ms.abs()} ms'
+        : null;
+
 String _languageLabel(String? code) {
-  if (code == null) return 'No preference';
+  if (code == null) return 'Stream default';
   if (code == Preferences.subsOff) return 'Off';
   return _languages
           .where((l) => l.$1 == code)
@@ -252,490 +304,602 @@ String _languageLabel(String? code) {
       code;
 }
 
-/// Settings (PRD §8.12): accounts, favorites, playback languages,
-/// autoplay, cache maintenance.
+Future<void> _pickLanguage(
+  BuildContext context, {
+  required String title,
+  required String? current,
+  required bool withOff,
+  required Future<void> Function(String?) onPicked,
+}) async {
+  final options = [
+    ..._languages,
+    if (withOff) (Preferences.subsOff, 'Off (no subtitles)'),
+  ];
+  final picked = await showDialog<(String?,)>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      backgroundColor: AppColors.surface,
+      title: Text(title),
+      children: [
+        for (final (code, label) in options)
+          RadioListTile<String?>(
+            // Seed focus on the current choice so the dialog is operable by
+            // remote the moment it opens.
+            autofocus: code == current,
+            value: code,
+            // ignore: deprecated_member_use
+            groupValue: current,
+            // ignore: deprecated_member_use
+            onChanged: (_) => Navigator.pop(context, (code,)),
+            title: Text(label),
+            activeColor: AppColors.accent,
+          ),
+      ],
+    ),
+  );
+  if (picked != null) await onPicked(picked.$1);
+}
+
+/// Settings (PRD §8.12): a short list of subjects, each opening its own page.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
-
-  Future<void> _pickLanguage(
-    BuildContext context,
-    WidgetRef ref, {
-    required String title,
-    required String? current,
-    required bool withOff,
-    required Future<void> Function(String?) onPicked,
-  }) async {
-    final options = [
-      ..._languages,
-      if (withOff) (Preferences.subsOff, 'Off (no subtitles)'),
-    ];
-    final picked = await showDialog<(String?,)>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        backgroundColor: AppColors.surface,
-        title: Text(title),
-        children: [
-          for (final (code, label) in options)
-            RadioListTile<String?>(
-              // Seed focus on the current choice so the dialog is operable by
-              // remote the moment it opens.
-              autofocus: code == current,
-              value: code,
-              // ignore: deprecated_member_use
-              groupValue: current,
-              // ignore: deprecated_member_use
-              onChanged: (_) => Navigator.pop(context, (code,)),
-              title: Text(label),
-              activeColor: AppColors.accent,
-            ),
-        ],
-      ),
-    );
-    if (picked != null) await onPicked(picked.$1);
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final active = ref.watch(activeAccountProvider);
-    final prefs = ref.watch(preferencesProvider).value ??
-        const Preferences.defaults();
-    final stats = ref.watch(cacheStatsProvider);
-    final prefsRepo = ref.read(preferencesRepositoryProvider);
+    final prefs = _prefsOf(ref);
+    final syncOn = ref.watch(syncConfigProvider).value?.isConfigured ?? false;
+    final update = ref.watch(availableUpdateProvider).value;
 
-    Future<void> savePrefs(Preferences updated) async {
-      await prefsRepo.save(updated);
-      // Stamp the local edit so sync's last-write-wins favours it (§9).
-      await ref
-          .read(syncConfigStoreProvider)
-          .setPreferencesChangedAt(DateTime.now().toUtc());
-      ref.invalidate(preferencesProvider);
-    }
+    void open(SettingsSection section) =>
+        context.push('/settings/page/${section.name}');
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
-          const _SectionLabel('Library'),
-          ListTile(
-            leading: const Icon(Icons.switch_account_outlined),
-            title: const Text('Accounts'),
-            subtitle: Text(
-              switch (active) {
-                AsyncData(value: final a?) => 'Active: ${a.name}',
-                _ => 'No active account',
-              },
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/accounts'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.favorite_border),
-            title: const Text('Favorites'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/favorites'),
-          ),
-          // Both directions exist on every device, but the one that matches
-          // what you are holding comes first — a TV is nearly always the
-          // device being set up, and a phone the one doing the setting up.
-          if (isTelevisionOf(ref)) ...[
-            ListTile(
-              leading: const Icon(Icons.phonelink_ring),
-              title: const Text('Pair with your phone'),
-              subtitle: Text(
-                'Copy your playlists and sync settings across, without typing',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/pair/receive'),
-            ),
-          ] else ...[
-            ListTile(
-              leading: const Icon(Icons.tv),
-              title: const Text('Set up a TV'),
-              subtitle: Text(
-                'Send your playlists and sync settings to another device',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/pair/send'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.phonelink_ring),
-              title: const Text('Pair with another device'),
-              subtitle: Text(
-                'Receive playlists and sync settings from a set-up device',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/pair/receive'),
-            ),
-          ],
-          // Sideloaded: nothing else tells anyone a newer build exists. Absent
-          // when this build is current, or when GitHub could not be reached.
-          if (ref.watch(availableUpdateProvider).value case final update?)
+          // Sideloaded builds only: nothing else tells anyone a newer build
+          // exists. Absent when this build is current or GitHub was unreachable.
+          if (update != null)
             ListTile(
               leading: Icon(Icons.system_update_alt, color: AppColors.accent),
               title: Text('Update available — build ${update.build}'),
               subtitle: Text(
-                isTelevisionOf(ref)
-                    ? 'Shows where to get it'
-                    : 'Download the new build',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
+                  isTelevisionOf(ref)
+                      ? 'Shows where to get it'
+                      : 'Download the new build',
+                  style: _secondary),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => openUpdate(context, ref, update),
             ),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('About & credits'),
-            trailing: const Icon(Icons.chevron_right),
+          _Entry(
+            icon: Icons.switch_account_outlined,
+            title: 'Account',
+            summary: switch (active) {
+              AsyncData(value: final a?) => a.name,
+              _ => 'No playlist yet — add one',
+            },
+            onTap: () => context.push('/accounts'),
+          ),
+          _Entry(
+            icon: Icons.bookmark_border,
+            title: 'My List',
+            summary: 'Films, series and channels you saved',
+            onTap: () => context.push('/favorites'),
+          ),
+          _Entry(
+            icon: SettingsSection.playback.icon,
+            title: SettingsSection.playback.title,
+            summary: [
+              prefs.autoplayNext ? 'Autoplay on' : 'Autoplay off',
+              _audioDelayLabel(prefs.audioDelayMs) ?? 'Audio sync automatic',
+            ].join(' · '),
+            onTap: () => open(SettingsSection.playback),
+          ),
+          _Entry(
+            icon: SettingsSection.audio.icon,
+            title: SettingsSection.audio.title,
+            summary: 'Audio: ${_languageLabel(prefs.preferredAudioLang)}'
+                ' · Subtitles: ${_languageLabel(prefs.preferredSubtitleLang)}',
+            onTap: () => open(SettingsSection.audio),
+          ),
+          _Entry(
+            icon: SettingsSection.channels.icon,
+            title: SettingsSection.channels.title,
+            summary: 'Languages, categories, hidden channels',
+            onTap: () => open(SettingsSection.channels),
+          ),
+          _Entry(
+            icon: SettingsSection.appearance.icon,
+            title: SettingsSection.appearance.title,
+            summary: '${_themeLabel(prefs.themeMode)} · '
+                '${UiSize.nearest(prefs.uiScale).label} text',
+            onTap: () => open(SettingsSection.appearance),
+          ),
+          _Entry(
+            icon: SettingsSection.devices.icon,
+            title: SettingsSection.devices.title,
+            summary: syncOn
+                ? 'Sync on — across your devices'
+                : 'Set up another TV or phone',
+            onTap: () => open(SettingsSection.devices),
+          ),
+          _Entry(
+            icon: Icons.info_outline,
+            title: 'About & help',
+            summary: 'Version, credits and licences',
             onTap: () => context.push('/about'),
           ),
-          ListTile(
-            leading: const Icon(Icons.sync),
-            title: const Text('Sync'),
-            subtitle: Text(
-              (ref.watch(syncConfigProvider).value?.isConfigured ?? false)
-                  ? 'On — across your devices'
-                  : 'Off',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/sync'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.translate_outlined),
-            title: const Text('Content languages'),
-            subtitle: Text(
-              prefs.contentLanguages == null
-                  ? 'All languages'
-                  : '${prefs.contentLanguages!.length} selected',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/languages'),
-          ),
-          // Hiding groups is the blunt instrument that makes a 200-category
-          // line usable, so it sits right next to the language filter that
-          // does a coarser version of the same job.
-          ListTile(
-            leading: const Icon(Icons.tune),
-            title: const Text('Live TV groups'),
-            subtitle: Text('Hide, rename and reorder',
-                style: TextStyle(color: AppColors.textSecondary)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/groups/live'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.tune),
-            title: const Text('Movie groups'),
-            subtitle: Text('Hide, rename and reorder',
-                style: TextStyle(color: AppColors.textSecondary)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/groups/vod'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.tune),
-            title: const Text('Series groups'),
-            subtitle: Text('Hide, rename and reorder',
-                style: TextStyle(color: AppColors.textSecondary)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/groups/series'),
-          ),
-          // The way back from hiding a channel, which happens from a menu on
-          // the channel itself — without this the action would be one-way.
-          ListTile(
-            leading: const Icon(Icons.visibility_off_outlined),
-            title: const Text('Hidden channels'),
-            subtitle: Text('Bring individual channels back',
-                style: TextStyle(color: AppColors.textSecondary)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/hidden-channels'),
-          ),
-          // Groups are made from the Live tab's channel menu; this is where
-          // they are renamed, emptied and deleted.
-          ListTile(
-            leading: const Icon(Icons.folder_outlined),
-            title: const Text('Channel groups'),
-            subtitle: Text('Your own groups of channels, across categories',
-                style: TextStyle(color: AppColors.textSecondary)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/custom-groups'),
-          ),
-          if (ReminderService.isSupported)
-            ListTile(
-              leading: const Icon(Icons.notifications_none_outlined),
-              title: const Text('Reminders'),
-              subtitle: Text('Programmes you asked to be told about',
-                  style: TextStyle(color: AppColors.textSecondary)),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/settings/reminders'),
-            ),
-          SwitchListTile(
-            secondary: const Icon(Icons.high_quality_outlined),
-            title: const Text('Group channel qualities'),
-            subtitle: Text(
-                'Show one row per channel and play the best of its '
-                'SD/HD/FHD/4K streams',
-                style: TextStyle(color: AppColors.textSecondary)),
-            value: prefs.groupChannelVariants,
-            activeThumbColor: AppColors.accent,
-            onChanged: (v) =>
-                savePrefs(prefs.copyWith(groupChannelVariants: v)),
-          ),
-          ListTile(
-            leading: const Icon(Icons.local_fire_department_outlined),
-            title: const Text('Discovery rails'),
-            subtitle: Text(
-              prefs.tmdbApiKey == null
-                  ? 'Award winners only — add a TMDB key for Trending & Popular'
-                  : 'On — trending, popular and new in '
-                      '${prefs.discoveryRegion ?? 'your region'}',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _editDiscovery(context, ref, prefs, savePrefs),
-          ),
-          const Divider(),
-          const _SectionLabel('Playback'),
-          ListTile(
-            leading: const Icon(Icons.audiotrack_outlined),
-            title: const Text('Preferred audio language'),
-            subtitle: Text(_languageLabel(prefs.preferredAudioLang),
-                style: TextStyle(color: AppColors.accentAlt)),
-            onTap: () => _pickLanguage(
-              context,
-              ref,
-              title: 'Preferred audio language',
-              current: prefs.preferredAudioLang,
-              withOff: false,
-              onPicked: (code) =>
-                  savePrefs(prefs.copyWith(preferredAudioLang: code)),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.subtitles_outlined),
-            title: const Text('Preferred subtitle language'),
-            subtitle: Text(_languageLabel(prefs.preferredSubtitleLang),
-                style: TextStyle(color: AppColors.accentAlt)),
-            onTap: () => _pickLanguage(
-              context,
-              ref,
-              title: 'Preferred subtitle language',
-              current: prefs.preferredSubtitleLang,
-              withOff: true,
-              onPicked: (code) =>
-                  savePrefs(prefs.copyWith(preferredSubtitleLang: code)),
-            ),
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.skip_next_outlined),
-            title: const Text('Autoplay next episode'),
-            value: prefs.autoplayNext,
-            activeThumbColor: AppColors.accent,
-            onChanged: (v) => savePrefs(prefs.copyWith(autoplayNext: v)),
-          ),
-          SwitchListTile(
-            secondary: const Icon(Icons.headphones_outlined),
-            title: const Text('Continue audio in background'),
-            subtitle: Text('Keep playing when the app is minimised',
-                style: TextStyle(color: AppColors.textSecondary)),
-            value: prefs.backgroundPlayback,
-            activeThumbColor: AppColors.accent,
-            onChanged: (v) =>
-                savePrefs(prefs.copyWith(backgroundPlayback: v)),
-          ),
-          const Divider(),
-          const _SectionLabel('Cache'),
-          ListTile(
-            leading: const Icon(Icons.storage_outlined),
-            title: const Text('Cached catalog'),
-            subtitle: Text(
-              switch (stats) {
-                AsyncData(value: final s?) =>
-                  '${s.channels} channels · ${s.movies} movies · '
-                      '${s.series} series · ${s.episodes} episodes',
-                _ => '—',
-              },
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.refresh),
-            title: const Text('Force refresh'),
-            subtitle: Text('Refetch the full catalog from the source',
-                style: TextStyle(color: AppColors.textSecondary)),
-            onTap: () async {
-              final account = await ref.read(activeAccountProvider.future);
-              if (account == null || !context.mounted) return;
-              final messenger = ScaffoldMessenger.of(context);
-              messenger.showSnackBar(
-                  const SnackBar(content: Text('Refreshing catalog…')));
-              try {
-                await ref.read(catalogRepositoryProvider).refreshCatalog(
-                    account, kinds: CatalogKind.values.toSet());
-                messenger.showSnackBar(
-                    const SnackBar(content: Text('Catalog refreshed.')));
-              } on Exception catch (e) {
-                messenger.showSnackBar(
-                    SnackBar(content: Text('Refresh failed: $e')));
-              }
-              ref.invalidate(cacheStatsProvider);
-              ref.invalidate(homeDataProvider);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete_sweep_outlined),
-            title: const Text('Clear catalog cache'),
-            subtitle: Text('Progress and favorites are kept',
-                style: TextStyle(color: AppColors.textSecondary)),
-            onTap: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Clear catalog cache?'),
-                  content: const Text(
-                      'The catalog will be refetched from the source on the '
-                      'next load. Watch progress and favorites are kept.'),
-                  actions: [
-                    TextButton(
-                        // Focus the safe choice, so an immediate OK on a remote
-                        // cancels rather than clears.
-                        autofocus: true,
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancel')),
-                    FilledButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Clear')),
-                  ],
-                ),
-              );
-              if (confirmed != true) return;
-              final account = await ref.read(activeAccountProvider.future);
-              if (account == null) return;
-              await ref
-                  .read(catalogRepositoryProvider)
-                  .clearCatalogCache(account);
-              ref.invalidate(cacheStatsProvider);
-              ref.invalidate(homeDataProvider);
-            },
-          ),
-          const Divider(),
-          const _SectionLabel('Appearance'),
-          ListTile(
-            leading: Icon(switch (prefs.themeMode) {
-              AppThemeMode.dark => Icons.dark_mode_outlined,
-              AppThemeMode.light => Icons.light_mode_outlined,
-              AppThemeMode.system => Icons.brightness_auto_outlined,
-            }),
-            title: const Text('Theme'),
-            subtitle: Text(
-              switch (prefs.themeMode) {
-                AppThemeMode.dark => 'Dark — the cinematic default',
-                AppThemeMode.light => 'Light',
-                AppThemeMode.system => 'Follow the device',
-              },
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final picked = await showDialog<AppThemeMode>(
-                context: context,
-                builder: (context) => SimpleDialog(
-                  backgroundColor: AppColors.surface,
-                  title: const Text('Theme'),
-                  children: [
-                    for (final mode in AppThemeMode.values)
-                      RadioListTile<AppThemeMode>(
-                        autofocus: mode == prefs.themeMode,
-                        value: mode,
-                        // ignore: deprecated_member_use
-                        groupValue: prefs.themeMode,
-                        // ignore: deprecated_member_use
-                        onChanged: (_) => Navigator.pop(context, mode),
-                        activeColor: AppColors.accent,
-                        title: Text(switch (mode) {
-                          AppThemeMode.dark => 'Dark',
-                          AppThemeMode.light => 'Light',
-                          AppThemeMode.system => 'Follow the device',
-                        }),
-                      ),
-                  ],
-                ),
-              );
-              if (picked == null) return;
-              await savePrefs(prefs.copyWith(themeMode: picked));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.format_size),
-            title: const Text('Size'),
-            subtitle: Text(
-              // Named rather than a percentage: "Large" is a choice, "115%" is
-              // a number to reason about.
-              '${UiSize.nearest(prefs.uiScale).label} — text and posters',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              final current = UiSize.nearest(prefs.uiScale);
-              final picked = await showDialog<UiSize>(
-                context: context,
-                builder: (context) => SimpleDialog(
-                  backgroundColor: AppColors.surface,
-                  title: const Text('Size'),
-                  children: [
-                    for (final size in UiSize.values)
-                      RadioListTile<UiSize>(
-                        autofocus: size == current,
-                        value: size,
-                        // ignore: deprecated_member_use
-                        groupValue: current,
-                        // ignore: deprecated_member_use
-                        onChanged: (_) => Navigator.pop(context, size),
-                        activeColor: AppColors.accent,
-                        title: Text(size.label),
-                      ),
-                  ],
-                ),
-              );
-              if (picked == null) return;
-              await savePrefs(prefs.copyWith(uiScale: picked.scale));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.speaker_notes_outlined),
-            title: const Text('Audio sync'),
-            subtitle: Text(
-              prefs.audioDelayMs == 0
-                  ? 'Automatic — adjust if sound runs ahead of the picture'
-                  : 'Sound delayed ${prefs.audioDelayMs} ms on this screen',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _editAudioDelay(context, prefs, savePrefs),
-          ),
-          if (kDebugMode) ...[
-            const Divider(),
-            const _SectionLabel('Developer'),
-            ListTile(
-              leading: const Icon(Icons.bug_report_outlined),
-              title: const Text('Source probe'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/dev/source-probe'),
-            ),
-          ],
-          const AboutListTile(
-            icon: Icon(Icons.info_outline),
-            applicationName: 'Dawn Player',
-            applicationVersion: '0.1.0',
-            child: Text('About'),
+          _Entry(
+            icon: SettingsSection.advanced.icon,
+            title: SettingsSection.advanced.title,
+            summary: 'Discovery rails, storage, diagnostics',
+            onTap: () => open(SettingsSection.advanced),
           ),
           const SizedBox(height: 24),
         ],
       ),
     );
+  }
+}
+
+String _themeLabel(AppThemeMode mode) => switch (mode) {
+      AppThemeMode.dark => 'Dark',
+      AppThemeMode.light => 'Light',
+      AppThemeMode.system => 'Follows the device',
+    };
+
+/// One top-level Settings row: a subject and what it is set to now.
+class _Entry extends StatelessWidget {
+  const _Entry({
+    required this.icon,
+    required this.title,
+    required this.summary,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String summary;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        leading: Icon(icon),
+        title: Text(title),
+        subtitle: Text(summary,
+            maxLines: 1, overflow: TextOverflow.ellipsis, style: _secondary),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
+      );
+}
+
+/// One Settings page: [section]'s rows.
+class SettingsSectionScreen extends ConsumerWidget {
+  const SettingsSectionScreen({super.key, required this.section});
+
+  final SettingsSection section;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final prefs = _prefsOf(ref);
+    final savePrefs = _prefsSaver(ref);
+    return Scaffold(
+      appBar: AppBar(title: Text(section.title)),
+      body: TvInitialFocus(
+        child: ListView(
+          children: [
+            ...switch (section) {
+              SettingsSection.playback =>
+                _playback(context, ref, prefs, savePrefs),
+              SettingsSection.audio => _audio(context, prefs, savePrefs),
+              SettingsSection.channels =>
+                _channels(context, prefs, savePrefs),
+              SettingsSection.appearance =>
+                _appearance(context, prefs, savePrefs),
+              SettingsSection.devices => _devices(context, ref),
+              SettingsSection.advanced =>
+                _advanced(context, ref, prefs, savePrefs),
+            },
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _playback(BuildContext context, WidgetRef ref,
+          Preferences prefs, Future<void> Function(Preferences) savePrefs) =>
+      [
+        SwitchListTile(
+          secondary: const Icon(Icons.skip_next_outlined),
+          title: const Text('Autoplay next episode'),
+          subtitle: Text('Start the next episode when one finishes',
+              style: _secondary),
+          value: prefs.autoplayNext,
+          activeThumbColor: AppColors.accent,
+          onChanged: (v) => savePrefs(prefs.copyWith(autoplayNext: v)),
+        ),
+        // A television has no "minimised": the row would promise something
+        // that cannot happen there.
+        if (!isTelevisionOf(ref))
+          SwitchListTile(
+            secondary: const Icon(Icons.headphones_outlined),
+            title: const Text('Continue audio in background'),
+            subtitle: Text('Keep playing when the app is minimised',
+                style: _secondary),
+            value: prefs.backgroundPlayback,
+            activeThumbColor: AppColors.accent,
+            onChanged: (v) =>
+                savePrefs(prefs.copyWith(backgroundPlayback: v)),
+          ),
+        ListTile(
+          leading: const Icon(Icons.speaker_notes_outlined),
+          title: const Text('Audio sync'),
+          subtitle: Text(
+            _audioDelayLabel(prefs.audioDelayMs) == null
+                ? 'Automatic — adjust if sound runs ahead of the picture'
+                : '${_audioDelayLabel(prefs.audioDelayMs)} on this screen',
+            style: _secondary,
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => _editAudioDelay(context, prefs, savePrefs),
+        ),
+      ];
+
+  List<Widget> _audio(BuildContext context, Preferences prefs,
+          Future<void> Function(Preferences) savePrefs) =>
+      [
+        ListTile(
+          leading: const Icon(Icons.audiotrack_outlined),
+          title: const Text('Preferred audio language'),
+          subtitle: Text(_languageLabel(prefs.preferredAudioLang),
+              style: TextStyle(color: AppColors.accentAlt)),
+          onTap: () => _pickLanguage(
+            context,
+            title: 'Preferred audio language',
+            current: prefs.preferredAudioLang,
+            withOff: false,
+            onPicked: (code) =>
+                savePrefs(prefs.copyWith(preferredAudioLang: code)),
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.subtitles_outlined),
+          title: const Text('Preferred subtitle language'),
+          subtitle: Text(_languageLabel(prefs.preferredSubtitleLang),
+              style: TextStyle(color: AppColors.accentAlt)),
+          onTap: () => _pickLanguage(
+            context,
+            title: 'Preferred subtitle language',
+            current: prefs.preferredSubtitleLang,
+            withOff: true,
+            onPicked: (code) =>
+                savePrefs(prefs.copyWith(preferredSubtitleLang: code)),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Text(
+            'Picked automatically when a film or channel offers it. You can '
+            'still switch while watching.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+        ),
+      ];
+
+  List<Widget> _channels(BuildContext context, Preferences prefs,
+          Future<void> Function(Preferences) savePrefs) =>
+      [
+        ListTile(
+          leading: const Icon(Icons.translate_outlined),
+          title: const Text('Channel languages'),
+          subtitle: Text(
+            prefs.contentLanguages == null
+                ? 'Showing every language'
+                : 'Showing ${prefs.contentLanguages!.length} '
+                    '${prefs.contentLanguages!.length == 1 ? 'language' : 'languages'}',
+            style: _secondary,
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/settings/languages'),
+        ),
+        SwitchListTile(
+          secondary: const Icon(Icons.high_quality_outlined),
+          title: const Text('Merge HD/SD versions'),
+          subtitle: Text(
+              'One row per channel that plays the best of its SD, HD, FHD '
+              'and 4K streams',
+              style: _secondary),
+          value: prefs.groupChannelVariants,
+          activeThumbColor: AppColors.accent,
+          onChanged: (v) => savePrefs(prefs.copyWith(groupChannelVariants: v)),
+        ),
+        const _SectionLabel('Categories'),
+        // Hiding categories is the blunt instrument that makes a
+        // 200-category line usable.
+        for (final (type, label) in const [
+          ('live', 'Live TV categories'),
+          ('vod', 'Movie categories'),
+          ('series', 'Series categories'),
+        ])
+          ListTile(
+            leading: const Icon(Icons.view_list_outlined),
+            title: Text(label),
+            subtitle: Text('Hide, rename and reorder', style: _secondary),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/groups/$type'),
+          ),
+        const _SectionLabel('Channels'),
+        // Groups are made from the Live tab's channel menu; this is where they
+        // are renamed, emptied and deleted.
+        ListTile(
+          leading: const Icon(Icons.folder_outlined),
+          title: const Text('My channel groups'),
+          subtitle: Text('Your own groups of channels, across categories',
+              style: _secondary),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/settings/custom-groups'),
+        ),
+        // The way back from hiding a channel, which happens from a menu on
+        // the channel itself — without this the action would be one-way.
+        ListTile(
+          leading: const Icon(Icons.visibility_off_outlined),
+          title: const Text('Hidden channels'),
+          subtitle: Text('Bring individual channels back', style: _secondary),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/settings/hidden-channels'),
+        ),
+        if (ReminderService.isSupported)
+          ListTile(
+            leading: const Icon(Icons.notifications_none_outlined),
+            title: const Text('Reminders'),
+            subtitle: Text('Programmes you asked to be told about',
+                style: _secondary),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/reminders'),
+          ),
+      ];
+
+  List<Widget> _appearance(BuildContext context, Preferences prefs,
+          Future<void> Function(Preferences) savePrefs) =>
+      [
+        ListTile(
+          leading: Icon(switch (prefs.themeMode) {
+            AppThemeMode.dark => Icons.dark_mode_outlined,
+            AppThemeMode.light => Icons.light_mode_outlined,
+            AppThemeMode.system => Icons.brightness_auto_outlined,
+          }),
+          title: const Text('Theme'),
+          subtitle: Text(
+            prefs.themeMode == AppThemeMode.dark
+                ? 'Dark — the cinematic default'
+                : _themeLabel(prefs.themeMode),
+            style: _secondary,
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final picked = await showDialog<AppThemeMode>(
+              context: context,
+              builder: (context) => SimpleDialog(
+                backgroundColor: AppColors.surface,
+                title: const Text('Theme'),
+                children: [
+                  for (final mode in AppThemeMode.values)
+                    RadioListTile<AppThemeMode>(
+                      autofocus: mode == prefs.themeMode,
+                      value: mode,
+                      // ignore: deprecated_member_use
+                      groupValue: prefs.themeMode,
+                      // ignore: deprecated_member_use
+                      onChanged: (_) => Navigator.pop(context, mode),
+                      activeColor: AppColors.accent,
+                      title: Text(_themeLabel(mode)),
+                    ),
+                ],
+              ),
+            );
+            if (picked == null) return;
+            await savePrefs(prefs.copyWith(themeMode: picked));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.format_size),
+          title: const Text('Text size'),
+          subtitle: Text(
+            // Named rather than a percentage: "Large" is a choice, "115%" is
+            // a number to reason about.
+            '${UiSize.nearest(prefs.uiScale).label} — text and posters',
+            style: _secondary,
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final current = UiSize.nearest(prefs.uiScale);
+            final picked = await showDialog<UiSize>(
+              context: context,
+              builder: (context) => SimpleDialog(
+                backgroundColor: AppColors.surface,
+                title: const Text('Text size'),
+                children: [
+                  for (final size in UiSize.values)
+                    RadioListTile<UiSize>(
+                      autofocus: size == current,
+                      value: size,
+                      // ignore: deprecated_member_use
+                      groupValue: current,
+                      // ignore: deprecated_member_use
+                      onChanged: (_) => Navigator.pop(context, size),
+                      activeColor: AppColors.accent,
+                      title: Text(size.label),
+                    ),
+                ],
+              ),
+            );
+            if (picked == null) return;
+            await savePrefs(prefs.copyWith(uiScale: picked.scale));
+          },
+        ),
+      ];
+
+  List<Widget> _devices(BuildContext context, WidgetRef ref) {
+    final syncOn = ref.watch(syncConfigProvider).value?.isConfigured ?? false;
+    return [
+      // Both directions exist on every device, but the one that matches what
+      // you are holding comes first — a TV is nearly always the device being
+      // set up, and a phone the one doing the setting up.
+      if (isTelevisionOf(ref))
+        ListTile(
+          leading: const Icon(Icons.phonelink_ring),
+          title: const Text('Pair with your phone'),
+          subtitle: Text(
+              'Copy your playlists and settings across, without typing',
+              style: _secondary),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/pair/receive'),
+        )
+      else ...[
+        ListTile(
+          leading: const Icon(Icons.tv),
+          title: const Text('Set up a TV'),
+          subtitle: Text('Send your playlists and settings to another device',
+              style: _secondary),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/pair/send'),
+        ),
+        ListTile(
+          leading: const Icon(Icons.phonelink_ring),
+          title: const Text('Pair with another device'),
+          subtitle: Text('Receive playlists and settings from a set-up device',
+              style: _secondary),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/pair/receive'),
+        ),
+      ],
+      ListTile(
+        leading: const Icon(Icons.sync),
+        title: const Text('Sync'),
+        subtitle: Text(
+            syncOn
+                ? 'On — progress, My List and settings follow you'
+                : 'Off',
+            style: _secondary),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.push('/settings/sync'),
+      ),
+    ];
+  }
+
+  List<Widget> _advanced(BuildContext context, WidgetRef ref,
+      Preferences prefs, Future<void> Function(Preferences) savePrefs) {
+    final stats = ref.watch(cacheStatsProvider);
+    return [
+      ListTile(
+        leading: const Icon(Icons.local_fire_department_outlined),
+        title: const Text('Discovery rails'),
+        subtitle: Text(
+          prefs.tmdbApiKey == null
+              ? 'Award winners only — add a TMDB key for Trending & Popular'
+              : 'On — trending, popular and new in '
+                  '${prefs.discoveryRegion ?? 'your region'}',
+          style: _secondary,
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => _editDiscovery(context, ref, prefs, savePrefs),
+      ),
+      const _SectionLabel('Storage'),
+      ListTile(
+        leading: const Icon(Icons.storage_outlined),
+        title: const Text('Saved catalogue'),
+        subtitle: Text(
+          switch (stats) {
+            AsyncData(value: final s?) =>
+              '${s.channels} channels · ${s.movies} films · '
+                  '${s.series} series · ${s.episodes} episodes',
+            _ => '—',
+          },
+          style: _secondary,
+        ),
+      ),
+      ListTile(
+        leading: const Icon(Icons.refresh),
+        title: const Text('Refresh catalogue now'),
+        subtitle: Text('Fetch everything again from your provider',
+            style: _secondary),
+        onTap: () async {
+          final account = await ref.read(activeAccountProvider.future);
+          if (account == null || !context.mounted) return;
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.showSnackBar(
+              const SnackBar(content: Text('Refreshing the catalogue…')));
+          try {
+            await ref.read(catalogRepositoryProvider).refreshCatalog(
+                account, kinds: CatalogKind.values.toSet());
+            messenger.showSnackBar(
+                const SnackBar(content: Text('Catalogue refreshed.')));
+          } on Exception catch (e) {
+            // The human message, not the exception's toString().
+            messenger.showSnackBar(SnackBar(
+                content: Text(
+                    'Couldn’t refresh: ${ErrorView.messageFor(e)}')));
+          }
+          ref.invalidate(cacheStatsProvider);
+          ref.invalidate(homeDataProvider);
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.delete_sweep_outlined),
+        title: const Text('Clear saved catalogue'),
+        subtitle:
+            Text('Watch progress and My List are kept', style: _secondary),
+        onTap: () async {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Clear the saved catalogue?'),
+              content: const Text(
+                  'It will be fetched again from your provider the next time '
+                  'it is needed. Watch progress and My List are kept.'),
+              actions: [
+                TextButton(
+                    // Focus the safe choice, so an immediate OK on a remote
+                    // cancels rather than clears.
+                    autofocus: true,
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel')),
+                FilledButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Clear')),
+              ],
+            ),
+          );
+          if (confirmed != true) return;
+          final account = await ref.read(activeAccountProvider.future);
+          if (account == null) return;
+          await ref.read(catalogRepositoryProvider).clearCatalogCache(account);
+          ref.invalidate(cacheStatsProvider);
+          ref.invalidate(homeDataProvider);
+        },
+      ),
+      const _SectionLabel('Diagnostics'),
+      SwitchListTile(
+        secondary: const Icon(Icons.query_stats_outlined),
+        title: const Text('Playback stats'),
+        subtitle: Text(
+            'Show start-up timing, stream quality and download speed while '
+            'playing — for finding the cause of buffering',
+            style: _secondary),
+        value: prefs.showPlaybackStats,
+        activeThumbColor: AppColors.accent,
+        onChanged: (v) => savePrefs(prefs.copyWith(showPlaybackStats: v)),
+      ),
+      if (kDebugMode)
+        ListTile(
+          leading: const Icon(Icons.bug_report_outlined),
+          title: const Text('Source probe'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/dev/source-probe'),
+        ),
+    ];
   }
 }
 

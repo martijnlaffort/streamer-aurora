@@ -34,6 +34,12 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # Chromecast from the iPhone (CastBridge in Runner/AppDelegate.swift). The
+  # same stock Default Media Receiver the Android build uses; AirPlay needs no
+  # SDK. Pinned to the 4.8 line, which ships an xcframework with the
+  # arm64 simulator slice.
+  pod 'google-cast-sdk', '~> 4.8'
 end
 
 post_install do |installer|

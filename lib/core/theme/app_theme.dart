@@ -9,11 +9,28 @@ import 'app_typography.dart';
 /// same function against a different [DawnPalette], so the two cannot drift
 /// apart as the theme grows.
 abstract final class AppTheme {
-  static ThemeData get dark => _build(DawnPalette.dark, Brightness.dark);
+  static ThemeData get dark => darkFor(tv: false);
 
-  static ThemeData get light => _build(DawnPalette.light, Brightness.light);
+  static ThemeData get light => lightFor(tv: false);
 
-  static ThemeData _build(DawnPalette p, Brightness brightness) {
+  /// [tv] adds the remote's cursor to every Material button; see [_tvFocus].
+  ///
+  /// Built once per variant and reused. The TV styles are closures, so two
+  /// separately built themes never compare equal — and MaterialApp animates
+  /// between any two unequal themes, which re-ran a whole-app theme animation
+  /// every time the app widget rebuilt.
+  static ThemeData darkFor({required bool tv}) => _cache.putIfAbsent(
+      (Brightness.dark, tv),
+      () => _build(DawnPalette.dark, Brightness.dark, tv: tv));
+
+  static ThemeData lightFor({required bool tv}) => _cache.putIfAbsent(
+      (Brightness.light, tv),
+      () => _build(DawnPalette.light, Brightness.light, tv: tv));
+
+  static final _cache = <(Brightness, bool), ThemeData>{};
+
+  static ThemeData _build(DawnPalette p, Brightness brightness,
+      {required bool tv}) {
     final base = ThemeData(
       useMaterial3: true,
       brightness: brightness,
@@ -48,7 +65,7 @@ abstract final class AppTheme {
       labelMedium: AppTypography.label.copyWith(color: p.textSecondary),
     );
 
-    return base.copyWith(
+    final themed = base.copyWith(
       textTheme: textTheme,
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -85,6 +102,59 @@ abstract final class AppTheme {
       listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
+    );
+    return tv ? _tvFocus(themed, p) : themed;
+  }
+
+  /// The remote's cursor on every Material button and chip.
+  ///
+  /// Material 3 buttons ignore [ThemeData.focusColor] and mark focus with a
+  /// tint of about 10% — from a sofa, no cursor at all. That covered the back
+  /// arrows, app-bar actions, "See all", dialog buttons and chips: most of
+  /// "I can't tell where my cursor is". Icon buttons invert (a solid disc in
+  /// the focus colour), the way the player's transport already did; everything
+  /// else gets a solid ring, like the poster cards.
+  ///
+  /// Television only. A button is "focused" under touch too — a dialog's
+  /// autofocused action, say — and a ring there would read as selected.
+  /// Explicit per-widget styles still win over these.
+  static ThemeData _tvFocus(ThemeData t, DawnPalette p) {
+    bool focused(Set<WidgetState> s) => s.contains(WidgetState.focused);
+    final ring = BorderSide(color: p.focusRing, width: 3);
+    final side = WidgetStateProperty.resolveWith<BorderSide?>(
+        (s) => focused(s) ? ring : null);
+    ButtonStyle ringed(ButtonStyle? style) =>
+        (style ?? const ButtonStyle()).copyWith(side: side);
+    // On the dark palette the ring is white, so the glyph on it goes dark; on
+    // the light one the ring is the accent, and the glyph goes white.
+    final onRing = t.brightness == Brightness.dark
+        ? p.background
+        : const Color(0xFFFFFFFF);
+    return t.copyWith(
+      textButtonTheme:
+          TextButtonThemeData(style: ringed(t.textButtonTheme.style)),
+      filledButtonTheme:
+          FilledButtonThemeData(style: ringed(t.filledButtonTheme.style)),
+      outlinedButtonTheme:
+          OutlinedButtonThemeData(style: ringed(t.outlinedButtonTheme.style)),
+      elevatedButtonTheme:
+          ElevatedButtonThemeData(style: ringed(t.elevatedButtonTheme.style)),
+      iconButtonTheme: IconButtonThemeData(
+        style: (t.iconButtonTheme.style ?? const ButtonStyle()).copyWith(
+          backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => focused(s) ? p.focusRing : null),
+          foregroundColor:
+              WidgetStateProperty.resolveWith((s) => focused(s) ? onRing : null),
+          iconColor:
+              WidgetStateProperty.resolveWith((s) => focused(s) ? onRing : null),
+        ),
+      ),
+      // No chipTheme here, on purpose. A chip side that resolves to null when
+      // unfocused crashes ChipThemeData.lerp (it null-asserts the resolved
+      // side), and the theme IS lerped — from the phone theme to this one the
+      // moment TV detection resolves after launch. Every frame of that
+      // animation threw, which rendered the player as a grey error screen.
+      // The chip rows wrap their chips in FocusHighlight instead.
     );
   }
 }

@@ -102,6 +102,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final results = ref.watch(searchResultsProvider(_query));
+    // On a TV the field needs a visible edge and a ring when the remote is on
+    // it; borderless, its only sign of focus was a blinking caret. A phone
+    // keeps the clean app-bar field.
+    final tv = isTelevisionOf(ref);
+    InputBorder outline(Color color, double width) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: color, width: width),
+        );
 
     return Scaffold(
       appBar: AppBar(
@@ -114,9 +122,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           // there; on a phone, don't force the keyboard open on arrival.
           autofocus: isTelevisionOf(ref),
           autocorrect: false,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'Search movies, series, channels…',
-            border: InputBorder.none,
+            border: tv ? outline(AppColors.surfaceElevated, 1) : InputBorder.none,
+            enabledBorder:
+                tv ? outline(AppColors.surfaceElevated, 1) : InputBorder.none,
+            focusedBorder:
+                tv ? outline(AppColors.focusRing, 3) : InputBorder.none,
+            isDense: tv,
+            contentPadding: tv
+                ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+                : null,
           ),
         ),
         actions: [

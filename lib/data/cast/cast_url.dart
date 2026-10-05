@@ -47,11 +47,17 @@ const _knownUncastable = {'mkv', 'avi', 'ts', 'flv', 'wmv', 'mpg', 'mpeg', 'm2ts
 ///
 /// [streamUrl] is the normal playback URL — the same one libmpv would open — so
 /// this stays a pure function of what the panel already told us.
-CastTarget castTargetFor(StreamRef ref, String streamUrl) {
+///
+/// [airPlay] for an Apple TV: the same rules (it plays HLS and MP4/MOV, not raw
+/// TS or MKV), except that AirPlay does not take WebM, and the messages name
+/// AirPlay rather than a Chromecast.
+CastTarget castTargetFor(StreamRef ref, String streamUrl,
+    {bool airPlay = false}) {
+  final device = airPlay ? 'AirPlay' : 'a Chromecast';
   if (ref.isCatchup) {
     // Timeshift is served as a TS slice with no HLS equivalent.
-    return const CastTarget.refused(
-        'Catch-up recordings can’t be cast — a Chromecast can’t play this '
+    return CastTarget.refused(
+        'Catch-up recordings can’t be sent to a TV — $device can’t play this '
         'format. Play it on this device instead.');
   }
 
@@ -66,16 +72,18 @@ CastTarget castTargetFor(StreamRef ref, String streamUrl) {
   }
 
   final ext = (ref.containerExt ?? 'mp4').toLowerCase();
-  if (_castableVod.contains(ext)) {
+  final playable = !(airPlay && ext == 'webm') && _castableVod.contains(ext);
+  if (playable) {
     return CastTarget.playable(
       url: streamUrl,
       contentType: ext == 'webm' ? 'video/webm' : 'video/mp4',
       isLive: false,
     );
   }
-  if (_knownUncastable.contains(ext)) {
+  if (_knownUncastable.contains(ext) || ext == 'webm') {
     return CastTarget.refused(
-        'A Chromecast can’t play .$ext files. Play it on this device instead.');
+        '${airPlay ? 'AirPlay' : 'A Chromecast'} can’t play .$ext files. '
+        'Play it on this device instead.');
   }
   // Unknown container: try it as MP4 rather than refusing something that might
   // work. A receiver that cannot decode it reports an error of its own.

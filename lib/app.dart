@@ -210,7 +210,8 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
     // keyevent` injects with deviceId -1 (the virtual keyboard), which Flutter
     // deliberately ignores for this purpose, so focus moved invisibly there and
     // every scripted D-pad test looked broken when it was not.
-    if (isTelevisionOf(ref)) {
+    final tv = isTelevisionOf(ref);
+    if (tv) {
       FocusManager.instance.highlightStrategy =
           FocusHighlightStrategy.alwaysTraditional;
     }
@@ -232,8 +233,9 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
 
     return MaterialApp.router(
       title: 'Dawn Player',
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      // On a TV every button and chip also carries the remote's cursor.
+      theme: AppTheme.lightFor(tv: tv),
+      darkTheme: AppTheme.darkFor(tv: tv),
       themeMode: switch (prefs.themeMode) {
         AppThemeMode.dark => ThemeMode.dark,
         AppThemeMode.light => ThemeMode.light,

@@ -56,7 +56,7 @@ const kProviderBrands = <ProviderBrand>[
   ProviderBrand(
       id: 'appletv',
       name: 'Apple TV+',
-      aliases: ['appletvplus', 'appletv+', 'appletv', 'apple'],
+      aliases: ['appletvplus', 'appletv+', 'appletv', 'apple+', 'apple'],
       colorValue: 0xFF1C1C1E),
   ProviderBrand(
       id: 'paramount',

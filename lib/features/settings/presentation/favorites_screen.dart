@@ -179,7 +179,7 @@ class FavoritesScreen extends ConsumerWidget {
     final favorites = ref.watch(favoritesViewProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Favorites')),
+      appBar: AppBar(title: const Text('My List')),
       body: favorites.when(
         // A background sync must never blank a screen that already has content:
         // when() shows its loading branch on a dependency reload by default.

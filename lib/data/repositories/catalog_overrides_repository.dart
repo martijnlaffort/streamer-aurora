@@ -219,20 +219,41 @@ class CatalogOverridesRepository {
     });
   }
 
-  /// Everything back to what the panel says, for one account.
+  /// Puts the given categories back to what the panel says: shown, with the
+  /// panel's name and position.
+  ///
+  /// Only category rows, and only these ids. This used to reset every row of
+  /// the account — channel renames and hides, guide mappings, custom groups,
+  /// even the tombstones of channels taken out of a group — from a button that
+  /// promised "channel changes are kept", and sync then carried the loss to
+  /// every other device.
   ///
   /// Resets the rows in place rather than deleting them. A delete is invisible
   /// to last-write-wins — the other device still holds its copies, so the next
-  /// sync would hand every hidden channel straight back.
-  Future<void> clearAll(String accountId) async {
-    await (_db.catalogOverridesTable.update()
-          ..where((t) => t.accountId.equals(accountId)))
-        .write(CatalogOverridesTableCompanion(
-      hidden: const Value(false),
-      customName: const Value(null),
-      sortIndex: const Value(null),
-      updatedAtMillisUtc: Value(_clock().millisecondsSinceEpoch),
-    ));
+  /// sync would hand every hidden category straight back.
+  Future<void> clearCategories(
+      String accountId, Iterable<String> categoryIds) async {
+    final ids = categoryIds.toList();
+    if (ids.isEmpty) return;
+    final stamp = Value(_clock().millisecondsSinceEpoch);
+    await _db.transaction(() async {
+      // Chunked: a line can carry more categories than SQLite allows bound
+      // variables in one statement.
+      for (var i = 0; i < ids.length; i += 500) {
+        final chunk = ids.sublist(i, (i + 500).clamp(0, ids.length));
+        await (_db.catalogOverridesTable.update()
+              ..where((t) =>
+                  t.accountId.equals(accountId) &
+                  t.scope.equals(OverrideScope.category.name) &
+                  t.targetId.isIn(chunk)))
+            .write(CatalogOverridesTableCompanion(
+          hidden: const Value(false),
+          customName: const Value(null),
+          sortIndex: const Value(null),
+          updatedAtMillisUtc: stamp,
+        ));
+      }
+    });
     onChanged?.call();
   }
 

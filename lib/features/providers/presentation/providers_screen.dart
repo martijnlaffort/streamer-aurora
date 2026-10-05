@@ -23,7 +23,7 @@ class ProvidersScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Providers'),
+        title: const Text('Services'),
         actions: const [ShellActions()],
       ),
       body: shelves.when(

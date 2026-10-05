@@ -255,7 +255,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
                     selectedId: _categoryId,
                     leading: [
                       if (favorites.isNotEmpty)
-                        (id: favoritesCategoryId, label: 'Favourites'),
+                        (id: favoritesCategoryId, label: 'My List'),
                       // The user's own groups sit with Favourites, ahead of the
                       // playlist's categories: both are things this person
                       // chose, not things the provider handed down.
@@ -303,7 +303,9 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
       for (final l in letters) (value: l, label: l),
     ];
     return SizedBox(
-      height: 40,
+      // Grows with the text size; a fixed 40 clipped the letters at the
+      // largest size.
+      height: MediaQuery.textScalerOf(context).scale(40),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -360,7 +362,7 @@ class _LiveScreenState extends ConsumerState<LiveScreen> {
   Widget _favoritesList(List<Channel> favorites) {
     if (favorites.isEmpty) {
       return Center(
-        child: Text('No favourite channels yet.',
+        child: Text('No channels in My List yet.',
             style: TextStyle(color: AppColors.textSecondary)),
       );
     }
@@ -469,6 +471,8 @@ class _ChannelTile extends ConsumerWidget {
             // disagree with what the row shows.
             contentKey: _contentKey,
             isLive: true,
+            // A quality picked from the sheet is played as picked.
+            pinnedStream: variant != null,
           ),
         ],
         zap: zap,
@@ -579,8 +583,8 @@ class _ChannelTile extends ConsumerWidget {
               ),
             if (canCast)
               ListTile(
-                leading: const Icon(Icons.cast),
-                title: const Text('Cast to a TV'),
+                leading: Icon(castIcon),
+                title: Text(castActionLabel),
                 // Live is cast as HLS where the panel offers it (castTargetFor
                 // swaps the .ts for .m3u8); a panel without HLS fails at the
                 // receiver, which surfaces as a normal cast error.
@@ -884,7 +888,7 @@ class _ChannelTile extends ConsumerWidget {
             borderRadius: 24,
             scale: 1.0,
             child: IconButton(
-              tooltip: favorite ? 'Remove from favourites' : 'Add to favourites',
+              tooltip: favorite ? 'Remove from My List' : 'Add to My List',
               icon: Icon(favorite ? Icons.favorite : Icons.favorite_border,
                   size: 22,
                   color: favorite ? AppColors.accent : AppColors.textSecondary),

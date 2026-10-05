@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -59,6 +61,15 @@ final castNowPlayingProvider =
     NotifierProvider<CastNowPlaying, ({String title, String? subtitle})?>(
         CastNowPlaying.new);
 
+/// How casting is shown on this device: AirPlay's own symbol and name on an
+/// iPhone, where people look for that, the Cast symbol elsewhere.
+IconData get castIcon => Platform.isIOS ? Icons.airplay : Icons.cast;
+
+IconData get castConnectedIcon =>
+    Platform.isIOS ? Icons.airplay : Icons.cast_connected;
+
+String get castActionLabel => Platform.isIOS ? 'AirPlay' : 'Cast to a TV';
+
 /// Hands [streamRef] to a Chromecast from anywhere in the app.
 ///
 /// Mirrors the player's own hand-off (PlayerScreen._startCasting) so the two
@@ -89,23 +100,49 @@ Future<bool> beginCast(
   }
   if (!context.mounted) return false;
 
+  final service = ref.read(castServiceProvider);
   // "Can this be cast?" is entirely a question about the container — decided in
-  // one place, the same one the player uses.
+  // one place, the same one the player uses. What neither kind of device can
+  // play is refused before anyone is asked to pick one.
   final target = castTargetFor(streamRef, url);
   if (!target.canCast) {
     _toast(context, target.refusal!);
     return false;
   }
 
-  final alreadyCasting = ref.read(castStatusProvider).value?.isCasting ?? false;
-  if (!alreadyCasting) {
+  // Already playing on a TV: the new stream goes to the same one.
+  final status = ref.read(castStatusProvider).value;
+  final CastPick pick;
+  if (status != null && status.isCasting) {
+    pick = status.viaAirPlay ? CastPick.airPlay : CastPick.chromecast;
+  } else {
     final picked = await showCastPicker(context);
-    if (!context.mounted || picked != true) return false;
+    if (!context.mounted || picked == null) return false;
+    pick = picked;
   }
 
   ref.read(castNowPlayingProvider.notifier).set(title, subtitle);
+
+  // AirPlay (iPhone): Apple's own list chooses the device, and choosing one
+  // starts the stream — there is no separate "load".
+  if (pick == CastPick.airPlay) {
+    final airTarget = castTargetFor(streamRef, url, airPlay: true);
+    if (!airTarget.canCast) {
+      _toast(context, airTarget.refusal!);
+      return false;
+    }
+    final started = await service.airPlay(
+      url: airTarget.url!,
+      isLive: airTarget.isLive,
+      title: title,
+      subtitle: subtitle,
+      positionSeconds: isLive ? 0 : positionSeconds,
+    );
+    if (started && context.mounted) showCastRemote(context);
+    return started;
+  }
   try {
-    await ref.read(castServiceProvider).load(
+    await service.load(
           url: target.url!,
           contentType: target.contentType!,
           isLive: target.isLive,
@@ -130,9 +167,10 @@ void _toast(BuildContext context, String message) {
 }
 
 /// App-bar / action-row button that starts casting the given stream, or — when a
-/// cast is already running — re-opens the remote to control it. Hides itself
-/// entirely where casting is not offered (iOS, desktop, the TV build, or no Cast
-/// SDK), so call sites can drop it in without their own guard.
+/// cast is already running — re-opens the remote to control it. Chromecast on
+/// Android, AirPlay on iPhone. Hides itself entirely where casting is not
+/// offered (desktop, the TV build, or Android without the Cast SDK), so call
+/// sites can drop it in without their own guard.
 class CastButton extends ConsumerWidget {
   const CastButton({
     super.key,
@@ -155,9 +193,9 @@ class CastButton extends ConsumerWidget {
     if (!offered) return const SizedBox.shrink();
     final casting = ref.watch(castStatusProvider).value?.isCasting ?? false;
     return IconButton(
-      tooltip: casting ? 'Casting' : 'Cast to a TV',
+      tooltip: casting ? 'Playing on your TV' : castActionLabel,
       color: casting ? AppColors.accent : null,
-      icon: Icon(casting ? Icons.cast_connected : Icons.cast),
+      icon: Icon(casting ? castConnectedIcon : castIcon),
       onPressed: () {
         if (casting) {
           showCastRemote(context);
@@ -201,7 +239,7 @@ class CastMiniBar extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.cast_connected, color: AppColors.accent, size: 22),
+              Icon(castConnectedIcon, color: AppColors.accent, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -298,13 +336,13 @@ class _CastRemoteState extends ConsumerState<_CastRemote> {
         children: [
           Row(
             children: [
-              Icon(Icons.cast_connected, color: AppColors.accent),
+              Icon(castConnectedIcon, color: AppColors.accent),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   status.deviceName == null
-                      ? 'Casting'
-                      : 'Casting to ${status.deviceName}',
+                      ? 'Playing on your TV'
+                      : 'Playing on ${status.deviceName}',
                   style: AppTypography.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

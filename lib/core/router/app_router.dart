@@ -189,6 +189,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const PairTvScreen(),
       ),
       GoRoute(
+        path: '/settings/page/:section',
+        name: 'settingsSection',
+        // An unknown section (a stale link) lands on Settings itself.
+        redirect: (context, state) =>
+            SettingsSection.byName(state.pathParameters['section']) == null
+                ? '/settings'
+                : null,
+        builder: (context, state) => SettingsSectionScreen(
+          section: SettingsSection.byName(state.pathParameters['section'])!,
+        ),
+      ),
+      GoRoute(
         path: '/settings/sync',
         name: 'sync',
         builder: (context, state) => const SyncSettingsScreen(),

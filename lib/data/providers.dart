@@ -27,6 +27,7 @@ import 'sources/playlist_source.dart';
 import 'sources/tmdb_source.dart';
 import 'sources/xtream_source.dart';
 import 'db/account_id_migration.dart';
+import 'sync/playback_activity.dart';
 import 'sync/server_clock.dart';
 import 'sync/sync_trigger.dart';
 
@@ -62,6 +63,8 @@ final catalogRepositoryProvider = Provider<CatalogRepository>((ref) {
   return CatalogRepository(
     db: ref.watch(appDatabaseProvider),
     sourceFactory: ref.watch(sourceFactoryProvider),
+    // Background refreshes wait while a video plays.
+    playback: ref.watch(playbackActivityProvider),
   );
 });
 
@@ -69,6 +72,8 @@ final epgRepositoryProvider = Provider<EpgRepository>((ref) {
   return EpgRepository(
     db: ref.watch(appDatabaseProvider),
     sourceFactory: ref.watch(sourceFactoryProvider),
+    // The full guide download waits while a video plays.
+    playback: ref.watch(playbackActivityProvider),
   );
 });
 

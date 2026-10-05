@@ -8,6 +8,7 @@ import '../../domain/models/models.dart';
 import '../db/app_database.dart';
 import '../db/mappers.dart';
 import '../sources/playlist_source.dart';
+import '../sync/playback_activity.dart';
 
 /// DB-side ordering for paged movie reads (the browse grid).
 enum MovieOrder { nameAsc, addedDesc, ratingDesc }
@@ -25,12 +26,16 @@ class CatalogRepository {
     required this._sourceFactory,
     DateTime Function()? clock,
     this.catalogTtl = const Duration(hours: 12),
+    this._playback,
   }) : _clock = clock ?? (() => DateTime.now().toUtc());
 
   final AppDatabase _db;
   final PlaylistSource Function(Account) _sourceFactory;
   final DateTime Function() _clock;
   final Duration catalogTtl;
+
+  /// Holds background refreshes back while a video plays; see [_whenIdle].
+  final PlaybackActivity? _playback;
 
   /// The most recent fire-and-forget TTL refresh, exposed so tests (and a
   /// future sync UI) can await determinism instead of racing it.
@@ -88,8 +93,13 @@ class CatalogRepository {
         await _upsertChunked(
             _db.channelsTable, [for (final c in channels) c.toCompanion()]);
         await _markSeen(channels.map((c) => c.id));
-        await _deleteUnseen(
-            _db.channelsTable, _db.channelsTable.id, account.id);
+        // No channels at all is a refused request, not a line gone dark — see
+        // [_refreshCategory]. Deleting on it emptied the Live tab.
+        if (channels.isNotEmpty ||
+            !await _hasCachedItems(account, CatalogKind.live)) {
+          await _deleteUnseen(
+              _db.channelsTable, _db.channelsTable.id, account.id);
+        }
         await _touchMeta(account, kind);
       case CatalogKind.vod:
         final categories = await source.getVodCategories();
@@ -234,28 +244,41 @@ class CatalogRepository {
   Future<void> _refreshCategory(Account account, PlaylistSource source,
       CatalogKind kind, String categoryId) async {
     await _beginSeen();
+    // An empty answer for a category we hold rows for is far likelier a panel
+    // refusing a request (overloaded, over its connection limit) than a
+    // category emptied out, and deleting on it made a whole category vanish
+    // until its next refresh. The rows stay in that case.
+    Future<bool> refused(List<Object> fetched) async =>
+        fetched.isEmpty &&
+        await _hasCachedItems(account, kind, categoryId: categoryId);
     switch (kind) {
       case CatalogKind.live:
         final channels = await source.getLiveStreams(categoryId: categoryId);
         await _upsertChunked(
             _db.channelsTable, [for (final c in channels) c.toCompanion()]);
         await _markSeen(channels.map((c) => c.id));
-        await _deleteUnseenInCategory(
-            _db.channelsTable, _db.channelsTable.id, account.id, categoryId);
+        if (!await refused(channels)) {
+          await _deleteUnseenInCategory(
+              _db.channelsTable, _db.channelsTable.id, account.id, categoryId);
+        }
       case CatalogKind.vod:
         final movies = await source.getVodStreams(categoryId: categoryId);
         await _upsertChunked(
             _db.moviesTable, [for (final m in movies) m.toCompanion()]);
         await _markSeen(movies.map((m) => m.id));
-        await _deleteUnseenInCategory(
-            _db.moviesTable, _db.moviesTable.id, account.id, categoryId);
+        if (!await refused(movies)) {
+          await _deleteUnseenInCategory(
+              _db.moviesTable, _db.moviesTable.id, account.id, categoryId);
+        }
       case CatalogKind.series:
         final series = await source.getSeries(categoryId: categoryId);
         await _upsertChunked(
             _db.seriesTable, [for (final s in series) s.toCompanion()]);
         await _markSeen(series.map((s) => s.id));
-        await _deleteUnseenInCategory(
-            _db.seriesTable, _db.seriesTable.id, account.id, categoryId);
+        if (!await refused(series)) {
+          await _deleteUnseenInCategory(
+              _db.seriesTable, _db.seriesTable.id, account.id, categoryId);
+        }
     }
     await _touchCategoryMeta(account, kind, categoryId);
   }
@@ -314,6 +337,69 @@ class CatalogRepository {
     await _refreshCategoryOnce(account, kind, categoryId);
   }
 
+  /// The account [fillInBackground] is working for. Switching accounts stops
+  /// the old fill at its next category.
+  String? _fillingFor;
+
+  /// Fetches, one category at a time, every series and film category this
+  /// device has never loaded.
+  ///
+  /// The per-category design only ever cached what was browsed: six seeded
+  /// categories plus the ones a user happened to open. Everything that spans
+  /// categories — the "All" grids, search, a service's page, Home's Popular —
+  /// reads that cache, so on a fresh install most of a large line was simply
+  /// absent ("I am missing a lot of series"). This fills the rest in without
+  /// bringing back what the per-category design was for: one small response
+  /// at a time (memory stays flat), a pause between them, never behind a
+  /// playing video, and resumable — progress is the per-category meta, so an
+  /// app killed halfway picks up where it stopped instead of starting over.
+  ///
+  /// Series first: the slice is smaller and it is the one people notice.
+  /// Categories already fetched are left to their own TTL on demand.
+  Future<void> fillInBackground(Account account) async {
+    if (!_supportsCategoryFetch(account)) return; // Fetched whole already.
+    if (_fillingFor == account.id) return;
+    _fillingFor = account.id;
+    var failuresInARow = 0;
+    try {
+      for (final kind in const [CatalogKind.series, CatalogKind.vod]) {
+        final fetched = {
+          for (final m in await (_db.catalogCategoryMetaTable.select()
+                ..where((t) =>
+                    t.accountId.equals(account.id) & t.kind.equalsValue(kind)))
+              .get())
+            m.categoryId,
+        };
+        final categories = await (_db.categoriesTable.select()
+              ..where((t) =>
+                  t.accountId.equals(account.id) &
+                  t.type.equalsValue(_typeOf(kind)))
+              ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+            .get();
+        for (final category in categories) {
+          if (fetched.contains(category.id)) continue;
+          await _playback?.whenIdle();
+          if (_fillingFor != account.id) return;
+          try {
+            await _refreshCategoryOnce(account, kind, category.id);
+            failuresInARow = 0;
+          } on Object catch (e) {
+            developer.log('background fill of $kind/${category.id} failed: $e',
+                name: 'CatalogRepository');
+            // One broken category is skipped; several in a row means the
+            // panel or the connection is down, and the next launch resumes.
+            if (++failuresInARow >= 3) return;
+          }
+          // Leaves room for anything the user opens meanwhile: refreshes are
+          // serialized, so a screen waits behind at most one category.
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+        }
+      }
+    } finally {
+      if (_fillingFor == account.id) _fillingFor = null;
+    }
+  }
+
   /// Whether this account's panel can fetch a single category. Cached because
   /// every read consults it and building a source allocates an HTTP client.
   final Map<String, bool> _categoryFetchSupport = {};
@@ -359,16 +445,30 @@ class CatalogRepository {
             catalogTtl) {
       return; // Fresh.
     }
-    final refresh = _refreshCategoryOnce(account, kind, categoryId);
     if (await _hasCachedItems(account, kind, categoryId: categoryId)) {
-      final background = refresh.catchError((Object e) => developer.log(
-          'background refresh of $kind/$categoryId failed: $e',
-          name: 'CatalogRepository'));
+      final background = _whenIdle(
+              () => _refreshCategoryOnce(account, kind, categoryId))
+          .catchError((Object e) => developer.log(
+              'background refresh of $kind/$categoryId failed: $e',
+              name: 'CatalogRepository'));
       lastBackgroundRefresh = background;
       unawaited(background);
       return;
     }
-    await refresh; // Nothing to show — propagate failures.
+    // Nothing to show — fetch now and propagate failures.
+    await _refreshCategoryOnce(account, kind, categoryId);
+  }
+
+  /// Runs a stale-while-refresh update once nothing is playing.
+  ///
+  /// Only for refreshes whose screen is already showing cached rows. These
+  /// used to start behind a playing video too — Home's rails rebuild whenever
+  /// a sync lands — and a catalogue download competing with the stream for the
+  /// connection shows up as buffering. A fetch the screen is actually waiting
+  /// on is never held back.
+  Future<void> _whenIdle(Future<void> Function() job) async {
+    await _playback?.whenIdle();
+    return job();
   }
 
   /// Freshness for the category *list* of a slice — one cheap request, and the
@@ -386,8 +486,9 @@ class CatalogRepository {
     }
     final age = _clock().difference(fromUtcMillis(meta.refreshedAtMillisUtc));
     if (age > catalogTtl) {
-      final refresh = _refreshListOnce(account, kind).catchError((Object e) =>
-          developer.log('background refresh of $kind categories failed: $e',
+      final refresh = _whenIdle(() => _refreshListOnce(account, kind))
+          .catchError((Object e) => developer.log(
+              'background refresh of $kind categories failed: $e',
               name: 'CatalogRepository'));
       lastBackgroundRefresh = refresh;
       unawaited(refresh);
@@ -408,6 +509,20 @@ class CatalogRepository {
         CatalogKind.vod => await source.getVodCategories(),
         CatalogKind.series => await source.getSeriesCategories(),
       };
+      // An empty list from a line that had categories is a panel hiccup (an
+      // overloaded or connection-limited panel answers `[]`), not a line that
+      // emptied overnight. Replacing on it wiped every rail in the tab until
+      // the next refresh; keep what we have and try again next time.
+      if (categories.isEmpty &&
+          await (_db.categoriesTable.select()
+                    ..where((t) =>
+                        t.accountId.equals(account.id) &
+                        t.type.equalsValue(type))
+                    ..limit(1))
+                  .getSingleOrNull() !=
+              null) {
+        return;
+      }
       await _replaceCategories(account, type, categories);
       await _touchMeta(account, kind);
     }).whenComplete(() {
@@ -443,15 +558,15 @@ class CatalogRepository {
     // an upgrade from the build that swept whole slices, or an explicit
     // refreshCatalog() — serve them and seed in the background. Blocking here
     // would stall a screen we can already fill, which is the whole complaint.
-    final seed = _seedOnce(account, kind);
     if (await _hasCachedItems(account, kind)) {
-      final background = seed.catchError((Object e) => developer.log(
-          'background seed of $kind failed: $e', name: 'CatalogRepository'));
+      final background = _whenIdle(() => _seedOnce(account, kind)).catchError(
+          (Object e) => developer.log('background seed of $kind failed: $e',
+              name: 'CatalogRepository'));
       lastBackgroundRefresh = background;
       unawaited(background);
       return;
     }
-    await seed; // Genuinely nothing to show — propagate failures.
+    await _seedOnce(account, kind); // Nothing to show — propagate failures.
   }
 
   /// Whether anything is cached for a slice, or for one category of it.
@@ -558,8 +673,9 @@ class CatalogRepository {
     }
     final age = _clock().difference(fromUtcMillis(meta.refreshedAtMillisUtc));
     if (age > catalogTtl) {
-      final refresh = _refreshOnce(account, kind).catchError((Object e) =>
-          developer.log('background refresh of $kind failed: $e',
+      final refresh = _whenIdle(() => _refreshOnce(account, kind))
+          .catchError((Object e) => developer.log(
+              'background refresh of $kind failed: $e',
               name: 'CatalogRepository'));
       lastBackgroundRefresh = refresh;
       unawaited(refresh);

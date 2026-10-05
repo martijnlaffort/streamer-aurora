@@ -5,6 +5,9 @@ import 'package:linked_scroll_controller/linked_scroll_controller.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/platform/television.dart';
+import '../../../core/widgets/focus_highlight.dart';
+import '../../../core/widgets/remote_press.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/notifications/reminder_service.dart';
 import '../../../data/providers.dart';
@@ -262,8 +265,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                       Navigator.pop(context);
                       _castChannel(channel);
                     },
-                    icon: const Icon(Icons.cast),
-                    label: const Text('Cast to a TV'),
+                    icon: Icon(castIcon),
+                    label: Text(castActionLabel),
                   ),
                 ),
               // Only for programmes that have not started: a reminder for
@@ -359,6 +362,12 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
           final totalWidth = totalMin * _pxPerMin;
           final nowX = _x(DateTime.now().toUtc(), data.windowStart)
               .clamp(0.0, totalWidth);
+          // Rows grow with the text size. A fixed 64 px overflowed at the
+          // standard size already for a two-line channel name with its
+          // catch-up line, and every programme title spilled at Large.
+          final rowHeight = MediaQuery.textScalerOf(context)
+              .scale(_rowHeight)
+              .clamp(_rowHeight, _rowHeight * 2);
 
           // Land on "now" the first time the grid is shown.
           if (!_jumpedToNow) {
@@ -412,7 +421,7 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                           return InkWell(
                             onTap: () => _playChannel(c),
                             child: Container(
-                              height: _rowHeight,
+                              height: rowHeight,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 8),
                               decoration: BoxDecoration(
@@ -426,8 +435,10 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
+                                  // One line when the catch-up line needs
+                                  // the room below it.
                                   Text(c.displayName,
-                                      maxLines: 2,
+                                      maxLines: c.hasArchive ? 1 : 2,
                                       overflow: TextOverflow.ellipsis,
                                       style: AppTypography.label),
                                   // How far back this channel can be replayed,
@@ -472,10 +483,14 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                                     windowStart: data.windowStart,
                                     windowEnd: data.windowEnd,
                                     pxPerMin: _pxPerMin,
-                                    rowHeight: _rowHeight,
+                                    rowHeight: rowHeight,
                                     onTap: (e) => _activateCell(e, c),
                                     onLongPress: (e) => _showProgramme(e, c),
                                     hasArchive: c.hasArchive,
+                                    // The remote starts on what is on now at
+                                    // the top of the guide, not on nothing.
+                                    autofocusNow: i == 0,
+                                    remote: isTelevisionOf(ref),
                                   );
                                 },
                               ),
@@ -622,7 +637,16 @@ class _ChannelRow extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     required this.hasArchive,
+    this.autofocusNow = false,
+    this.remote = false,
   });
+
+  /// Put the cursor on this row's current programme when the guide opens.
+  final bool autofocusNow;
+
+  /// Driven by a remote: holding OK opens the programme sheet, which was
+  /// otherwise long-press only and so unreachable on a TV.
+  final bool remote;
 
   final List<EpgEntry> programmes;
   final DateTime windowStart;
@@ -700,31 +724,49 @@ class _ChannelRow extends StatelessWidget {
         top: 4,
         bottom: 4,
         // InkWell so a D-pad OK press activates the block; GestureDetector
-        // takes focus on a TV and then ignores it.
-        child: InkWell(
-          onTap: () => onTap(e),
+        // takes focus on a TV and then ignores it. FocusHighlight because the
+        // InkWell's own highlight is painted UNDER the cell's opaque fill — the
+        // guide was the one grid in the app with no visible cursor at all. It
+        // also scrolls the focused cell into view along both axes.
+        child: FocusHighlight(
+          borderRadius: 6,
+          scale: 1.0,
+          ensureVisible: true,
           // Hold for the full sheet, the convention the whole category shares:
-          // OK does the obvious thing, hold opens everything else.
-          onLongPress: () => onLongPress(e),
-          borderRadius: BorderRadius.circular(6),
-          child: Opacity(
-            opacity: dead ? 0.45 : 1,
-            child: Container(
-              margin: const EdgeInsets.only(right: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: isNow
-                    ? AppColors.accent.withValues(alpha: 0.28)
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                    color: isNow ? AppColors.accent : AppColors.surfaceElevated),
+          // OK does the obvious thing, hold opens everything else — by touch,
+          // and now by remote too.
+          child: RemotePress(
+            enabled: remote,
+            onPressed: () => onTap(e),
+            onLongPress: () => onLongPress(e),
+            child: InkWell(
+              autofocus: autofocusNow && isNow,
+              onTap: () => onTap(e),
+              onLongPress: () => onLongPress(e),
+              borderRadius: BorderRadius.circular(6),
+              child: Opacity(
+                opacity: dead ? 0.45 : 1,
+                child: Container(
+                  margin: const EdgeInsets.only(right: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isNow
+                        ? AppColors.accent.withValues(alpha: 0.28)
+                        : AppColors.surface,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: isNow
+                            ? AppColors.accent
+                            : AppColors.surfaceElevated),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  child: Text(e.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.label),
+                ),
               ),
-              alignment: Alignment.centerLeft,
-              child: Text(e.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.label),
             ),
           ),
         ),

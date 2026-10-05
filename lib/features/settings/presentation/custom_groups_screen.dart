@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../data/providers.dart';
 import '../../../data/repositories/catalog_overrides_repository.dart';
 import '../../../domain/models/models.dart';
@@ -23,7 +24,7 @@ class CustomGroupsScreen extends ConsumerWidget {
     final groups = overrides.orderedGroups;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Channel groups')),
+      appBar: AppBar(title: const Text('My channel groups')),
       body: groups.isEmpty
           ? Center(
               child: Padding(
@@ -162,7 +163,8 @@ class _GroupDetail extends ConsumerWidget {
               skipLoadingOnReload: true,
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
-                  child: Text('$e', style: TextStyle(color: AppColors.error))),
+                  child: Text(ErrorView.messageFor(e),
+                style: TextStyle(color: AppColors.error))),
               data: (list) => ListView.builder(
                 itemCount: list.length,
                 itemBuilder: (context, i) {

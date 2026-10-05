@@ -9,6 +9,7 @@ class PlayerItem {
     this.subtitle,
     this.isLive = false,
     this.seriesId,
+    this.pinnedStream = false,
   });
 
   final StreamRef streamRef;
@@ -27,6 +28,11 @@ class PlayerItem {
   /// For an episode, the series it belongs to - the key the player learns a
   /// show's credits timing under. Null for films and live.
   final String? seriesId;
+
+  /// The viewer chose this exact stream (a specific quality of a channel), so
+  /// it is tried first — ahead of whichever stream worked last time and of
+  /// the best-quality ordering. Picking "HD" used to open 4K anyway.
+  final bool pinnedStream;
 }
 
 /// Where a live channel sits in the list the user was browsing, so the player

@@ -12,15 +12,23 @@ import 'sync_config.dart';
 /// seconds, and deleted the instant the TV collects it (see the backend's
 /// PairingController).
 class PairingPayload {
-  const PairingPayload({required this.accounts, this.sync});
+  const PairingPayload({required this.accounts, this.sync, this.tmdbApiKey});
 
   final List<Account> accounts;
   final SyncConfig? sync;
+
+  /// The sender's TMDB key, if it has one. The key is a per-device setting
+  /// that sync does not carry, so a paired device used to come up with no
+  /// discovery rails and no fallback posters until someone typed a 32-letter
+  /// key on a remote.
+  final String? tmdbApiKey;
 
   Map<String, dynamic> toJson() => {
         'version': 1,
         if (sync != null)
           'sync': {'base_url': sync!.baseUrl, 'token': sync!.token},
+        if (tmdbApiKey != null && tmdbApiKey!.isNotEmpty)
+          'tmdb_api_key': tmdbApiKey,
         'accounts': [
           for (final a in accounts)
             {
@@ -71,6 +79,7 @@ class PairingPayload {
               enabled: true,
             )
           : null,
+      tmdbApiKey: json['tmdb_api_key'] as String?,
     );
   }
 }

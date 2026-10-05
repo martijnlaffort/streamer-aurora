@@ -57,6 +57,7 @@ class PreferencesRepository {
         uiScale: Value(preferences.uiScale),
         groupChannelVariants: Value(preferences.groupChannelVariants),
         audioDelayMs: Value(preferences.audioDelayMs),
+        showPlaybackStats: Value(preferences.showPlaybackStats),
       ),
     );
   }

@@ -65,6 +65,18 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Scans the pairing code shown on your TV.</string>
 
+	<!-- Chromecast: finding Cast devices is a local-network (Bonjour) search,
+	     which iOS 14+ only allows for the services listed here, and only after
+	     the user agrees. The prompt appears when the cast list is first opened,
+	     not at launch. _CC1AD845 is the Default Media Receiver's app id. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Finds Chromecasts and TVs on your network so you can play on them.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_googlecast._tcp</string>
+		<string>_CC1AD845._googlecast._tcp</string>
+	</array>
+
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

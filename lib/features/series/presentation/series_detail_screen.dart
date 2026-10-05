@@ -270,7 +270,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               ),
               if (seasons.length > 1)
                 SizedBox(
-                  height: 44,
+                  // Grows with the text size; a fixed 44 clipped the chips at
+                  // Large and above.
+                  height: MediaQuery.textScalerOf(context).scale(44),
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: EdgeInsets.symmetric(horizontal: sidePad - 4),

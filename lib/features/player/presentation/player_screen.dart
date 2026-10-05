@@ -210,6 +210,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     'hwdec-current',
     'estimated-vf-fps',
     'audio-codec-name',
+    'current-ao',
+    'avsync',
     'cache-speed',
     'demuxer-cache-duration',
     'frame-drop-count',
@@ -904,12 +906,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (platform is NativePlayer) {
         await platform.setProperty(
             'user-agent', account.userAgent ?? kStreamUserAgent);
-        // Sound was running a frame or two ahead of the picture. mpv renders
-        // into a Flutter texture that Flutter then composites on ITS schedule,
-        // and mpv's A/V clock counts the frame as shown the moment it finished
-        // rendering — so it never delays the audio to match. Positive
-        // `audio-delay` holds the sound back by that much. See
-        // _audioDelaySeconds for why this is safe to apply everywhere.
+        // Only the user's own Audio sync offset, which is zero unless they set
+        // one; see _audioDelaySeconds. Always written, so a value from an
+        // earlier open never lingers.
         try {
           await platform.setProperty(
               'audio-delay', _audioDelaySeconds().toStringAsFixed(3));
@@ -1128,30 +1127,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     return latest;
   }
 
-  /// How long to hold the audio back, in seconds.
+  /// How long to hold the audio back, in seconds: the user's per-screen Audio
+  /// sync offset and nothing else, so out of the box mpv's own A/V sync runs
+  /// untouched.
   ///
-  /// Two parts. The first is the app's own latency, computed rather than
-  /// guessed: mpv renders into a texture that Flutter composites a few frames
-  /// later, so three frame periods at the display's actual refresh rate — 50 ms
-  /// at 60 Hz, 60 ms at 50 Hz. The second is the user's per-screen adjustment
-  /// for what the app cannot see (the TV's own processing).
-  ///
-  /// Three, not two: at two frames the sound still ran slightly AHEAD on real
-  /// TVs, and human perception is lopsided (ITU-R BT.1359) — sound ahead is
-  /// noticed from about 45 ms, sound behind not until about 125 ms. Three frames
-  /// (50–60 ms) clears the "ahead" threshold and lands on the tolerant side;
-  /// worst case on an already-synced device is ~60 ms behind, well under the
-  /// "behind" threshold and imperceptible.
-  double _audioDelaySeconds() {
-    final reported = View.of(context).display.refreshRate;
-    // Some TVs misreport the refresh rate — not just 0/1, but a few Hz — and a
-    // weak guard once let a value like 2 through, turning "a few frames" into
-    // ~1 s of delay. Trust the number only inside a plausible display range;
-    // otherwise assume 50 Hz — 50 rather than 60 because the fallback should err
-    // toward MORE delay (the tolerant side), never less.
-    final hz = (reported >= 24 && reported <= 240) ? reported : 50.0;
-    return 3 / hz + _prefs.audioDelayMs / 1000;
-  }
+  /// The app used to add an automatic "compositor lag" delay of two, then
+  /// three frame periods (50–60 ms) on every device. Builds before that had
+  /// none and were in sync; with it, the picture visibly led the sound. The
+  /// guess was wrong, so it is gone rather than retuned.
+  double _audioDelaySeconds() => _prefs.audioDelayMs / 1000;
 
   /// Points [url] at the account's [attempt]-th fallback host.
   ///
@@ -2831,7 +2815,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (_stats.cacheMode != null) 'cache: ${_stats.cacheMode}',
       'stalls after start: ${_stats.stallSummary()}',
       if (dropped.isNotEmpty) 'dropped frames: $dropped',
-      'audio delay: ${(_audioDelaySeconds() * 1000).round()} ms',
+      [
+        'audio delay: ${(_audioDelaySeconds() * 1000).round()} ms',
+        if (v('current-ao') case final ao?) 'out: $ao',
+        if (double.tryParse(v('avsync') ?? '') case final avsync?)
+          'A-V ${(avsync * 1000).round()} ms',
+      ].join(' · '),
     ];
     return Positioned(
       left: tv ? 48 : 16,

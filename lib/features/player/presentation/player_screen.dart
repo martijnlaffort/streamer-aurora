@@ -98,7 +98,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       widget.request.startIndex.clamp(0, widget.request.queue.length - 1);
 
   // Resume state (PRD §8.9).
+  /// The resume seek still to be issued — waiting on a duration it fits in.
   int? _pendingResumeSeconds;
+
+  /// Where this item is meant to resume, until playback is seen actually
+  /// running there. See [_checkResume].
+  ///
+  /// Issuing the seek is not the same as landing it. mpv reports the seek
+  /// target as the position the moment it is asked, so the clock showed the
+  /// resume point — and then fell back to 0:00 when the seek did not stick (a
+  /// panel refusing the ranged request, a TS length estimate still settling).
+  /// Nothing looked again, and progress saving carried on from 0:00, writing
+  /// over the real resume point within seconds — so the next attempt started
+  /// from the beginning too.
+  Duration? _resumeTarget;
+  int _resumeSeeks = 0;
+  DateTime _resumeSeekAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// The first position seen running near [_resumeTarget]; landing is
+  /// confirmed once the clock has moved on from it.
+  Duration? _resumeLandedAt;
+  static const _maxResumeSeeks = 3;
+
+  /// End-of-file reports that arrived before the resume landed; see
+  /// [_onCompleted].
+  int _resumeEndings = 0;
   DateTime _lastProgressSave = DateTime.fromMillisecondsSinceEpoch(0);
 
   // Language preference state (PRD §8.10).
@@ -304,6 +328,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Key repeats in the current hold, for accelerating the scrub step.
   int _scrubRepeats = 0;
+
+  /// The play/pause glyph flashed mid-screen on a TV; see [_togglePlay]. The
+  /// count restarts the animation when the same glyph is flashed twice.
+  IconData? _flashIcon;
+  int _flashCount = 0;
+  Timer? _flashTimer;
 
   /// Whether this build is the television one. Read, not watched: callers are
   /// key handlers and timers, and the answer does not change mid-session.
@@ -600,6 +630,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _watchdog?.cancel();
     _zapToastTimer?.cancel();
     _scrubCommitTimer?.cancel();
+    _flashTimer?.cancel();
     _statsTimer?.cancel();
     _keyboardFocus.dispose();
     _playPauseFocus.dispose();
@@ -646,6 +677,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // Live streams have no resume position — some HLS report a rolling
     // duration, so guard explicitly rather than relying on duration == 0.
     if (_current.isLive) return;
+    // Not before the resume point has been reached: the clock still reads
+    // where the stream opened (usually 0:00), and saving that would overwrite
+    // the place the viewer is trying to get back to.
+    if (_resumeTarget != null) return;
     _lastProgressSave = DateTime.now();
     // savePosition applies the §8.9 completion rule (≥95% → completed).
     _progressRepo.savePosition(
@@ -657,6 +692,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Throttled ~5s ticker while playing (PRD §8.9).
   void _onPosition(Duration position) {
+    _checkResume(position);
     if (!_playing || _duration == Duration.zero) return;
     if (DateTime.now().difference(_lastProgressSave) >=
         const Duration(seconds: 5)) {
@@ -741,11 +777,108 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final resume = _pendingResumeSeconds;
     if (resume != null && resume < duration.inSeconds) {
       _pendingResumeSeconds = null;
-      _player.seek(Duration(seconds: resume));
-      // The jump to the resume point is not playback; measure from there.
-      _positionAtOpen = null;
-      _stats.mark('resume seek');
+      _seekToResumePoint();
     }
+  }
+
+  /// Starts a fresh resume to [seconds] for the media being opened, or clears
+  /// it when there is nothing to resume to.
+  void _setResumeTarget(int? seconds) {
+    final resume = seconds != null && seconds > 0 ? seconds : null;
+    _pendingResumeSeconds = resume;
+    _resumeTarget = resume == null ? null : Duration(seconds: resume);
+    _resumeSeeks = 0;
+    _resumeLandedAt = null;
+  }
+
+  void _seekToResumePoint() {
+    final target = _resumeTarget;
+    if (target == null) return;
+    _resumeSeeks++;
+    _resumeSeekAt = DateTime.now();
+    _resumeLandedAt = null;
+    _player.seek(target);
+    // The jump to the resume point is not playback; measure from there.
+    _positionAtOpen = null;
+    _stats.mark(_resumeSeeks == 1 ? 'resume seek' : 'resume seek $_resumeSeeks');
+  }
+
+  /// Makes sure a resume actually lands, and stays landed.
+  ///
+  /// Confirmed only once the clock has run on for two seconds near the target:
+  /// mpv reports the target as the position the instant it is asked to seek,
+  /// so seeing it once proves nothing. If the clock settles somewhere else
+  /// instead — back at the start, or wherever an early TS length estimate threw
+  /// the seek — it is issued again, a few times, and then given up on out loud
+  /// rather than silently.
+  void _checkResume(Duration position) {
+    final target = _resumeTarget;
+    if (target == null || _current.isLive) return;
+    final now = DateTime.now();
+    if (_pendingResumeSeconds != null) {
+      // Still waiting for a length the target fits in. If the length has
+      // settled and it never will, the saved point is from some other cut of
+      // the file: play from here rather than hold saving off for good.
+      if (_everPlayed &&
+          _duration > Duration.zero &&
+          target >= _duration &&
+          now.difference(_durationSettledAt) >= const Duration(seconds: 10)) {
+        _abandonResume();
+      }
+      return;
+    }
+    // Mid-seek or stalled: the clock is not telling us anything yet.
+    if (_buffering ||
+        !_playing ||
+        now.difference(_resumeSeekAt) < const Duration(milliseconds: 1500)) {
+      return;
+    }
+    final near = (position - target).abs() <= const Duration(seconds: 15);
+    if (near) {
+      final landed = _resumeLandedAt;
+      if (landed == null || position < landed) {
+        _resumeLandedAt = position;
+      } else if (position - landed >= const Duration(seconds: 2)) {
+        _resumeTarget = null;
+        _resumeLandedAt = null;
+        _stats.mark('resumed');
+      }
+      return;
+    }
+    _resumeLandedAt = null;
+    if (_resumeSeeks < _maxResumeSeeks && target < _duration) {
+      debugPrint('Resume to $target did not stick (at $position); seeking again.');
+      _seekToResumePoint();
+    } else {
+      _abandonResume();
+      _toast('Couldn’t pick up at ${formatSeconds(target.inSeconds)} — '
+          'this stream wouldn’t skip ahead.');
+    }
+  }
+
+  /// Stops trying to resume, and lets progress saving carry on from wherever
+  /// playback actually is.
+  void _abandonResume() {
+    _pendingResumeSeconds = null;
+    _resumeTarget = null;
+    _resumeLandedAt = null;
+  }
+
+  /// Where to reopen the current item after a drop, a failed feed or Retry:
+  /// the resume point if it has not been reached yet, otherwise where playback
+  /// got to. Null lets [_openCurrent] fall back to stored progress.
+  int? _reopenAt() {
+    if (_current.isLive) return null;
+    final target = _resumeTarget;
+    if (target != null) return target.inSeconds;
+    return _position > Duration.zero ? _position.inSeconds : null;
+  }
+
+  /// A seek the viewer asked for. It overrides any resume still being chased —
+  /// otherwise rewinding right after a resume would be "corrected" back.
+  void _userSeek(Duration target) {
+    _abandonResume();
+    _player.seek(target);
   }
 
   /// Auto-select the preferred audio/subtitle language once per media item
@@ -824,12 +957,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _showErrorDetails = false;
       _startedThisOpen = false;
       _positionAtOpen = null;
+      // Set here, before any await, so nothing in between saves the old
+      // clock over the point being resumed to.
+      _setResumeTarget(resumeFrom);
       if (!isRetry) {
         _reconnectAttempt = 0;
         _reconnecting = false;
         _everPlayed = false;
         _cutShortAt = null;
         _cutShortCount = 0;
+        _resumeEndings = 0;
         // A different item starts its own walk: the backup that rescued the
         // last channel says nothing about this one.
         _candidateIndex = 0;
@@ -855,10 +992,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (resumeFrom == null && !_current.isLive) {
         final progress = await _progressRepo.get(_current.contentKey);
         if (_progressRepo.shouldOfferResume(progress)) {
-          resumeFrom = progress!.positionSeconds;
+          _setResumeTarget(progress!.positionSeconds);
         }
       }
-      _pendingResumeSeconds = resumeFrom;
       if (!isRetry) {
         await _buildCandidates(account);
         // What this show has taught us about where its credits start.
@@ -1009,7 +1145,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _switchingFeed = true;
       _error = null;
     });
-    _openCurrent(isRetry: true);
+    // Carry the resume point across: without it the next feed fell back to
+    // stored progress, which skips anything under 5% in — a resume at one
+    // minute started the episode over.
+    _openCurrent(resumeFrom: _reopenAt(), isRetry: true);
     return true;
   }
 
@@ -1226,7 +1365,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final edge = _liveEdge;
     if (edge == null) return;
     final target = edge - const Duration(seconds: 1);
-    _player.seek(target.isNegative ? Duration.zero : target);
+    _userSeek(target.isNegative ? Duration.zero : target);
     _player.play();
     _wake();
   }
@@ -1286,8 +1425,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _reconnecting = true;
       _error = null;
     });
-    // Live has no meaningful resume point; VOD picks up where it stopped.
-    final resumeFrom = _current.isLive ? null : _position.inSeconds;
+    // Live has no meaningful resume point; VOD picks up where it stopped — or
+    // where it was still trying to resume to.
+    final resumeFrom = _reopenAt();
     _reconnectTimer = Timer(delay, () {
       if (mounted) _openCurrent(resumeFrom: resumeFrom, isRetry: true);
     });
@@ -1315,6 +1455,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // episode. Once the retries are spent, fall through and treat it as the
     // end after all: a file whose header overstates its length really does
     // finish early, every time.
+    // Ending before the resume point was even reached is never the end of the
+    // episode: a seek past an early, too-short length estimate can do this.
+    // Never mark it watched on that basis.
+    // Counted separately from _reconnectAttempt, which a successful reopen
+    // resets, so this cannot go round forever.
+    if (_resumeTarget != null) {
+      if (_resumeEndings++ < 2) {
+        _scheduleReconnect();
+      } else {
+        _abandonResume();
+        setState(() => _controlsVisible = true);
+      }
+      return;
+    }
     final cutShort = _duration > Duration.zero &&
         _position < _duration * 0.97 &&
         _duration - _position > const Duration(seconds: 10);
@@ -1599,20 +1753,41 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     _scheduleHide();
   }
 
-  /// TV: brings the controls up WITH the cursor on them — on the scrubber when
-  /// there is something to scrub, otherwise on play/pause.
+  /// TV: brings the controls up WITH the cursor on them — on [focus] when
+  /// given, otherwise on the scrubber when there is something to scrub, and
+  /// on play/pause when there is not.
   ///
-  /// This is the fix for "pressing RIGHT jumps ten seconds": the video surface
-  /// used to keep the cursor while the controls showed, so the same RIGHT
-  /// either walked the buttons or seeked depending on a state nobody could
-  /// see. Now the press that reveals the controls only reveals them.
-  void _revealControls() {
+  /// The video surface never keeps the cursor while the controls show: the
+  /// same RIGHT used to either walk the buttons or seek depending on a state
+  /// nobody could see.
+  void _revealControls({FocusNode? focus}) {
     _wake();
     // After the frame: hidden controls are excluded from focus, and are only
     // focusable again once they have rebuilt as visible.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _error != null) return;
-      (_hasTvScrubber ? _scrubFocus : _playPauseFocus).requestFocus();
+      (focus ?? (_hasTvScrubber ? _scrubFocus : _playPauseFocus))
+          .requestFocus();
+    });
+  }
+
+  /// Play/pause from the remote, with a big glyph in the middle of the picture
+  /// on a television — from across the room the small button changing shape
+  /// is easy to miss, and a press with no visible answer gets pressed again.
+  void _togglePlay() {
+    final willPlay = !_playing;
+    _player.playOrPause();
+    if (_tv) _flash(willPlay ? Icons.play_arrow_rounded : Icons.pause_rounded);
+  }
+
+  void _flash(IconData icon) {
+    _flashTimer?.cancel();
+    setState(() {
+      _flashIcon = icon;
+      _flashCount++;
+    });
+    _flashTimer = Timer(const Duration(milliseconds: 700), () {
+      if (mounted) setState(() => _flashIcon = null);
     });
   }
 
@@ -1634,7 +1809,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// focus, which is most of the time on a TV.
   bool _handleMediaKey(LogicalKeyboardKey key) {
     if (key == LogicalKeyboardKey.mediaPlayPause) {
-      _player.playOrPause();
+      _togglePlay();
       _wake();
       return true;
     }
@@ -1731,12 +1906,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         _retryFocus.requestFocus();
         return KeyEventResult.handled;
       }
-      _player.playOrPause();
+      _togglePlay();
       _tv ? _revealControls() : _wake();
       return KeyEventResult.handled;
     }
 
-    if (_tv) return _onTvSurfaceArrow(key);
+    if (_tv) return _onTvSurfaceArrow(event);
 
     // Phone, tablet and desktop keyboards: the arrows seek straight away, the
     // way every desktop player does. On a live stream there is nothing to
@@ -1787,7 +1962,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   }
 
   /// TV, cursor on the video itself (so the controls are normally hidden).
-  KeyEventResult _onTvSurfaceArrow(LogicalKeyboardKey key) {
+  ///
+  /// Every arrow does what it would do with the controls already up, and
+  /// brings them up while it does it: LEFT/RIGHT start choosing a new spot on
+  /// the scrubber, DOWN lands on the buttons, UP on the scrubber (or the
+  /// up-next prompt). A first press that only revealed the controls meant
+  /// every skip took two presses, and the first one seemed to be ignored.
+  KeyEventResult _onTvSurfaceArrow(KeyEvent event) {
+    final key = event.logicalKey;
     final up = key == LogicalKeyboardKey.arrowUp;
     final vertical = up || key == LogicalKeyboardKey.arrowDown;
     final horizontal = key == LogicalKeyboardKey.arrowLeft ||
@@ -1811,7 +1993,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       _upNextFocus.requestFocus();
       return KeyEventResult.handled;
     }
-    _revealControls();
+    if (horizontal && _hasTvScrubber) {
+      // Held, the repeats keep arriving here until the scrubber has focus;
+      // they step the same target either way, so the hold accelerates as one.
+      _revealControls(focus: _scrubFocus);
+      _scrubStep(
+          forward: key == LogicalKeyboardKey.arrowRight,
+          repeat: event is KeyRepeatEvent);
+      return KeyEventResult.handled;
+    }
+    _revealControls(
+        focus: key == LogicalKeyboardKey.arrowDown ? _playPauseFocus : null);
     return KeyEventResult.handled;
   }
 
@@ -1825,33 +2017,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowRight) {
-      // 10 s a press; held, it speeds up to 30 s and then a minute, so a
-      // two-hour film can be crossed without forty presses.
-      _scrubRepeats = event is KeyRepeatEvent ? _scrubRepeats + 1 : 0;
-      final step = _scrubRepeats >= 20
-          ? 60
-          : _scrubRepeats >= 6
-              ? 30
-              : 10;
-      final forward = key == LogicalKeyboardKey.arrowRight;
-      var target = (_scrubTarget ?? _position) +
-          Duration(seconds: forward ? step : -step);
-      if (target < Duration.zero) target = Duration.zero;
-      if (_duration > Duration.zero && target > _duration) target = _duration;
-      setState(() => _scrubTarget = target);
-      _hideTimer?.cancel();
-      // Commits by itself once the viewer stops pressing, so nobody has to
-      // know that OK confirms; OK just does it sooner.
-      _scrubCommitTimer?.cancel();
-      _scrubCommitTimer =
-          Timer(const Duration(milliseconds: 1500), _commitScrub);
+      _scrubStep(
+          forward: key == LogicalKeyboardKey.arrowRight,
+          repeat: event is KeyRepeatEvent);
       return KeyEventResult.handled;
     }
     if (_isOk(key)) {
       if (_scrubTarget != null) {
         _commitScrub(play: true);
       } else {
-        _player.playOrPause();
+        _togglePlay();
         _scheduleHide();
       }
       return KeyEventResult.handled;
@@ -1874,12 +2049,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     return KeyEventResult.ignored;
   }
 
+  /// Moves the scrub target one step. 10 s a press; held, it speeds up to 30 s
+  /// and then a minute, so a two-hour film can be crossed without forty
+  /// presses.
+  void _scrubStep({required bool forward, required bool repeat}) {
+    _scrubRepeats = repeat ? _scrubRepeats + 1 : 0;
+    final step = _scrubRepeats >= 20
+        ? 60
+        : _scrubRepeats >= 6
+            ? 30
+            : 10;
+    var target =
+        (_scrubTarget ?? _position) + Duration(seconds: forward ? step : -step);
+    if (target < Duration.zero) target = Duration.zero;
+    if (_duration > Duration.zero && target > _duration) target = _duration;
+    setState(() => _scrubTarget = target);
+    _hideTimer?.cancel();
+    // Commits by itself once the viewer stops pressing, so nobody has to know
+    // that OK confirms; OK just does it sooner.
+    _scrubCommitTimer?.cancel();
+    _scrubCommitTimer = Timer(const Duration(milliseconds: 1500), _commitScrub);
+  }
+
   /// Jumps to the scrub target, if one is being chosen.
   void _commitScrub({bool play = false}) {
     _scrubCommitTimer?.cancel();
     final target = _scrubTarget;
     if (target == null) return;
-    _player.seek(target);
+    _userSeek(target);
     if (play) _player.play();
     // Moved here now rather than when mpv next reports, so the playhead does
     // not snap back to the old spot for a moment.
@@ -1985,7 +2182,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (wasCasting && !status.isCasting) {
       final resumeAt = _cast.positionSeconds;
       if (!_current.isLive && resumeAt > 0) {
-        _player.seek(Duration(seconds: resumeAt));
+        _userSeek(Duration(seconds: resumeAt));
       }
       _player.play();
     }
@@ -2100,7 +2297,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final clamped = target < Duration.zero
         ? Duration.zero
         : (ceiling != null && target > ceiling ? ceiling : target);
-    _player.seek(clamped);
+    _userSeek(clamped);
     _hint('${seconds.isNegative ? '−' : '+'}${seconds.abs()}s');
     _scheduleHide();
   }
@@ -2147,7 +2344,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void _onHorizontalDragEnd(DragEndDetails details) {
     final target = _dragSeekSeconds;
     if (target != null) {
-      _player.seek(Duration(seconds: target.round()));
+      _userSeek(Duration(seconds: target.round()));
       setState(() => _dragSeekSeconds = null);
     }
   }
@@ -2356,12 +2553,38 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             if ((_upNextCountdown != null || _upNextEarly) && _next != null)
               _upNextCard(),
             if (_shouldShowNextEpisode()) _nextEpisodeButton(),
+            if (_flashIcon != null) _centreFlash(),
             _controlsOverlay(),
             if (_prefs.showPlaybackStats) _statsOverlay(),
           ],
         ),
       ),
       ),
+      ),
+    );
+  }
+
+  /// The play/pause glyph that pops up mid-screen and fades; see [_togglePlay].
+  Widget _centreFlash() {
+    return IgnorePointer(
+      child: Center(
+        child: TweenAnimationBuilder<double>(
+          key: ValueKey(_flashCount),
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 650),
+          builder: (context, t, child) => Opacity(
+            // In fast, then out slowly.
+            opacity: t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85,
+            child: Transform.scale(scale: 0.85 + 0.25 * t, child: child),
+          ),
+          child: Container(
+            width: 112,
+            height: 112,
+            decoration: const BoxDecoration(
+                color: Colors.black54, shape: BoxShape.circle),
+            child: Icon(_flashIcon, size: 68, color: Colors.white),
+          ),
+        ),
       ),
     );
   }
@@ -2596,7 +2819,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                   // Back to the video before this button disappears, or the
                   // remote is left pointing at nothing once playback resumes.
                   _keyboardFocus.requestFocus();
-                  _openCurrent();
+                  _openCurrent(resumeFrom: _reopenAt());
                 },
                 icon: const Icon(Icons.refresh),
                 label: const Text('Retry'),
@@ -2896,24 +3119,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     );
   }
 
-  /// Focus styling for the television transport.
-  ///
-  /// A focused control becomes a solid white pill with a dark glyph. This is
-  /// what Netflix and HBO both do, and the reason is not decoration: Material's
-  /// default focus state is a faint translucent wash, which over moving video on
-  /// a big panel is genuinely invisible — "I can't tell where my cursor is" was
-  /// the exact complaint. Inverting the control is impossible to miss from a
-  /// sofa, whatever frame is behind it.
-  ButtonStyle get _tvTransportStyle => ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.focused) ? Colors.white : null),
-        iconColor: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.focused) ? Colors.black : null),
-        // Returning null for every other state deliberately falls through to
-        // the Material defaults, so the ripple and hover feel are untouched.
-        overlayColor: WidgetStateProperty.resolveWith((states) => null),
-      );
-
   /// The television transport: one cluster at the bottom of the screen.
   ///
   /// Deliberately shaped like Netflix's and HBO's, and for a reason that is
@@ -2985,100 +3190,104 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         child: Row(
                           children: [
                             if (queued)
-                              IconButton(
-                                style: _tvTransportStyle,
-                                iconSize: 30,
-                                tooltip: 'Previous episode',
+                              _TvControlButton(
+                                label: 'Previous episode',
+                                icon: Icons.skip_previous_rounded,
                                 onPressed: _hasPrevious ? _playPrevious : null,
-                                icon: const Icon(Icons.skip_previous),
                               ),
                             if (_canZap)
-                              IconButton(
-                                style: _tvTransportStyle,
-                                iconSize: 30,
-                                tooltip: 'Channel down',
+                              _TvControlButton(
+                                label: 'Channel down',
+                                icon: Icons.keyboard_arrow_down_rounded,
                                 onPressed: () => _zapBy(-1),
-                                icon: const Icon(Icons.keyboard_arrow_down),
                               ),
                             // Seeking is offered for VOD always, and for live once
                             // the timeshift buffer has something to rewind into —
                             // so a channel can have both zapping and scrubbing.
                             if (!_current.isLive || _canTimeshift)
-                              IconButton(
-                                style: _tvTransportStyle,
-                                iconSize: 30,
-                                tooltip: 'Back 10 seconds',
+                              _TvControlButton(
+                                label: 'Back 10 s',
+                                icon: Icons.replay_10_rounded,
                                 onPressed: () => _seekRelative(-10),
-                                icon: const Icon(Icons.replay_10),
                               ),
-                            IconButton(
+                            _TvControlButton(
                               focusNode: _playPauseFocus,
-                              style: _tvTransportStyle,
+                              label: _playing ? 'Pause' : 'Play',
+                              icon: _playing
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
                               iconSize: 38,
-                              tooltip: _playing ? 'Pause' : 'Play',
                               onPressed: () {
-                                _player.playOrPause();
+                                _togglePlay();
                                 _scheduleHide();
                               },
-                              icon: Icon(_playing
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded),
                             ),
                             // Forward is disabled at the live edge rather than
                             // hidden, so the row does not reflow as you scrub.
                             if (!_current.isLive || _canTimeshift)
-                              IconButton(
-                                style: _tvTransportStyle,
-                                iconSize: 30,
-                                tooltip: 'Forward 10 seconds',
+                              _TvControlButton(
+                                label: 'Forward 10 s',
+                                icon: Icons.forward_10_rounded,
                                 onPressed: _current.isLive && _atLiveEdge
                                     ? null
                                     : () => _seekRelative(10),
-                                icon: const Icon(Icons.forward_10),
                               ),
                             if (_canZap)
-                              IconButton(
-                                style: _tvTransportStyle,
-                                iconSize: 30,
-                                tooltip: 'Channel up',
+                              _TvControlButton(
+                                label: 'Channel up',
+                                icon: Icons.keyboard_arrow_up_rounded,
                                 onPressed: () => _zapBy(1),
-                                icon: const Icon(Icons.keyboard_arrow_up),
                               ),
                             if (queued)
-                              IconButton(
-                                style: _tvTransportStyle,
-                                iconSize: 30,
-                                tooltip: 'Next episode',
+                              _TvControlButton(
+                                label: 'Next episode',
+                                icon: Icons.skip_next_rounded,
                                 onPressed: _next != null ? _playNext : null,
-                                icon: const Icon(Icons.skip_next),
                               ),
-                            const Spacer(),
-                            // On a television you are already on the big screen,
-                            // so casting is only offered when this build is NOT
-                            // the TV one (see _castAvailable, which is false
-                            // there) — this branch keeps the row consistent if
-                            // that ever changes.
-                            if (_castAvailable)
-                              IconButton(
-                                style: _tvTransportStyle,
-                                iconSize: 26,
-                                tooltip: castActionLabel,
-                                onPressed: _startCasting,
-                                icon: Icon(castIcon),
+                            // The rest of the row, pushed to the right. Scaled
+                            // down rather than overflowing when a large text size
+                            // and a long focused label leave it short of room.
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // On a television you are already on the big
+                                      // screen, so casting is only offered when this
+                                      // build is NOT the TV one (see _castAvailable,
+                                      // which is false there) — this branch keeps the
+                                      // row consistent if that ever changes.
+                                      if (_castAvailable)
+                                        _TvControlButton(
+                                          label: castActionLabel,
+                                          icon: castIcon,
+                                          iconSize: 26,
+                                          onPressed: _startCasting,
+                                        ),
+                                      // Menus name themselves all the time, not only
+                                      // under the cursor: they are what a viewer
+                                      // goes looking for, by name.
+                                      _TvControlButton(
+                                        label: 'Audio',
+                                        icon: Icons.audiotrack_outlined,
+                                        iconSize: 26,
+                                        alwaysLabelled: true,
+                                        onPressed: _showAudioSheet,
+                                      ),
+                                      _TvControlButton(
+                                        label: 'Subtitles',
+                                        icon: Icons.subtitles_outlined,
+                                        iconSize: 26,
+                                        alwaysLabelled: true,
+                                        onPressed: _showSubtitleSheet,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            IconButton(
-                              style: _tvTransportStyle,
-                              iconSize: 26,
-                              tooltip: 'Audio',
-                              onPressed: _showAudioSheet,
-                              icon: const Icon(Icons.audiotrack_outlined),
-                            ),
-                            IconButton(
-                              style: _tvTransportStyle,
-                              iconSize: 26,
-                              tooltip: 'Subtitles',
-                              onPressed: _showSubtitleSheet,
-                              icon: const Icon(Icons.subtitles_outlined),
                             ),
                           ],
                         ),
@@ -3472,7 +3681,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                         () => _dragSeekSeconds = v)
                                     : null,
                                 onChangeEnd: (v) {
-                                  _player.seek(Duration(seconds: v.round()));
+                                  _userSeek(Duration(seconds: v.round()));
                                   setState(() => _dragSeekSeconds = null);
                                   _scheduleHide();
                                 },
@@ -3583,5 +3792,128 @@ class _PlaybackStats {
     return mbit >= 1
         ? '${mbit.toStringAsFixed(1)} Mbit/s'
         : '${(bytesPerSecond * 8 / 1e3).toStringAsFixed(0)} kbit/s';
+  }
+}
+
+/// A television transport button: an icon that becomes a solid white pill
+/// with its NAME in it when the cursor is on it.
+///
+/// The white pill is what Netflix and HBO do, and for a reason: Material's own
+/// focus state is a faint wash that disappears over moving video. The name is
+/// the other half — a remote has no hover and a television shows no tooltips,
+/// so an icon-only row left the viewer guessing what OK was about to do.
+/// [alwaysLabelled] keeps the name showing for actions that open something
+/// rather than act on the picture.
+class _TvControlButton extends StatefulWidget {
+  const _TvControlButton({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.focusNode,
+    this.iconSize = 30,
+    this.alwaysLabelled = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final FocusNode? focusNode;
+  final double iconSize;
+  final bool alwaysLabelled;
+
+  @override
+  State<_TvControlButton> createState() => _TvControlButtonState();
+}
+
+class _TvControlButtonState extends State<_TvControlButton> {
+  FocusNode? _ownNode;
+
+  FocusNode get _node =>
+      widget.focusNode ??
+      (_ownNode ??= FocusNode(debugLabel: 'tv-${widget.label}'));
+
+  @override
+  void initState() {
+    super.initState();
+    _node.addListener(_onFocus);
+  }
+
+  @override
+  void didUpdateWidget(_TvControlButton old) {
+    super.didUpdateWidget(old);
+    final before = old.focusNode ?? _ownNode;
+    if (before != _node) {
+      before?.removeListener(_onFocus);
+      _node.addListener(_onFocus);
+    }
+  }
+
+  @override
+  void dispose() {
+    _node.removeListener(_onFocus);
+    _ownNode?.dispose();
+    super.dispose();
+  }
+
+  void _onFocus() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final focused = _node.hasFocus;
+    final enabled = widget.onPressed != null;
+    final showLabel = focused || widget.alwaysLabelled;
+    final colour = focused
+        ? Colors.black
+        : enabled
+            ? Colors.white
+            : Colors.white38;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Semantics(
+        label: widget.label,
+        button: true,
+        excludeSemantics: true,
+        child: TextButton(
+          focusNode: _node,
+          onPressed: widget.onPressed,
+          style: TextButton.styleFrom(
+            backgroundColor: focused ? Colors.white : Colors.transparent,
+            foregroundColor: colour,
+            disabledForegroundColor: Colors.white38,
+            shape: const StadiumBorder(),
+            minimumSize: const Size(52, 52),
+            padding: EdgeInsets.symmetric(
+                horizontal: showLabel ? 16 : 10, vertical: 8),
+          ).copyWith(
+            // No grey wash on focus — the white pill is the focus state.
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          ),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(widget.icon, size: widget.iconSize, color: colour),
+                if (showLabel) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: colour,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

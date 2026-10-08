@@ -59,6 +59,10 @@ class TrackOption {
 /// One button and one place, instead of two look-alike icons opening two
 /// separate lists. A choice applies at once and the panel stays open, so both
 /// can be set in one visit; LEFT/RIGHT cross between the columns.
+///
+/// With [onAudioDelay], an Audio sync control sits underneath (DOWN from the
+/// bottom of either column), so sound can be lined up with the picture while
+/// watching it.
 class AudioSubtitlePanel extends StatefulWidget {
   const AudioSubtitlePanel({
     super.key,
@@ -68,6 +72,8 @@ class AudioSubtitlePanel extends StatefulWidget {
     required this.selectedSubtitle,
     required this.onAudio,
     required this.onSubtitle,
+    this.audioDelayMs = 0,
+    this.onAudioDelay,
   });
 
   final List<TrackOption> audio;
@@ -77,6 +83,15 @@ class AudioSubtitlePanel extends StatefulWidget {
   final ValueChanged<String> onAudio;
   final ValueChanged<String> onSubtitle;
 
+  /// Current Audio sync offset; positive holds the sound back.
+  final int audioDelayMs;
+  final ValueChanged<int>? onAudioDelay;
+
+  /// 10 ms a press: small enough to settle on what looks right, and the
+  /// remote's key repeat covers a long way quickly.
+  static const delayStepMs = 10;
+  static const delayLimitMs = 300;
+
   @override
   State<AudioSubtitlePanel> createState() => _AudioSubtitlePanelState();
 }
@@ -85,15 +100,29 @@ class _AudioSubtitlePanelState extends State<AudioSubtitlePanel> {
   late String _audio = widget.selectedAudio;
   late String _subtitle = widget.selectedSubtitle;
 
+  late int _delay = widget.audioDelayMs;
+
   late final _audioNodes = [for (final _ in widget.audio) FocusNode()];
   late final _subtitleNodes = [for (final _ in widget.subtitles) FocusNode()];
+  final _earlierNode = FocusNode(debugLabel: 'sync-earlier');
+
+  /// The list row the cursor left the columns from, to go back to on UP.
+  FocusNode? _leftFrom;
 
   @override
   void dispose() {
-    for (final node in [..._audioNodes, ..._subtitleNodes]) {
+    for (final node in [..._audioNodes, ..._subtitleNodes, _earlierNode]) {
       node.dispose();
     }
     super.dispose();
+  }
+
+  void _nudge(int ms) {
+    final next = ms.clamp(
+        -AudioSubtitlePanel.delayLimitMs, AudioSubtitlePanel.delayLimitMs);
+    if (next == _delay) return;
+    setState(() => _delay = next);
+    widget.onAudioDelay?.call(next);
   }
 
   /// UP/DOWN stay inside a column. Left to geometry, DOWN off the bottom of
@@ -109,8 +138,98 @@ class _AudioSubtitlePanelState extends State<AudioSubtitlePanel> {
     final at = nodes.indexWhere((n) => n.hasPrimaryFocus);
     if (at == -1) return KeyEventResult.ignored;
     final next = at + (down ? 1 : -1);
-    if (next >= 0 && next < nodes.length) nodes[next].requestFocus();
+    if (next >= 0 && next < nodes.length) {
+      nodes[next].requestFocus();
+    } else if (down && widget.onAudioDelay != null) {
+      _leftFrom = nodes[at];
+      _earlierNode.requestFocus();
+    }
     return KeyEventResult.handled;
+  }
+
+  /// UP from the sync row goes back to the row it was entered from.
+  KeyEventResult _onSyncKey(FocusNode node, KeyEvent event) {
+    if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
+        event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      (_leftFrom ?? _audioNodes.firstOrNull)?.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
+        event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  Widget _syncRow() {
+    final step = AudioSubtitlePanel.delayStepMs;
+    final limit = AudioSubtitlePanel.delayLimitMs;
+    final value = _delay == 0
+        ? '0 ms'
+        : '${_delay > 0 ? '+' : '−'}${_delay.abs()} ms';
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: _onSyncKey,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(32, 8, 32, 20),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Audio sync', style: AppTypography.body),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Voices before the lips move: press +. '
+                    'After: press −. Kept for this screen.',
+                    style: TextStyle(
+                        color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            FocusHighlight(
+              borderRadius: 24,
+              child: IconButton.filledTonal(
+                focusNode: _earlierNode,
+                tooltip: 'Sound earlier',
+                onPressed: _delay > -limit ? () => _nudge(_delay - step) : null,
+                icon: const Icon(Icons.remove),
+              ),
+            ),
+            SizedBox(
+              width: 88,
+              child: Text(value,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w600)),
+            ),
+            FocusHighlight(
+              borderRadius: 24,
+              child: IconButton.filledTonal(
+                tooltip: 'Sound later',
+                onPressed: _delay < limit ? () => _nudge(_delay + step) : null,
+                icon: const Icon(Icons.add),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FocusHighlight(
+              borderRadius: 20,
+              child: TextButton(
+                // Always there, just disabled at zero, so the buttons beside
+                // it never move under the cursor.
+                onPressed: _delay == 0 ? null : () => _nudge(0),
+                child: const Text('Reset'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -120,7 +239,7 @@ class _AudioSubtitlePanelState extends State<AudioSubtitlePanel> {
     final audioFocus = widget.audio.any((o) => o.id == _audio)
         ? _audio
         : widget.audio.firstOrNull?.id;
-    return Padding(
+    final columns = Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,6 +275,14 @@ class _AudioSubtitlePanelState extends State<AudioSubtitlePanel> {
           ),
         ],
       ),
+    );
+    if (widget.onAudioDelay == null) return columns;
+    return Column(
+      children: [
+        Expanded(child: columns),
+        const Divider(height: 1),
+        _syncRow(),
+      ],
     );
   }
 

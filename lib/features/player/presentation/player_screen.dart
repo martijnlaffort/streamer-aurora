@@ -239,6 +239,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Live mpv readings for the stats overlay, polled while it is switched on.
   Timer? _statsTimer;
+
+  /// Whether the Android audio output has been chosen; see
+  /// [_useAccurateAudioOutput].
+  bool _audioOutputChosen = false;
   Map<String, String> _mpvStats = const {};
 
   /// What the overlay reads from mpv each second. Each is optional: a build
@@ -1079,6 +1083,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (platform is NativePlayer) {
         await platform.setProperty(
             'user-agent', account.userAgent ?? kStreamUserAgent);
+        await _useAccurateAudioOutput(platform);
         // Only the user's own Audio sync offset, which is zero unless they set
         // one; see _audioDelaySeconds. Always written, so a value from an
         // earlier open never lingers.
@@ -1312,6 +1317,45 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   /// none and were in sync; with it, the picture visibly led the sound. The
   /// guess was wrong, so it is gone rather than retuned.
   double _audioDelaySeconds() => _prefs.audioDelayMs / 1000;
+
+  /// Android: plays sound through AudioTrack rather than OpenSL ES.
+  ///
+  /// media_kit picks OpenSL ES, and that output only estimates how long sound
+  /// takes to come out of the speaker, from its own buffer size. AudioTrack
+  /// asks Android (`AudioTrack.getTimestamp`), which includes the device's
+  /// real output path, and mpv's A/V sync is only as good as that number. It
+  /// is what mpv's own Android app uses. Listed with OpenSL ES behind it, so
+  /// a device where AudioTrack will not start still has sound.
+  ///
+  /// The automatic delays tried before this (two, then three frames) were
+  /// guesses about latency mpv could not see; this lets it see the audio half
+  /// instead. Set once — changing it reopens the audio output.
+  Future<void> _useAccurateAudioOutput(NativePlayer platform) async {
+    if (!Platform.isAndroid || _audioOutputChosen) return;
+    _audioOutputChosen = true;
+    try {
+      await platform.setProperty('ao', 'audiotrack,opensles');
+    } on Object {
+      // Keep media_kit's choice.
+    }
+  }
+
+  /// Applies an Audio sync offset now, while playing, and remembers it for
+  /// this screen. From the Audio & subtitles panel: tuning it while someone
+  /// is talking on screen is the only way to get it right by eye, and doing
+  /// it in Settings meant leaving the video to change it.
+  Future<void> _setAudioDelay(int ms) async {
+    _prefs = _prefs.copyWith(audioDelayMs: ms);
+    final platform = _player.platform;
+    if (platform is NativePlayer) {
+      try {
+        await platform.setProperty(
+            'audio-delay', _audioDelaySeconds().toStringAsFixed(3));
+      } on Object {
+        // An older libmpv without the property.
+      }
+    }
+  }
 
   /// Points [url] at the account's [attempt]-th fallback host.
   ///
@@ -2452,8 +2496,21 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             _selectAudioTrack(audioOptions.firstWhere((t) => t.id == id)),
         onSubtitle: (id) => _selectSubtitleTrack(
             subtitleOptions.firstWhere((t) => t.id == id)),
+        audioDelayMs: _prefs.audioDelayMs,
+        onAudioDelay: _setAudioDelay,
       ),
-    ).then((_) => _scheduleHide());
+    ).then((_) async {
+      _scheduleHide();
+      // Saved once on the way out, not on every step: it is device-local, and
+      // each save would otherwise stamp the preferences for sync.
+      final saved = await ref.read(preferencesRepositoryProvider).get();
+      if (saved.audioDelayMs != _prefs.audioDelayMs) {
+        await ref
+            .read(preferencesRepositoryProvider)
+            .save(saved.copyWith(audioDelayMs: _prefs.audioDelayMs));
+        ref.invalidate(preferencesProvider);
+      }
+    });
   }
 
   /// Whether there is a series to pick episodes from: an episode, queued with

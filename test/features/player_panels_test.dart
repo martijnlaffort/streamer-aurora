@@ -176,4 +176,44 @@ void main() {
     expect(popped, isEmpty);
     expect(find.byIcon(Icons.check), findsNWidgets(2));
   });
+
+  testWidgets('audio sync: reached with DOWN, nudged live, UP goes back',
+      (tester) async {
+    final delays = <int>[];
+    await _open(
+      tester,
+      AudioSubtitlePanel(
+        audio: const [TrackOption('auto', 'Auto'), TrackOption('1', 'eng')],
+        subtitles: const [TrackOption('no', 'Off')],
+        selectedAudio: '1',
+        selectedSubtitle: 'no',
+        onAudio: (_) {},
+        onSubtitle: (_) {},
+        audioDelayMs: 0,
+        onAudioDelay: delays.add,
+      ),
+      popped: [],
+    );
+
+    expect(_focusedText(tester), 'eng'); // last row of the audio column
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'sync-earlier');
+
+    // "−" once, then across to "+" twice.
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(delays, [-10, 0, 10]);
+    expect(find.text('+10 ms'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(_focusedText(tester), 'eng');
+  });
 }

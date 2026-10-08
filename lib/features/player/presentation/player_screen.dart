@@ -3201,10 +3201,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                 icon: Icons.keyboard_arrow_down_rounded,
                                 onPressed: () => _zapBy(-1),
                               ),
-                            // Seeking is offered for VOD always, and for live once
-                            // the timeshift buffer has something to rewind into —
-                            // so a channel can have both zapping and scrubbing.
-                            if (!_current.isLive || _canTimeshift)
+                            // Live only. A film or episode skips with LEFT/RIGHT
+                            // on the scrubber, from the very first press, so a
+                            // second way to do it only made the row longer. Live
+                            // has no scrubber: these are its rewind, once the
+                            // timeshift buffer has something to rewind into.
+                            if (_canTimeshift)
                               _TvControlButton(
                                 label: 'Back 10 s',
                                 icon: Icons.replay_10_rounded,
@@ -3224,11 +3226,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             ),
                             // Forward is disabled at the live edge rather than
                             // hidden, so the row does not reflow as you scrub.
-                            if (!_current.isLive || _canTimeshift)
+                            if (_canTimeshift)
                               _TvControlButton(
                                 label: 'Forward 10 s',
                                 icon: Icons.forward_10_rounded,
-                                onPressed: _current.isLive && _atLiveEdge
+                                onPressed: _atLiveEdge
                                     ? null
                                     : () => _seekRelative(10),
                               ),

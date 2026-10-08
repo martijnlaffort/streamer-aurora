@@ -24,11 +24,18 @@ import '../../../data/repositories/watch_progress_repository.dart';
 import '../../../data/sync/playback_activity.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../../domain/models/models.dart'
-    show Account, Preferences, StreamRef, StreamType, contentKeyFor;
+    show
+        Account,
+        Preferences,
+        StreamRef,
+        StreamType,
+        WatchProgress,
+        contentKeyFor;
 import '../../../tour/screenshot_tour.dart' show screenshotTourEnabled;
 import '../player_request.dart';
 import 'cast_controls.dart';
 import 'cast_picker.dart';
+import 'player_panels.dart';
 
 /// Android emulators stall on hardware video decode (documented media_kit
 /// quirk): run with `--dart-define=DAWN_SW_DECODE=true` there. Real
@@ -1536,37 +1543,36 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     if (fromOffer || (_endIsKnown && _position >= _duration * 0.85)) {
       _recordOutroHint();
     }
-    // Manual skip: save where we left the current item first (PRD §8.9).
+    _jumpTo(_index + 1);
+  }
+
+  void _playPrevious() {
+    if (!_hasPrevious) return;
+    _jumpTo(_index - 1);
+  }
+
+  /// Leaves the current queue item for [index]: next, previous, or an episode
+  /// picked from the Episodes panel.
+  void _jumpTo(int index) {
+    if (index < 0 || index >= widget.request.queue.length) return;
+    // Save where we left the current item first (PRD §8.9).
     _saveProgress();
     _upNextTimer?.cancel();
     // A reconnect scheduled for THIS item would otherwise reopen the next one
     // at this one's position.
     _reconnectTimer?.cancel();
+    _scrubCommitTimer?.cancel();
     // The prompt that was pressed is about to disappear; keep the remote on
     // something that exists.
     if (_upNextFocus.hasFocus) _keyboardFocus.requestFocus();
     setState(() {
-      _index += 1;
+      _index = index;
       _upNextCountdown = null;
+      _scrubTarget = null;
       // Clear transport state for the new item. Otherwise a quick exit before
       // it reports its own position/duration would save the PREVIOUS item's
       // position against the NEW item's content key (dispose saves whenever
       // position & duration are both > 0).
-      _position = Duration.zero;
-      _duration = Duration.zero;
-    });
-    _openCurrent();
-  }
-
-  void _playPrevious() {
-    if (!_hasPrevious) return;
-    _saveProgress();
-    _upNextTimer?.cancel();
-    _reconnectTimer?.cancel();
-    setState(() {
-      _index -= 1;
-      _upNextCountdown = null;
-      // See _playNext: clear so a quick exit can't misattribute the position.
       _position = Duration.zero;
       _duration = Duration.zero;
     });
@@ -2387,71 +2393,66 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     }
   }
 
-  void _showAudioSheet() {
-    final tracks =
+  /// Audio and subtitles, together in one panel (see [AudioSubtitlePanel]).
+  void _showLanguages() {
+    final audio =
         _tracks.audio.where((t) => t.id != 'auto' && t.id != 'no').toList();
-    _showTrackSheet<AudioTrack>(
-      title: 'Audio',
-      tracks: [AudioTrack.auto(), ...tracks],
-      selectedId: _selected.audio.id,
-      labelOf: _audioLabel,
-      onSelected: _selectAudioTrack,
-    );
-  }
-
-  void _showSubtitleSheet() {
-    final tracks =
+    final subs =
         _tracks.subtitle.where((t) => t.id != 'auto' && t.id != 'no').toList();
-    _showTrackSheet<SubtitleTrack>(
-      title: 'Subtitles',
-      tracks: [SubtitleTrack.no(), ...tracks],
-      selectedId: _selected.subtitle.id,
-      labelOf: _subtitleLabel,
-      onSelected: _selectSubtitleTrack,
-    );
-  }
-
-  void _showTrackSheet<T>({
-    required String title,
-    required List<T> tracks,
-    required String selectedId,
-    required String Function(T) labelOf,
-    required Future<void> Function(T) onSelected,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text(title, style: AppTypography.title),
-            ),
-            for (final track in tracks)
-              ListTile(
-                // Seed focus on the current track so the sheet is operable by
-                // remote as soon as it opens.
-                autofocus: (track as dynamic).id == selectedId,
-                leading: Icon(
-                  (track as dynamic).id == selectedId
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_off,
-                  color: (track as dynamic).id == selectedId
-                      ? AppColors.accent
-                      : AppColors.textSecondary,
-                ),
-                title: Text(labelOf(track)),
-                onTap: () {
-                  onSelected(track);
-                  Navigator.pop(context);
-                },
-              ),
-          ],
-        ),
+    final audioOptions = [AudioTrack.auto(), ...audio];
+    final subtitleOptions = [SubtitleTrack.no(), ...subs];
+    showPlayerPanel<void>(
+      context,
+      maxWidth: 640,
+      child: AudioSubtitlePanel(
+        audio: [
+          for (final t in audioOptions) TrackOption(t.id, _audioLabel(t)),
+        ],
+        subtitles: [
+          for (final t in subtitleOptions) TrackOption(t.id, _subtitleLabel(t)),
+        ],
+        selectedAudio: _selected.audio.id,
+        selectedSubtitle: _selected.subtitle.id,
+        onAudio: (id) =>
+            _selectAudioTrack(audioOptions.firstWhere((t) => t.id == id)),
+        onSubtitle: (id) => _selectSubtitleTrack(
+            subtitleOptions.firstWhere((t) => t.id == id)),
       ),
     ).then((_) => _scheduleHide());
+  }
+
+  /// Whether there is a series to pick episodes from: an episode, queued with
+  /// the rest of its show.
+  bool get _hasEpisodes =>
+      !_current.isLive &&
+      _current.season != null &&
+      widget.request.queue.length > 1;
+
+  /// The series' episodes, without leaving the player (see [EpisodesPanel]).
+  Future<void> _showEpisodes() async {
+    final picked = await showPlayerPanel<int>(
+      context,
+      child: EpisodesPanel(
+        queue: widget.request.queue,
+        currentIndex: _index,
+        loadProgress: (keys) async {
+          final result = <String, WatchProgress>{};
+          for (final key in keys) {
+            final progress = await _progressRepo.get(key);
+            if (progress != null) result[key] = progress;
+          }
+          return result;
+        },
+      ),
+    );
+    if (!mounted) return;
+    if (picked == null || picked == _index) {
+      _scheduleHide();
+      return;
+    }
+    // Opened without a resume point, so _openCurrent picks the episode up
+    // where it was left off, if it was started at all.
+    _jumpTo(picked);
   }
 
   // --- Build -----------------------------------------------------------------
@@ -3272,19 +3273,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                                       // Menus name themselves all the time, not only
                                       // under the cursor: they are what a viewer
                                       // goes looking for, by name.
+                                      if (_hasEpisodes)
+                                        _TvControlButton(
+                                          label: 'Episodes',
+                                          icon: Icons.video_library_outlined,
+                                          iconSize: 26,
+                                          alwaysLabelled: true,
+                                          onPressed: _showEpisodes,
+                                        ),
                                       _TvControlButton(
-                                        label: 'Audio',
-                                        icon: Icons.audiotrack_outlined,
-                                        iconSize: 26,
-                                        alwaysLabelled: true,
-                                        onPressed: _showAudioSheet,
-                                      ),
-                                      _TvControlButton(
-                                        label: 'Subtitles',
+                                        label: 'Audio & subtitles',
                                         icon: Icons.subtitles_outlined,
                                         iconSize: 26,
                                         alwaysLabelled: true,
-                                        onPressed: _showSubtitleSheet,
+                                        onPressed: _showLanguages,
                                       ),
                                     ],
                                   ),
@@ -3532,14 +3534,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                         onPressed: _startCasting,
                         icon: Icon(castIcon),
                       ),
+                    if (_hasEpisodes)
+                      IconButton(
+                        tooltip: 'Episodes',
+                        onPressed: _showEpisodes,
+                        icon: const Icon(Icons.video_library_outlined),
+                      ),
                     IconButton(
-                      tooltip: 'Audio',
-                      onPressed: _showAudioSheet,
-                      icon: const Icon(Icons.audiotrack_outlined),
-                    ),
-                    IconButton(
-                      tooltip: 'Subtitles',
-                      onPressed: _showSubtitleSheet,
+                      tooltip: 'Audio & subtitles',
+                      onPressed: _showLanguages,
                       icon: const Icon(Icons.subtitles_outlined),
                     ),
                     IconButton(

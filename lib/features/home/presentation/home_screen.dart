@@ -379,6 +379,14 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
                 accountId: account.id,
                 type: StreamType.episode,
                 id: e.id),
+            // Without it a show resumed from here never learnt where its
+            // credits start, and had no episode list in the player.
+            seriesId: episode.seriesId,
+            season: e.seasonNumber,
+            episode: e.episodeNumber,
+            episodeTitle: e.title,
+            imageUrl: e.stillUrl ?? entry.imageUrl,
+            durationSeconds: e.durationSeconds,
           ),
       ],
       startIndex: startIndex,

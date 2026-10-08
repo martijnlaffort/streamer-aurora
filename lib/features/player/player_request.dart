@@ -10,6 +10,11 @@ class PlayerItem {
     this.isLive = false,
     this.seriesId,
     this.pinnedStream = false,
+    this.season,
+    this.episode,
+    this.episodeTitle,
+    this.imageUrl,
+    this.durationSeconds,
   });
 
   final StreamRef streamRef;
@@ -33,6 +38,21 @@ class PlayerItem {
   /// it is tried first — ahead of whichever stream worked last time and of
   /// the best-quality ordering. Picking "HD" used to open 4K anyway.
   final bool pinnedStream;
+
+  /// For an episode, where it sits in the series — what the player's Episodes
+  /// panel groups and labels by. Null for films and live.
+  final int? season;
+  final int? episode;
+
+  /// The episode's own title as the panel lists it, raw; cleaned for display
+  /// against [title], which is the series name.
+  final String? episodeTitle;
+
+  /// A still for the Episodes panel (the episode's, else the series poster).
+  final String? imageUrl;
+
+  /// Running time, when the catalogue knows it.
+  final int? durationSeconds;
 }
 
 /// Where a live channel sits in the list the user was browsing, so the player

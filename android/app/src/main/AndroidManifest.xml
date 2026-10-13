@@ -1,16 +1,26 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Streaming app: release builds need INTERNET explicitly (debug builds
          inject it, which hides its absence until a release build). -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <!-- Programme reminders. POST_NOTIFICATIONS is the Android 13+ runtime
-         permission; the alarm pair is what lets a reminder fire at the minute
-         the programme starts rather than whenever the system next feels like
-         it; RECEIVE_BOOT_COMPLETED re-arms pending reminders after a reboot,
-         since Android drops every scheduled alarm on shutdown. -->
+         permission; SCHEDULE_EXACT_ALARM is what lets a reminder fire at the
+         minute the programme starts rather than whenever the system next feels
+         like it (user-granted on Android 14+; ReminderService falls back to an
+         inexact alarm when it is not); RECEIVE_BOOT_COMPLETED re-arms pending
+         reminders after a reboot, since Android drops every scheduled alarm on
+         shutdown.
+
+         NOT USE_EXACT_ALARM: Google Play only allows it for apps whose core
+         function is an alarm clock or a calendar, and rejects any other app
+         that requests it. Stripped explicitly, so a plugin that declares it
+         can never bring it back into the merged manifest. -->
+    <uses-permission
+        android:name="android.permission.USE_EXACT_ALARM"
+        tools:node="remove"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
 

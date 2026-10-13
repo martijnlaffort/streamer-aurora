@@ -13,7 +13,7 @@ and the Data safety form in the Play Console. If the app's behaviour changes, al
 | | |
 |---|---|
 | Store name | **Dawn Player** |
-| Android application id | `com.dawnplayer.app` |
+| Android application id | `com.dawnplayer.player` (registered in Play Console; `com.dawnplayer.app` up to build 117) |
 | iOS bundle identifier | `com.dawnplayer.app` |
 | Version at first submission | `1.0.0` (build `1`) — `pubspec.yaml` `version:` |
 | Developer contact | `support@dawnplayer.com` — **must be receiving mail before submission**, Play shows it publicly |

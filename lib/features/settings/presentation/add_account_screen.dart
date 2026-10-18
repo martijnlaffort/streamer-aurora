@@ -220,10 +220,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       const SizedBox(height: 8),
       Text(
         _type == AccountType.xtream
-            ? 'Your provider sent a server address, a username and a password '
-                '(sometimes called Xtream Codes).'
-            : 'Your provider sent a single link, usually ending in .m3u or '
-                '.m3u8.',
+            ? 'A media server address, with your username and password.'
+            : 'A single playlist link, usually ending in .m3u or .m3u8, or a '
+                'playlist file.',
         style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
       ),
       const SizedBox(height: 16),
@@ -246,8 +245,8 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
               ? 'Server address'
               : 'Playlist link (or file)',
           hintText: _type == AccountType.xtream
-              ? 'http://provider.example:8080'
-              : 'http://provider.example/playlist.m3u',
+              ? 'http://server.example:8080'
+              : 'http://server.example/playlist.m3u',
           border: const OutlineInputBorder(),
         ),
       ),
@@ -282,7 +281,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           keyboardType: TextInputType.url,
           decoration: const InputDecoration(
             labelText: 'Programme guide link (optional)',
-            helperText: 'An XMLTV link, if your provider gave you one',
+            helperText: 'An XMLTV link, if your playlist comes with one',
             border: OutlineInputBorder(),
           ),
         ),
@@ -315,6 +314,14 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
                 ],
               )
             : const Text('Connect'),
+      ),
+      const SizedBox(height: 12),
+      // Both stores ask players of user-supplied media to say this where the
+      // source is added, not only in a policy nobody opens.
+      Text(
+        'Dawn Player includes no content. Only add sources you have the right '
+        'to access.',
+        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
       ),
     ];
   }

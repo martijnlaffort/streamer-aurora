@@ -6,10 +6,10 @@
 <!-- Unlisted on purpose: reachable by anyone with the link, absent from search.
      This meta tag is what actually enforces it (see site/robots.txt). -->
 <meta name="robots" content="noindex, nofollow">
-<title>Dawn Player — IPTV that behaves like a streaming service</title>
-<meta name="description" content="Dawn Player points at the Xtream Codes or M3U line you already pay for and makes it worth opening: playback that holds, resume that works, and languages it learns. A personal project — it ships no content.">
+<title>Dawn Player — a video player that remembers</title>
+<meta name="description" content="Dawn Player is a video player for media you already have the rights to: your own playlists, your own server, your own files. Playback that holds, resume that works, and languages it learns. It ships no content.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Dawn Player — IPTV that behaves like a streaming service">
+<meta property="og:title" content="Dawn Player — a video player that remembers">
 <meta property="og:description" content="Playback that holds, resume that works, languages it learns. Phone, desktop and television, one codebase. Ships no content.">
 <meta name="theme-color" content="#171C25">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -69,16 +69,17 @@
   <div class="wrap hero__in">
     <div>
       <p class="badge"><i data-ambient></i>A personal project</p>
-      <h1 class="h1">IPTV that behaves like a <em>streaming service</em>.</h1>
-      <p class="lead lead--hero">Dawn Player points at the Xtream Codes or M3U line you already pay for and makes it
-        worth opening. <b class="strong">It remembers where you stopped, which languages you watch in, and what
-        you meant to watch next</b> — the three things every other player on that list gets wrong.</p>
+      <h1 class="h1">Your own videos, played like a <em>streaming service</em>.</h1>
+      <p class="lead lead--hero">Dawn Player is a video player for media you already have the right to watch — a playlist
+        from your own server, a home media library, or free broadcasts that publish one.
+        <b class="strong">It remembers where you stopped, which languages you watch in, and what
+        you meant to watch next</b> — the three things most players get wrong.</p>
       <div class="btn-row">
         <a class="btn btn--primary" href="#fixes">See what it fixes</a>
         <a class="btn btn--ghost" href="#built">Under the hood</a>
       </div>
       <ul class="factlist">
-        <li><i></i>Xtream Codes &amp; M3U</li>
+        <li><i></i>M3U playlists &amp; HLS</li>
         <li><i></i>libmpv playback</li>
         <li><i></i>XMLTV guide</li>
         <li><i></i>iPhone · Android · Windows · Android TV</li>
@@ -174,8 +175,8 @@
       <div class="fixcard" data-reveal>
         <div class="fixcard__was">
           <p class="tag tag--was"><span class="tag__mark">✕</span>Before</p>
-          <p class="copy copy--tight">A raw MPEG-TS channel or an HEVC film opens to a black screen, and the app
-            dies instead of saying why. When the panel drops the connection, that's the end of the evening.</p>
+          <p class="copy copy--tight">A raw MPEG-TS stream or an HEVC video opens to a black screen, and the app
+            dies instead of saying why. When the server drops the connection, that's the end of the evening.</p>
         </div>
         <div class="fixcard__now">
           <p class="tag tag--now"><span class="tag__mark"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg></span>In Dawn Player</p>
@@ -303,7 +304,7 @@
       <div class="feature" data-reveal>
         <div class="tile"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="4.4" width="18.8" height="12.4" rx="2.4"/><path d="M8.4 19.8h7.2"/></svg></div>
         <h3>Live TV with a real guide</h3>
-        <p>Now and next on every channel, a day grid that stays bounded, channel up/down without leaving the stream, and catch-up where the provider offers it.</p>
+        <p>Now and next on every channel, a day grid that stays bounded, channel up/down without leaving the stream, and catch-up where your source offers it.</p>
       </div>
       <div class="feature feature--teal" data-reveal>
         <div class="tile tile--teal"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.4 11.4a7.6 7.6 0 0 1 12.9-4.3l2.3 2.2"/><path d="M19.6 4.9v4.4h-4.4"/><path d="M19.6 12.6a7.6 7.6 0 0 1-12.9 4.3l-2.3-2.2"/><path d="M4.4 19.1v-4.4h4.4"/></svg></div>
@@ -360,11 +361,10 @@
   <div data-reveal>
     <p class="eyebrow">Films &amp; series</p>
     <h2 class="h2 h2--split">A catalogue you can actually browse</h2>
-    <p class="lead lead--split">The same line, sorted into something readable: rails with a reason to exist,
-      series that know which episode you are on, and posters for the titles your provider never sent artwork
-      for. <b class="strong">A hundred thousand titles stays scrollable.</b></p>
+    <p class="lead lead--split">Your library, sorted into something readable: rails with a reason to exist,
+      series that know which episode you are on, and posters for the titles that came without artwork. <b class="strong">A hundred thousand titles stays scrollable.</b></p>
     <ul class="checks">
-      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Trending, New Releases and <b>award-winning</b> rails, ranked by something real rather than provider order.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Trending, New Releases and <b>award-winning</b> rails, ranked by something real rather than playlist order.</li>
       <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Series open on the <b>episode you are due</b>, with the part-watched one marked and the rest of the season in order.</li>
       <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Search across films, series and channels at once — <b>no category to pick first</b>.</li>
       <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Missing posters and synopses are <b>filled in from TMDB</b>, and what you loaded still opens offline.</li>
@@ -380,10 +380,10 @@
     <p class="lead lead--split">The same components, with focus turned up: a navigation rail instead of a tab
       bar, and a white ring wherever the D-pad is. <b class="strong">Nothing was forked to get there.</b></p>
     <ul class="checks">
-      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>A day-bounded guide with <b>now and next</b> on every channel, from your provider's XMLTV feed.</li>
-      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Missed the first four minutes? <b>Watch from the start</b>, where the provider offers catch-up.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>A day-bounded guide with <b>now and next</b> on every channel, from your source's XMLTV feed.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Missed the first four minutes? <b>Watch from the start</b>, where your source offers it.</li>
       <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg><b>Channel up and down</b> from inside the stream — zapping, not back-out-and-pick-again.</li>
-      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Adding the TV is <b>a pairing code</b>, not your provider password typed with a remote.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Adding the TV is <b>a pairing code</b>, not a password typed with a remote.</li>
     </ul>
   </div>
   <div data-reveal>
@@ -399,43 +399,43 @@
         <div class="guide-body">
           <h4>TV Guide</h4>
           <div class="grow">
-            <div class="gchan"><b></b>BBC One HD</div>
+            <div class="gchan"><b></b>Harbour One</div>
             <div class="gprogs">
-              <span class="gprog" style="width:20%">Antiques Roadshow</span>
-              <span class="gprog gprog--focus" style="width:46%">Ten O’Clock News</span>
-              <span class="gprog gprog--fill">Newsnight</span>
+              <span class="gprog" style="width:20%">Auction Room</span>
+              <span class="gprog gprog--focus" style="width:46%">Evening News</span>
+              <span class="gprog gprog--fill">Late Report</span>
             </div>
           </div>
           <div class="grow">
-            <div class="gchan"><b></b>BBC Two HD</div>
+            <div class="gchan"><b></b>Harbour Two</div>
             <div class="gprogs">
-              <span class="gprog" style="width:30%">Gardeners’ World</span>
-              <span class="gprog gprog--now" style="width:26%">Only Connect</span>
-              <span class="gprog gprog--fill">Storyville</span>
+              <span class="gprog" style="width:30%">Garden Hour</span>
+              <span class="gprog gprog--now" style="width:26%">Puzzle Night</span>
+              <span class="gprog gprog--fill">Documentary</span>
             </div>
           </div>
           <div class="grow">
-            <div class="gchan"><b></b>ITV1 HD</div>
+            <div class="gchan"><b></b>Meridian Plus</div>
             <div class="gprogs">
-              <span class="gprog" style="width:14%">Regional News</span>
-              <span class="gprog gprog--now" style="width:40%">The Repair Shop</span>
-              <span class="gprog gprog--fill">Question of Sport</span>
+              <span class="gprog" style="width:14%">Local News</span>
+              <span class="gprog gprog--now" style="width:40%">The Workshop</span>
+              <span class="gprog gprog--fill">Sports Quiz</span>
             </div>
           </div>
           <div class="grow">
-            <div class="gchan"><b></b>Sky Sport 1</div>
+            <div class="gchan"><b></b>Northfield Sport</div>
             <div class="gprogs">
               <span class="gprog" style="width:12%">Build-up</span>
-              <span class="gprog gprog--now" style="width:54%">Arsenal – Everton</span>
+              <span class="gprog gprog--now" style="width:54%">Harbour FC – Vale</span>
               <span class="gprog gprog--fill">Highlights</span>
             </div>
           </div>
           <div class="grow">
-            <div class="gchan"><b></b>Channel 4 HD</div>
+            <div class="gchan"><b></b>Coastline Four</div>
             <div class="gprogs">
-              <span class="gprog" style="width:24%">Countdown</span>
-              <span class="gprog gprog--now" style="width:34%">Grand Designs</span>
-              <span class="gprog gprog--fill">Taskmaster</span>
+              <span class="gprog" style="width:24%">Word Game</span>
+              <span class="gprog gprog--now" style="width:34%">House Builders</span>
+              <span class="gprog gprog--fill">Comedy Panel</span>
             </div>
           </div>
         </div>
@@ -596,23 +596,23 @@
     <div class="head" data-reveal style="margin-bottom:clamp(34px,4vw,52px)">
       <p class="eyebrow">How it works</p>
       <h2 class="h2">Three steps, and none of them is a signup</h2>
-      <p class="lead">Dawn Player has no account, no store page and nothing to buy. It needs one thing from you: the
-        line you already have.</p>
+      <p class="lead">Dawn Player has no account to create, no subscription and nothing to buy. It needs one thing from you: a
+        media source you already have the right to use.</p>
     </div>
     <div class="steps">
       <div class="steps__track" aria-hidden="true"></div>
       <div class="step" data-reveal>
         <p class="step__num"><span>01</span></p>
-        <h3>Point it at your line</h3>
-        <p>An Xtream Codes server URL with your username and password, or an M3U playlist plus an optional XMLTV
-          guide URL. Dawn Player checks the credentials before it saves them, and the password goes to the device
-          keychain — never into its database.</p>
+        <h3>Add your own source</h3>
+        <p>A playlist link or file (M3U / M3U8) plus an optional XMLTV guide, or the login for a media server you
+          use. Dawn Player checks the details before it saves them, and any password goes to the device keychain
+          — never into its database.</p>
       </div>
       <div class="step" data-reveal>
         <p class="step__num"><span>02</span></p>
         <h3>It takes the catalogue in</h3>
         <p>Films, series and channels are cached locally and indexed, then refreshed a category at a time as you
-          browse rather than in one sweep. A line with a hundred thousand titles stays scrollable, and what you
+          browse rather than in one sweep. A library with a hundred thousand titles stays scrollable, and what you
           already loaded still opens with the network off.</p>
       </div>
       <div class="step" data-reveal>
@@ -638,19 +638,19 @@
         <dl>
           <div class="spec"><dt>Framework</dt><dd>Flutter 3.44 — one codebase for iOS, Android, Windows and Android TV</dd></div>
           <div class="spec"><dt>Playback</dt><dd>libmpv via <em>media_kit</em> — chosen because it exposes audio and subtitle tracks <em>with</em> their language tags</dd></div>
-          <div class="spec"><dt>Sources</dt><dd>Xtream Codes <em>player_api.php</em>, or M3U with an optional XMLTV guide</dd></div>
+          <div class="spec"><dt>Sources</dt><dd>M3U / M3U8 playlists, HLS and media-server logins, with an optional XMLTV guide</dd></div>
           <div class="spec"><dt>Storage</dt><dd>SQLite via drift, indexed for large catalogues · credentials in the platform keychain</dd></div>
-          <div class="spec"><dt>State</dt><dd>Riverpod, over repositories the UI can't see past — no screen knows whether it is talking to Xtream or M3U</dd></div>
+          <div class="spec"><dt>State</dt><dd>Riverpod, over repositories the UI can't see past — no screen knows which kind of source it is talking to</dd></div>
           <div class="spec"><dt>Sync</dt><dd>Optional Laravel API with Sanctum tokens · last-write-wins on UTC timestamps</dd></div>
-          <div class="spec"><dt>Artwork</dt><dd>Provider posters first, gaps filled from TMDB</dd></div>
+          <div class="spec"><dt>Artwork</dt><dd>Your source's posters first, gaps filled from TMDB</dd></div>
         </dl>
       </div>
       <div class="plainly" data-reveal>
         <h3><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.6v5M12 15.9h.01"/></svg>Worth saying plainly</h3>
         <ul>
-          <li><i></i><b>A player, not a service.</b> It ships no channels and no content. You point it at a line you already have.</li>
-          <li><i></i><b>You won't find it in a store.</b> Players that connect to IPTV panels get rejected, so it is built for sideloading — which is also why it isn't for sale.</li>
-          <li><i></i><b>It's a personal project.</b> Built for one household, with no roadmap promises and no support desk.</li>
+          <li><i></i><b>A player, not a service.</b> It ships no channels and no content, and offers no way to find any. You add media you already have the right to watch.</li>
+          <li><i></i><b>Your responsibility, your rights.</b> Only use it with media you own or are licensed to stream. See the <a href="terms.html">terms of use</a>.</li>
+          <li><i></i><b>Private by design.</b> No sign-up, no analytics, no ads. Read the <a href="privacy.html">privacy policy</a>.</li>
         </ul>
       </div>
     </div>
@@ -693,12 +693,14 @@
         <a href="#built">Under the hood</a>
         <a href="support.html">Support</a>
         <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
       </div>
     </div>
     <div class="rule"></div>
     <div class="fine">
-      <p class="fine__note"><b>Dawn Player ships no content.</b> No channels, no films, no provider — it plays the
-        Xtream Codes or M3U line you already subscribe to, and it is not affiliated with any provider.</p>
+      <p class="fine__note"><b>Dawn Player ships no content.</b> It is a media player: it includes no channels,
+        films or series, and plays only the media you add yourself. Use it only with content you have the right to
+        access. Dawn Player is not affiliated with any content provider.</p>
       <p class="tmdb"><i></i>Some artwork and metadata from TMDB. Not endorsed or certified by TMDB.</p>
       <p>© 2026</p>
     </div>

@@ -291,7 +291,26 @@ class _AppShellState extends ConsumerState<AppShell> {
   ///
   /// The television keeps all seven. A vertical rail has the room, and a
   /// top-right icon is a long walk with a D-pad.
-  static const _phoneBarBranches = [0, 1, 2, 3, 4];
+  static const _phoneBarBranches = [
+    0, 1, 2, 3,
+    if (_showServices) _servicesBranch,
+  ];
+
+  /// The Services tab: shelves named after Netflix, Disney+ and the rest,
+  /// built from playlist group names. Store review reads other companies'
+  /// brands fronting third-party content as an IP and 5.2.3 problem, so store
+  /// builds leave it out of the navigation and only sideloaded builds
+  /// (`--dart-define=DAWN_SIDELOAD=true`) show it. The branch itself stays in
+  /// the router so every other branch keeps its index.
+  static const _servicesBranch = 4;
+  static const _showServices = bool.fromEnvironment('DAWN_SIDELOAD');
+
+  /// Which branches the TV rail carries: all of them, Services permitting.
+  static const _railBranches = [
+    0, 1, 2, 3,
+    if (_showServices) _servicesBranch,
+    5, 6,
+  ];
 
   void _go(int index) {
     shell.goBranch(
@@ -461,6 +480,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 bottom: 0,
                 child: _TvRail(
                   destinations: _destinations,
+                  branches: _railBranches,
                   selectedIndex: shell.currentIndex,
                   onSelected: _go,
                   itemFocus: _railItemFocus,
@@ -491,6 +511,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 class _TvRail extends StatelessWidget {
   const _TvRail({
     required this.destinations,
+    required this.branches,
     required this.selectedIndex,
     required this.onSelected,
     required this.itemFocus,
@@ -500,6 +521,9 @@ class _TvRail extends StatelessWidget {
   });
 
   final List<({IconData icon, IconData selected, String label})> destinations;
+
+  /// Indexes into [destinations] to show, in order.
+  final List<int> branches;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   final List<FocusNode> itemFocus;
@@ -543,10 +567,12 @@ class _TvRail extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final (i, d) in destinations.indexed)
+            for (final i in branches)
               _TvRailItem(
-                icon: i == selectedIndex ? d.selected : d.icon,
-                label: d.label,
+                icon: i == selectedIndex
+                    ? destinations[i].selected
+                    : destinations[i].icon,
+                label: destinations[i].label,
                 selected: i == selectedIndex,
                 expanded: expanded,
                 focusNode: itemFocus[i],

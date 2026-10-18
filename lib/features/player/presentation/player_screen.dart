@@ -2824,18 +2824,16 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     if (has(['456', 'max connection', 'connection limit'])) {
       return (
-        title: 'Your provider refused this connection',
-        hint: 'This usually means your current IP is blocked, or your '
-            "account's connection limit is already in use. Try switching to a "
-            'different VPN server, or stop the stream on your other devices, '
-            'then Retry.',
+        title: 'The server refused this connection',
+        hint: "This usually means the account's connection limit is already "
+            'in use. Stop the stream on your other devices, then Retry.',
       );
     }
     if (has([' 401', ' 403', 'unauthor', 'forbidden', 'denied'])) {
       return (
-        title: 'Access denied by your provider',
-        hint: 'Your login was rejected. Check that your subscription is active '
-            'and your account details are correct.',
+        title: 'Access denied by the server',
+        hint: 'Your login was rejected. Check that your account details are '
+            'correct and still valid.',
       );
     }
     if (has([' 404', 'not found', 'no such'])) {

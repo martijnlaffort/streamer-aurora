@@ -53,8 +53,9 @@
 		<string>audio</string>
 	</array>
 
-	<!-- App Transport Security: most IPTV panels serve plain HTTP, which iOS
-	     blocks by default. Without this the stream fails silently. -->
+	<!-- App Transport Security: many media servers (home servers especially)
+	     serve plain HTTP, which iOS blocks by default. Without this the stream
+	     fails silently. Justified to App Review in docs/store-listing.md §4.3. -->
 	<!-- Export compliance: Dawn Player adds no encryption of its own; it
 	     only uses HTTPS/TLS from the OS. Declaring this here answers the
 	     export-compliance question once, instead of on every upload. -->

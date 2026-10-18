@@ -36,7 +36,12 @@ jobs:
 
       - uses: actions/configure-pages@v5
 
-      # No build step — the site is four static files by design.
+      # No build step — the site is static files by design. The design system
+      # is a working folder, not part of the public site: its mockups predate
+      # the store positioning and must not be reachable at dawnplayer.com.
+      - name: Drop internal design files
+        run: rm -rf site/design-system
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

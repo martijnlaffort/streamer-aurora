@@ -823,7 +823,7 @@ class SettingsSectionScreen extends ConsumerWidget {
       ListTile(
         leading: const Icon(Icons.refresh),
         title: const Text('Refresh catalogue now'),
-        subtitle: Text('Fetch everything again from your provider',
+        subtitle: Text('Fetch everything again from your source',
             style: _secondary),
         onTap: () async {
           final account = await ref.read(activeAccountProvider.future);
@@ -857,7 +857,7 @@ class SettingsSectionScreen extends ConsumerWidget {
             builder: (context) => AlertDialog(
               title: const Text('Clear the saved catalogue?'),
               content: const Text(
-                  'It will be fetched again from your provider the next time '
+                  'It will be fetched again from your source the next time '
                   'it is needed. Watch progress and My List are kept.'),
               actions: [
                 TextButton(

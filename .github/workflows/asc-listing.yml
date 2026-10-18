@@ -14,11 +14,6 @@ name: App Store listing
 #   ASC_KEY_P8      base64 of the AuthKey_XXXXXXXX.p8
 
 on:
-  # TEMPORARY: lets the first push run from this branch before the file is on
-  # main (workflow_dispatch needs that). Removed in the next commit.
-  push:
-    branches: [ claude/jolly-sagan-5xe4pv ]
-    paths: [ '.github/workflows/asc-listing.yml' ]
   workflow_dispatch:
     inputs:
       dry_run:

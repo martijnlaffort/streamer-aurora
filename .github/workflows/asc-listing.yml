@@ -1,0 +1,75 @@
+name: App Store listing
+
+# Pushes tool/asc-listing.json into App Store Connect with tool/asc.mjs, using
+# the same API key secrets as ios-release.yml, so the listing can be updated
+# from anywhere rather than only from the machine that holds the .p8.
+#
+# Writes name, subtitle, description, keywords, URLs, review notes, demo
+# account and age rating. Never submits for review, sets pricing or accepts
+# agreements — asc.mjs refuses to, by design.
+#
+# Secrets (shared with ios-release.yml):
+#   ASC_KEY_ID      App Store Connect API key id
+#   ASC_ISSUER_ID   App Store Connect API issuer id
+#   ASC_KEY_P8      base64 of the AuthKey_XXXXXXXX.p8
+
+on:
+  # TEMPORARY: lets the first push run from this branch before the file is on
+  # main (workflow_dispatch needs that). Removed in the next commit.
+  push:
+    branches: [ claude/jolly-sagan-5xe4pv ]
+    paths: [ '.github/workflows/asc-listing.yml' ]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only show what would change'
+        type: boolean
+        default: true
+
+concurrency:
+  group: asc-listing
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: echo "$ASC_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: What would change
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ runner.temp }}/AuthKey.p8
+        run: node tool/asc.mjs push --dry-run
+
+      - name: Push listing
+        if: ${{ github.event_name != 'workflow_dispatch' || !inputs.dry_run }}
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ runner.temp }}/AuthKey.p8
+        run: node tool/asc.mjs push
+
+      - name: Read back
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ runner.temp }}/AuthKey.p8
+        run: node tool/asc.mjs status
+
+      - name: Remove API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8"

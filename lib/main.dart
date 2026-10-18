@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/widgets.dart';
@@ -5,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'app.dart';
+import 'core/platform/screen_orientation.dart';
+import 'tour/screenshot_tour.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +21,26 @@ void main() {
   // media_kit assertion the scaffold makes. The player itself lands in Task 1.4.
   MediaKit.ensureInitialized();
   _registerFontLicenses();
+  // Portrait on phones, free on tablets, untouched on TV — see the file. Not
+  // awaited: TV detection is a platform call, and nothing needs to wait for
+  // the answer before the first frame.
+  unawaited(applyAppOrientation());
+
+  // A screenshot build drives itself (see lib/tour/screenshot_tour.dart). It
+  // needs a handle on the providers from outside the widget tree, so the
+  // container is built here rather than by ProviderScope. `screenshotTourEnabled`
+  // is a const false in every normal build, so this branch and the tour with it
+  // are compiled out.
+  if (screenshotTourEnabled) {
+    final container = ProviderContainer();
+    runApp(UncontrolledProviderScope(
+      container: container,
+      child: const DawnPlayerApp(),
+    ));
+    unawaited(runScreenshotTour(container));
+    return;
+  }
+
   runApp(const ProviderScope(child: DawnPlayerApp()));
 }
 

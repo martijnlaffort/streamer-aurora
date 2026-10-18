@@ -3,6 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import 'update_notice.dart';
 
 /// About & credits.
 ///
@@ -24,11 +25,14 @@ class AboutScreen extends StatelessWidget {
           Text('Dawn Player', style: AppTypography.title),
           const SizedBox(height: 4),
           const _BuildIdentity(),
+          // Right under the build line, because that is where someone checking
+          // "am I up to date?" is already looking.
+          const UpdateNotice(),
           const SizedBox(height: 10),
           Text(
-            'A player for your own IPTV subscription. Dawn Player does not provide, '
-            'host or resell any channels or media — it plays what your own '
-            'playlist gives it.',
+            'A player for your own media. Dawn Player does not provide, host or '
+            'resell any channels or media — it plays only the sources you add. '
+            'Use it only with content you have the right to access.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 28),
@@ -37,7 +41,7 @@ class AboutScreen extends StatelessWidget {
           const _Credit(
             name: 'The Movie Database (TMDB)',
             body: 'Dawn Player uses the TMDB API to work out what is genuinely '
-                'popular and to find artwork for titles your provider supplies '
+                'popular and to find artwork for titles your source supplies '
                 'no image for.\n\n'
                 'This product uses the TMDB API but is not endorsed or '
                 'certified by TMDB.',

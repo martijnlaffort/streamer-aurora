@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/providers.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
+import 'focus_highlight.dart';
 
 /// 2:3 poster tile used by rails and (from Task 1.2) grids. Focus-aware from
 /// the start (PRD §10): hover/D-pad focus scales the card slightly, so the
@@ -107,14 +108,7 @@ class _PosterCardState extends ConsumerState<PosterCard> {
             setState(() => _engaged = focused);
             // Bring the focused card into view — without this, moving along a
             // rail with the remote walks focus off the edge of the screen.
-            if (focused) {
-              Scrollable.ensureVisible(
-                context,
-                alignment: 0.5,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-              );
-            }
+            if (focused) revealRailItem(context);
           },
           child: AnimatedScale(
               // A pronounced pop, because this is the only thing telling a

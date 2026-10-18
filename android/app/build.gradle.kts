@@ -33,9 +33,13 @@ android {
     }
 
     defaultConfig {
-        // Permanent store identity (reverse-DNS of dawnplayer.com). Changing
-        // this after publishing would create a different app on the store.
-        applicationId = "com.dawnplayer.app"
+        // Permanent store identity: the package name the Play Console app and
+        // Android developer verification are registered under. Changing it
+        // after publishing would create a different app on the store. iOS
+        // keeps com.dawnplayer.app; the two stores need not match.
+        // Was com.dawnplayer.app until build 117, so sideloaded installs of
+        // those builds sit beside this one as a separate app.
+        applicationId = "com.dawnplayer.player"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

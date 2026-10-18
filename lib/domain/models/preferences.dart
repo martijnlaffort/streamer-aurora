@@ -41,6 +41,8 @@ class Preferences extends Equatable {
     this.themeMode = AppThemeMode.dark,
     this.uiScale = 1.0,
     this.groupChannelVariants = true,
+    this.audioDelayMs = 0,
+    this.showPlaybackStats = false,
   });
 
   const Preferences.defaults() : this();
@@ -85,6 +87,21 @@ class Preferences extends Equatable {
   /// pull must not be allowed to reset it (see `_reconcilePreferences`).
   final bool groupChannelVariants;
 
+  /// Extra audio delay in milliseconds, on top of the compensation the player
+  /// applies for its own video latency. Positive delays the sound.
+  ///
+  /// For the part of an A/V offset the app cannot see - a television's own
+  /// picture processing, a soundbar over ARC - which differs per screen and
+  /// cannot be measured from inside the app. Device-local for that reason: it
+  /// describes the display this device is plugged into, not the account.
+  final int audioDelayMs;
+
+  /// Show the playback stats overlay in the player: how long each start-up
+  /// step took, which stream is playing at what resolution, the download
+  /// speed and how often it stalled. For telling "the line is slow" from "the
+  /// app is slow" on a real set. Device-local, like [audioDelayMs].
+  final bool showPlaybackStats;
+
   /// Prefer this over constructing a whole [Preferences] when saving one
   /// setting: a full construction silently drops any field the caller forgot,
   /// which is how a language change would wipe the TMDB key.
@@ -102,8 +119,11 @@ class Preferences extends Equatable {
     AppThemeMode? themeMode,
     double? uiScale,
     bool? groupChannelVariants,
+    int? audioDelayMs,
+    bool? showPlaybackStats,
     bool clearTmdbApiKey = false,
     bool clearContentLanguages = false,
+    bool clearDiscoveryRegion = false,
   }) {
     return Preferences(
       preferredAudioLang: preferredAudioLang ?? this.preferredAudioLang,
@@ -115,11 +135,15 @@ class Preferences extends Equatable {
           ? null
           : (contentLanguages ?? this.contentLanguages),
       tmdbApiKey: clearTmdbApiKey ? null : (tmdbApiKey ?? this.tmdbApiKey),
-      discoveryRegion: discoveryRegion ?? this.discoveryRegion,
+      discoveryRegion: clearDiscoveryRegion
+          ? null
+          : (discoveryRegion ?? this.discoveryRegion),
       themeMode: themeMode ?? this.themeMode,
       uiScale: uiScale ?? this.uiScale,
       groupChannelVariants:
           groupChannelVariants ?? this.groupChannelVariants,
+      audioDelayMs: audioDelayMs ?? this.audioDelayMs,
+      showPlaybackStats: showPlaybackStats ?? this.showPlaybackStats,
     );
   }
 
@@ -135,6 +159,8 @@ class Preferences extends Equatable {
         themeMode,
         uiScale,
         groupChannelVariants,
+        audioDelayMs,
+        showPlaybackStats,
       ];
 
   @override

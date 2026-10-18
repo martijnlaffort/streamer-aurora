@@ -15,6 +15,7 @@ import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
 import '../../player/player_request.dart';
+import '../../player/presentation/cast_controls.dart';
 import '../movies_providers.dart';
 
 /// Cache-first movie lookup, enriched from the source when reachable.
@@ -191,6 +192,21 @@ class _MovieDetail extends ConsumerWidget {
                   ),
                   const SizedBox(width: 12),
                   FocusHighlight(borderRadius: 20, child: MyListButton(contentKey: _contentKey)),
+                  // Cast straight to a TV without spinning up local playback
+                  // first. Hidden where casting is not offered (see CastButton),
+                  // so the gap goes with it.
+                  if (ref.watch(castOfferedProvider).value ?? false)
+                    CastButton(
+                      streamRef: StreamRef(
+                        accountId: movie.accountId,
+                        type: StreamType.movie,
+                        streamId: movie.id,
+                        containerExt: movie.containerExt,
+                      ),
+                      title: prettyTitle(movie.name, year: movie.year),
+                      positionSeconds:
+                          offerResume ? progress!.positionSeconds : 0,
+                    ),
                 ],
               ),
               if (offerResume) ...[

@@ -13,7 +13,7 @@ class MediaRail extends ConsumerWidget {
     required this.title,
     required this.itemCount,
     required this.itemBuilder,
-    this.height = 236,
+    this.height = 248,
     this.onSeeAll,
   });
 

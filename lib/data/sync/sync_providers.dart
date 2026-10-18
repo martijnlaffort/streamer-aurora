@@ -23,16 +23,22 @@ final syncServiceProvider = FutureProvider<SyncService?>((ref) async {
   final baseUrl = config.baseUrl!;
   final token = config.token!;
   final catalog = ref.watch(catalogRepositoryProvider);
+  // One clock for the whole reconcile: every backend feeds it the server's own
+  // time, and every LWW stamp is written against the correction it learns.
+  final clock = ref.watch(serverClockProvider);
   return SyncService(
     progressRepo: ref.watch(watchProgressRepositoryProvider),
     preferencesRepo: ref.watch(preferencesRepositoryProvider),
     favoritesRepo: ref.watch(favoritesRepositoryProvider),
-    progress: HttpProgressSyncBackend(baseUrl: baseUrl, token: token),
-    preferences: HttpPreferencesSyncBackend(baseUrl: baseUrl, token: token),
-    favorites: HttpFavoritesSyncBackend(baseUrl: baseUrl, token: token),
+    progress: HttpProgressSyncBackend(baseUrl: baseUrl, token: token, clock: clock),
+    preferences: HttpPreferencesSyncBackend(baseUrl: baseUrl, token: token, clock: clock),
+    favorites: HttpFavoritesSyncBackend(baseUrl: baseUrl, token: token, clock: clock),
     accountsRepo: ref.watch(accountRepositoryProvider),
-    accounts: HttpAccountSyncBackend(baseUrl: baseUrl, token: token),
+    accounts: HttpAccountSyncBackend(baseUrl: baseUrl, token: token, clock: clock),
+    overridesRepo: ref.watch(catalogOverridesRepositoryProvider),
+    overrides: HttpOverridesSyncBackend(baseUrl: baseUrl, token: token, clock: clock),
     configStore: ref.watch(syncConfigStoreProvider),
+    clock: clock.now,
     // Tag outgoing episode progress with its series id, resolved from the
     // local catalogue (the episode is cached here — it was watched here).
     resolveSeriesId: (episodeId) async {

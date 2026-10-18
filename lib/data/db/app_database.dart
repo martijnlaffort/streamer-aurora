@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:drift_flutter/drift_flutter.dart';
 
 import '../../core/matching/channel_variant.dart';
@@ -155,6 +156,13 @@ class ChannelsTable extends Table {
   TextColumn get baseName => text().nullable()();
   IntColumn get qualityRank => integer().nullable()();
 
+  /// The name this channel sorts and indexes under (schema v19): the provider's
+  /// leading packaging stripped so the A–Z index and alphabetical sort land on
+  /// the word people read, not on a `|` or a `:`. Derived from [name] at write
+  /// time by `channelSortName`. Separate from [baseName], which keeps the prefix
+  /// for grouping.
+  TextColumn get sortName => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {accountId, id};
 }
@@ -229,6 +237,12 @@ class PreferencesTable extends Table {
   /// Null → the on-by-default in [Preferences].
   BoolColumn get groupChannelVariants => boolean().nullable()();
 
+  /// Extra audio delay in ms for this device's display (schema v18).
+  IntColumn get audioDelayMs => integer().nullable()();
+
+  /// The player's stats overlay, device-local (schema v21). Null → off.
+  BoolColumn get showPlaybackStats => boolean().nullable()();
+
   /// App state, not a user preference — which account the UI is showing.
   TextColumn get activeAccountId => text().nullable()();
 
@@ -244,6 +258,39 @@ class PreferencesTable extends Table {
 /// names and the order; this table is how the user overrules that without
 /// touching the cached catalogue itself — a refresh replaces catalogue rows
 /// wholesale, so anything editable has to live beside them rather than in them.
+@DataClassName('StreamChoiceRow')
+class StreamChoicesTable extends Table {
+  @override
+  String get tableName => 'stream_choices';
+
+  TextColumn get accountId => text()();
+
+  /// The logical channel (see `channels.variant_key`), not one of its streams.
+  TextColumn get variantKey => text()();
+
+  /// The stream that last actually played for that channel.
+  TextColumn get streamId => text()();
+  IntColumn get chosenAtMillisUtc => integer()();
+
+  @override
+  Set<Column> get primaryKey => {accountId, variantKey};
+}
+
+@DataClassName('OutroHintRow')
+class OutroHintsTable extends Table {
+  @override
+  String get tableName => 'outro_hints';
+
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get accountId => text()();
+  TextColumn get seriesId => text()();
+
+  /// How far before the end the user chose to move on. Outros are consistent
+  /// within a show, so a few of these converge on where its credits start.
+  IntColumn get secondsBeforeEnd => integer()();
+  IntColumn get observedAtMillisUtc => integer()();
+}
+
 @DataClassName('ReminderRow')
 class RemindersTable extends Table {
   @override
@@ -282,12 +329,28 @@ class CatalogOverridesTable extends Table {
   /// placed, keeping the panel's order among themselves.
   IntColumn get sortIndex => integer().nullable()();
 
+  /// Last-write-wins key for sync (schema v17). Curating twelve thousand
+  /// channels once is tolerable; doing it again on the next device is not.
+  IntColumn get updatedAtMillisUtc => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {accountId, scope, targetId};
 }
 
 /// What a [CatalogOverridesTable] row applies to.
-enum OverrideScope { category, channel }
+/// What an override row applies to.
+///
+/// [epg] is a mapping rather than a presentation edit: its `customName` column
+/// holds the XMLTV channel id the user pointed this channel at, which is how a
+/// guide that matched nothing gets fixed by hand.
+///
+/// [group] is a channel group the user made themselves: `customName` is its
+/// name, `sortIndex` its order among groups, `hidden` means deleted (a
+/// tombstone, so the deletion syncs). [groupMember] is one channel in such a
+/// group: `targetId` is `<groupId>/<channelId>`, `sortIndex` the position,
+/// `hidden` means removed. Both ride the same last-write-wins table as every
+/// other piece of curation, so they follow the user across devices for free.
+enum OverrideScope { category, channel, epg, group, groupMember }
 
 @DataClassName('FavoriteRow')
 class FavoritesTable extends Table {
@@ -474,6 +537,8 @@ class SearchHistoryTable extends Table {
   FavoritesTable,
   CatalogOverridesTable,
   RemindersTable,
+  StreamChoicesTable,
+  OutroHintsTable,
   EpgCacheTable,
   CatalogMetaTable,
   CatalogCategoryMetaTable,
@@ -493,11 +558,15 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.open() : super(driftDatabase(name: 'aurora'));
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onUpgrade: (m, from, to) async {
+          // Visible in `adb logcat` on a release build. A device that sits on a
+          // spinner at launch cannot be diagnosed without knowing whether it got
+          // past the schema upgrade; this and the line in beforeOpen say so.
+          debugPrint('[dawn] db upgrade $from -> $to');
           // v2: background-playback preference.
           if (from < 2) {
             await m.addColumn(
@@ -588,6 +657,58 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(accountsTable, accountsTable.userAgent);
             await m.addColumn(accountsTable, accountsTable.altHosts);
           }
+          // v16: which of a channel's streams last actually played, so failover
+          // does not start from the top every time. Local and disposable —
+          // losing it costs one extra failover and nothing else.
+          if (from < 16) {
+            await m.createTable(streamChoicesTable);
+          }
+          // v17: curation becomes syncable, which needs a per-row LWW stamp.
+          // Existing rows are stamped NOW rather than 0: they are the user's
+          // real, current curation and should win over an empty server, not
+          // lose to it.
+          if (from < 17) {
+            // Only a table created by the v11 step of an EARLIER upgrade lacks
+            // the column. When this same run created it (from < 11) it was
+            // built from today's definition, which already has it, and adding
+            // it again fails with "duplicate column name" — on every launch.
+            if (from >= 11) {
+              await m.addColumn(catalogOverridesTable,
+                  catalogOverridesTable.updatedAtMillisUtc);
+            }
+            await customStatement(
+                'UPDATE catalog_overrides SET updated_at_millis_utc = ?',
+                [DateTime.now().toUtc().millisecondsSinceEpoch]);
+          }
+          // v18: per-device audio delay, and where each series' credits start
+          // as learned from when the user skipped ahead.
+          if (from < 18) {
+            await m.addColumn(preferencesTable, preferencesTable.audioDelayMs);
+            await m.createTable(outroHintsTable);
+          }
+          // v19: a sort/index name per channel with the provider's leading
+          // packaging stripped, so the A–Z index and sort land on the real
+          // word. Backfilled for every already-cached channel.
+          if (from < 19) {
+            await m.addColumn(channelsTable, channelsTable.sortName);
+            await _backfillChannelSortNames();
+          }
+          // v20: variant keys keep non-Latin letters. Re-derive them for every
+          // cached channel — before this, all Cyrillic/Greek/Arabic/CJK channels
+          // on a line shared one key and showed as a single row — and forget
+          // which stream "won" per key, since those choices were recorded under
+          // the merged keys and could tune a different channel. Losing them
+          // costs one extra failover and nothing else.
+          if (from < 20) {
+            if (from >= 13) await _backfillChannelVariants();
+            await delete(streamChoicesTable).go();
+          }
+          // v21: the player's stats overlay switch. Nullable, so nothing to
+          // backfill: absent means off.
+          if (from < 21) {
+            await m.addColumn(
+                preferencesTable, preferencesTable.showPlaybackStats);
+          }
         },
         beforeOpen: (details) async {
           // Indexes for the hot catalog queries. Without them every Home rail
@@ -624,6 +745,11 @@ class AppDatabase extends _$AppDatabase {
           // Variant grouping reads GROUP BY variant_key within an account.
           await ix('idx_ch_acct_variant', ch.actualTableName,
               [ch.accountId.name, ch.variantKey.name]);
+          // The A–Z sort and letter index order/scan by sort_name.
+          await ix('idx_ch_acct_sortname', ch.actualTableName,
+              [ch.accountId.name, ch.sortName.name]);
+          debugPrint('[dawn] db open v${details.versionNow}'
+              '${details.wasCreated ? ' (new)' : ''}');
         },
       );
 
@@ -636,8 +762,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _backfillChannelVariants() async {
     const pageSize = 2000;
     for (var offset = 0;; offset += pageSize) {
-      final rows = await (select(channelsTable)..limit(pageSize, offset: offset))
-          .get();
+      final rows = await _channelNamesPage(pageSize, offset);
       if (rows.isEmpty) break;
       await batch((b) {
         for (final row in rows) {
@@ -656,5 +781,52 @@ class AppDatabase extends _$AppDatabase {
       });
       if (rows.length < pageSize) break;
     }
+  }
+
+  /// Fills in the v19 [ChannelsTable.sortName] for channels cached before it
+  /// existed. Paged for the same reason as [_backfillChannelVariants]: a real
+  /// line holds tens of thousands of channels.
+  Future<void> _backfillChannelSortNames() async {
+    const pageSize = 2000;
+    for (var offset = 0;; offset += pageSize) {
+      final rows = await _channelNamesPage(pageSize, offset);
+      if (rows.isEmpty) break;
+      await batch((b) {
+        for (final row in rows) {
+          b.update(
+            channelsTable,
+            ChannelsTableCompanion(sortName: Value(channelSortName(row.name))),
+            where: (t) =>
+                t.accountId.equals(row.accountId) & t.id.equals(row.id),
+          );
+        }
+      });
+      if (rows.length < pageSize) break;
+    }
+  }
+
+  /// One page of channel keys and names, for the migration backfills.
+  ///
+  /// Selects only these three columns on purpose. A backfill runs mid-upgrade,
+  /// when the table has only the columns of the version being migrated
+  /// through; `select(channelsTable)` asks for every column of the CURRENT
+  /// schema, so the v13 backfill failed with "no such column: sort_name" on
+  /// any install coming from before v13.
+  Future<List<({String accountId, String id, String name})>> _channelNamesPage(
+      int limit, int offset) async {
+    final ch = channelsTable;
+    final query = selectOnly(ch)
+      ..addColumns([ch.accountId, ch.id, ch.name])
+      ..orderBy([OrderingTerm.asc(ch.accountId), OrderingTerm.asc(ch.id)])
+      ..limit(limit, offset: offset);
+    final rows = await query.get();
+    return [
+      for (final r in rows)
+        (
+          accountId: r.read(ch.accountId)!,
+          id: r.read(ch.id)!,
+          name: r.read(ch.name)!,
+        ),
+    ];
   }
 }

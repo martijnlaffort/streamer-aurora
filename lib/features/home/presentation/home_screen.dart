@@ -8,9 +8,14 @@ import 'package:go_router/go_router.dart';
 import '../../../core/platform/television.dart';
 import '../../../core/rotation.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/account_warmup.dart';
 import '../../../core/widgets/error_view.dart';
+import '../../../core/widgets/focus_highlight.dart';
+import '../../../core/widgets/no_playlist_view.dart';
+import '../../../core/widgets/shell_actions.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/poster_card.dart';
+import '../../../core/widgets/remote_press.dart';
 import '../../../data/providers.dart';
 import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
@@ -39,58 +44,7 @@ class HomeScreen extends ConsumerWidget {
             onRetry: () => ref.invalidate(homeDataProvider)),
 
         data: (data) =>
-            data == null ? const _NoAccount() : _HomeContent(data: data),
-      ),
-    );
-  }
-}
-
-class _NoAccount extends ConsumerWidget {
-  const _NoAccount();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tv = isTelevisionOf(ref);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('Dawn Player', style: AppTypography.display),
-          const SizedBox(height: 8),
-          Text(
-            tv
-                ? 'Pair with your phone to bring your playlists across.'
-                : 'Add a playlist to light this screen up.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 16),
-          // On a television, pairing is THE way in — typing a server URL, a
-          // username and a password with a D-pad is the thing pairing exists to
-          // avoid. It was previously reachable only through Settings, i.e. only
-          // through the rail, which left a fresh TV with no way to reach it at
-          // all. It leads here, and takes the initial focus so the remote has
-          // somewhere to start.
-          if (tv) ...[
-            FilledButton.icon(
-              autofocus: true,
-              onPressed: () => context.push('/pair/receive'),
-              icon: const Icon(Icons.phonelink_ring),
-              label: const Text('Pair with your phone'),
-            ),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => context.push('/accounts'),
-              icon: const Icon(Icons.add),
-              label: const Text('Or add a playlist manually'),
-            ),
-          ] else
-            FilledButton.icon(
-              onPressed: () => context.push('/accounts'),
-              icon: const Icon(Icons.add),
-              label: const Text('Add your first account'),
-            ),
-        ],
+            data == null ? const NoPlaylistView() : _HomeContent(data: data),
       ),
     );
   }
@@ -129,11 +83,21 @@ class _HomeContent extends ConsumerWidget {
         slivers: [
           // The featured hero used to fill the top, but it only ever spotlit an
           // unfamiliar recently-added title, so Home now opens straight into
-          // Continue Watching and the rails. This just clears the status bar /
-          // overscan the hero used to sit behind. (On TV the shell routes the
-          // first D-pad press into the content, so nothing needs autofocus.)
+          // Continue Watching and the rails, and this strip clears the status
+          // bar / overscan the hero used to sit behind.
+          //
+          // Home has no app bar, so the shared tools live in that strip rather
+          // than costing a whole bar of height. ShellActions draws nothing on a
+          // television, where the rail already carries both.
           SliverToBoxAdapter(
-            child: SizedBox(height: MediaQuery.paddingOf(context).top + 8),
+            child: Padding(
+              padding:
+                  EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+              child: const Align(
+                alignment: Alignment.centerRight,
+                child: ShellActions(),
+              ),
+            ),
           ),
           if (data.continueWatching.isNotEmpty)
             SliverToBoxAdapter(
@@ -153,6 +117,7 @@ class _HomeContent extends ConsumerWidget {
           // rails on purpose: for the few weeks it appears it is the most
           // topical thing on the screen, and it costs no network to produce.
           ..._seasonalSlivers(context, ref),
+          ..._emptySlivers(context, ref, data),
           // The Top Rated and Recently Added rails are gone: Top Rated was the
           // panel's own rating with no vote count (the discovery rails above
           // replaced it), and Recently Added just surfaced arbitrary, unknown
@@ -197,6 +162,71 @@ Widget _posterFor(BuildContext context, Object item, String tagPrefix,
     heroTag: tag,
     onTap: () => context.push('/series/${series.id}', extra: tag),
   );
+}
+
+/// What Home says when it has nothing at all to show: no history, no list, no
+/// rails. A blank page reads as "broken" — on a television doubly so, where
+/// there is not even a bottom bar to hint at where else to go. Seen on a TV
+/// straight after adding a playlist, before anything had been watched.
+List<Widget> _emptySlivers(BuildContext context, WidgetRef ref, HomeData data) {
+  if (data.continueWatching.isNotEmpty) return const [];
+  if ((ref.watch(myListProvider).value ?? const []).isNotEmpty) return const [];
+  final season = ref.watch(seasonalRailProvider).value;
+  if (season != null && season.items.isNotEmpty) return const [];
+  final rails = ref.watch(discoveryRailsProvider);
+  // A first load is under way — the account was just switched or paired and its
+  // catalogue and history are still downloading. Say so, so an in-progress
+  // screen reads as "loading" rather than "there is nothing here". The rows
+  // replace this the moment the data lands.
+  if (ref.watch(accountWarmingProvider) || rails.isLoading) {
+    return [
+      SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: AppColors.accent),
+              const SizedBox(height: 16),
+              Text('Setting up your library…',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+  if ((rails.value ?? const []).isNotEmpty) return const [];
+  final tv = isTelevisionOf(ref);
+  return [
+    SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.play_circle_outline,
+                  size: 48, color: AppColors.textSecondary),
+              const SizedBox(height: 12),
+              Text('Nothing to continue yet', style: AppTypography.title),
+              const SizedBox(height: 6),
+              Text(
+                tv
+                    ? 'Pick something from Live TV, Movies or Series in the '
+                        'menu on the left. What you watch shows up here.'
+                    : 'Pick something from Live TV, Movies or Series below. '
+                        'What you watch shows up here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  ];
 }
 
 /// "My List" rail — hidden entirely when empty rather than showing a bald
@@ -258,7 +288,7 @@ List<Widget> _discoverySlivers(BuildContext context, WidgetRef ref) {
           title: rail.label,
           itemCount: rail.items.length,
           // The numeral needs room, and a rating badge next to a rank is noise.
-          height: rail.numbered ? 252 : 236,
+          height: rail.numbered ? 258 : 248,
           itemBuilder: (context, i) => _posterFor(
             context,
             rail.items[i],
@@ -349,6 +379,14 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
                 accountId: account.id,
                 type: StreamType.episode,
                 id: e.id),
+            // Without it a show resumed from here never learnt where its
+            // credits start, and had no episode list in the player.
+            seriesId: episode.seriesId,
+            season: e.seasonNumber,
+            episode: e.episodeNumber,
+            episodeTitle: e.title,
+            imageUrl: e.stillUrl ?? entry.imageUrl,
+            durationSeconds: e.durationSeconds,
           ),
       ],
       startIndex: startIndex,
@@ -416,112 +454,110 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
         // InkWell, not GestureDetector: a D-pad OK press is an ActivateIntent
         // and GestureDetector ignores it, so on a TV this row took focus and
         // then did nothing.
-        child: InkWell(
-          // A remote has no long-press, so on a TV the OK button opens the
-          // action menu (Resume / Details / Remove — all reachable), with
-          // Resume auto-focused. Touch keeps tap-to-resume, long-press-for-menu.
-          onTap: () => isTelevisionOf(ref)
-              ? _showMenu(context, ref)
-              : _resume(context, ref),
+        //
+        // OK resumes, as it does on Netflix; holding OK opens the menu
+        // (Resume / Details / Remove). It used to open the menu on every OK,
+        // because a remote's hold could not be told from a press — see
+        // RemotePress. Touch: tap resumes, long-press opens the menu.
+        child: RemotePress(
+          enabled: isTelevisionOf(ref),
+          onPressed: () => _resume(context, ref),
           onLongPress: () => _showMenu(context, ref),
-          borderRadius: BorderRadius.circular(10),
-          focusColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          onFocusChange: (focused) {
-            setState(() => _engaged = focused);
-            if (focused) {
-              Scrollable.ensureVisible(
-                context,
-                alignment: 0.5,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-              );
-            }
-          },
-          child: AnimatedScale(
-            scale: _engaged ? 1.08 : 1.0,
-            alignment: Alignment.topCenter,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOut,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Same affordance as PosterCard: a bright ring in the
-                // foreground (no layout shift) and an accent glow behind.
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  curve: Curves.easeOut,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: _engaged
-                        ? [
-                            BoxShadow(
-                              color: AppColors.accent.withValues(alpha: 0.6),
-                              blurRadius: 20,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : const [],
-                  ),
-                  foregroundDecoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color:
-                          _engaged ? AppColors.focusRing : Colors.transparent,
-                      width: 3,
+          child: InkWell(
+            onTap: () => _resume(context, ref),
+            onLongPress: () => _showMenu(context, ref),
+            borderRadius: BorderRadius.circular(10),
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            onFocusChange: (focused) {
+              setState(() => _engaged = focused);
+              if (focused) revealRailItem(context);
+            },
+            child: AnimatedScale(
+              scale: _engaged ? 1.08 : 1.0,
+              alignment: Alignment.topCenter,
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Same affordance as PosterCard: a bright ring in the
+                  // foreground (no layout shift) and an accent glow behind.
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeOut,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: _engaged
+                          ? [
+                              BoxShadow(
+                                color: AppColors.accent.withValues(alpha: 0.6),
+                                blurRadius: 20,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : const [],
                     ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (entry.imageUrl != null)
-                            CachedNetworkImage(
-                              imageUrl: entry.imageUrl!,
-                              fit: BoxFit.cover,
-                              memCacheWidth: 720,
-                              placeholder: (context, url) => ColoredBox(
-                                  color: AppColors.surfaceElevated),
-                              errorWidget: (context, url, error) =>
-                                  ColoredBox(
-                                      color: AppColors.surfaceElevated),
-                            )
-                          else
-                            ColoredBox(color: AppColors.surfaceElevated),
-                          Center(
-                            child: Icon(Icons.play_circle_outline,
-                                size: 40, color: AppColors.textPrimary),
-                          ),
-                          Align(
-                            alignment: Alignment.bottomCenter,
-                            child: LinearProgressIndicator(
-                              value: fraction,
-                              minHeight: 4,
-                              backgroundColor: Colors.transparent,
-                              color: AppColors.accent,
+                    foregroundDecoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color:
+                            _engaged ? AppColors.focusRing : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (entry.imageUrl != null)
+                              CachedNetworkImage(
+                                imageUrl: entry.imageUrl!,
+                                fit: BoxFit.cover,
+                                memCacheWidth: 720,
+                                placeholder: (context, url) => ColoredBox(
+                                    color: AppColors.surfaceElevated),
+                                errorWidget: (context, url, error) =>
+                                    ColoredBox(
+                                        color: AppColors.surfaceElevated),
+                              )
+                            else
+                              ColoredBox(color: AppColors.surfaceElevated),
+                            Center(
+                              child: Icon(Icons.play_circle_outline,
+                                  size: 40, color: AppColors.textPrimary),
                             ),
-                          ),
-                        ],
+                            Align(
+                              alignment: Alignment.bottomCenter,
+                              child: LinearProgressIndicator(
+                                value: fraction,
+                                minHeight: 4,
+                                backgroundColor: Colors.transparent,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(entry.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.label),
-                if (entry.subtitle != null)
-                  Text(entry.subtitle!,
+                  const SizedBox(height: 6),
+                  Text(entry.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          color: AppColors.textSecondary, fontSize: 12)),
-              ],
+                      style: AppTypography.label),
+                  if (entry.subtitle != null)
+                    Text(entry.subtitle!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 12)),
+                ],
+              ),
             ),
           ),
         ),

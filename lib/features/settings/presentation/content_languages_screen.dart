@@ -40,7 +40,7 @@ class ContentLanguagesScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Content languages'),
+        title: const Text('Channel languages'),
         actions: [
           if (prefs.contentLanguages != null)
             TextButton(

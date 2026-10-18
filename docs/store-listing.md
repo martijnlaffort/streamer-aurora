@@ -13,7 +13,7 @@ and the Data safety form in the Play Console. If the app's behaviour changes, al
 | | |
 |---|---|
 | Store name | **Dawn Player** |
-| Android application id | `com.dawnplayer.app` |
+| Android application id | `com.dawnplayer.player` (registered in Play Console; `com.dawnplayer.app` up to build 117) |
 | iOS bundle identifier | `com.dawnplayer.app` |
 | Version at first submission | `1.0.0` (build `1`) — `pubspec.yaml` `version:` |
 | Developer contact | `support@dawnplayer.com` — **must be receiving mail before submission**, Play shows it publicly |
@@ -28,16 +28,32 @@ stores, and renaming it would churn the Cast provider class path for nothing.
 
 ## 2. The reviewer demo problem, and its solution
 
-Both stores require working credentials for anything behind a login. For an IPTV player that is a
-trap: handing a reviewer a real subscription puts copyrighted third-party channels in front of
+Both stores require working credentials for anything behind a login. For a player of user-supplied
+media that is a trap: handing a reviewer a real subscription puts copyrighted third-party channels in front of
 App Review, which is precisely what triggers **guideline 5.2.3** (proof of rights to content).
 
 **Do not give reviewers a real provider.** Use the mock panel already in the repo.
 
 `tool/mock_xtream.php` is a complete Xtream Codes panel whose stream URLs redirect only to legal,
 publicly available sources — Apple's multi-audio/subtitle HLS sample, DW English and Red Bull TV
-(both free-to-air), and Big Buck Bunny clips. It speaks enough of `player_api.php` for the app's
-full feature set: auth, categories, live, VOD, series, and short EPG.
+(both free-to-air), and the Blender Foundation's Big Buck Bunny and Sintel, both CC-BY. It speaks
+enough of `player_api.php` for the app's full feature set: auth, categories, live, VOD, series,
+and short EPG.
+
+The films are the full ten-minute Big Buck Bunny and the 52-second Sintel trailer, not the
+ten-second clips this started with. Length is not cosmetic: a "film" that ends before you have
+finished reading its title reads as a broken app to anyone reviewing it. They are also *named*
+after themselves, so the catalogue says what it serves.
+
+**No real titles in the demo catalogue.** The panel has a `MOCK_CANON=1` mode that fills it with
+real award winners — `Oppenheimer 2023 4K`, `Breaking Bad` — so the discovery rails have something
+to resolve against. That is useful on a laptop and indefensible anywhere else: a demo library
+advertising those titles to App Review *is* the 5.2.3 accusation, made by us, on our own demo
+account. It is off by default, `deploy/demo/index.php` forces it off again, and it was caught in a
+store screenshot reading "Oppenheimer 2023 4K" over a cartoon rabbit.
+
+The cost is that the home screenshot has no Award Winners rails, because nothing in the demo
+catalogue is an award winner. Continue Watching carries that screen instead.
 
 Deploy it at a stable public URL, e.g. `https://demo.dawnplayer.com`, and give both stores:
 
@@ -64,64 +80,64 @@ again on every update.
 Dawn Player
 ```
 
-**Short description** (80 max) — 73 chars:
+**Short description** (80 max) — 77 chars:
 
 ```
-Play the Xtream Codes or M3U line you already pay for. Resume that works.
+A video player for your own media. Resume that works, languages it remembers.
 ```
 
 **Full description** (4000 max):
 
 ```
-Dawn Player is a player for the IPTV line you already have — not a provider. Point it at your
-own Xtream Codes login or M3U playlist and it turns a wall of unsorted channels into something
-that behaves like a streaming service.
+Dawn Player is a video player for media you already have the right to watch — a playlist from
+your own media server, a home library, or streams a broadcaster makes freely available. It turns
+a long, unsorted list into something that behaves like a streaming app.
 
-It ships no channels, no films and no series. You bring the source.
+Dawn Player includes no content of any kind: no channels, no films, no series, and no way to find
+or buy any. You add your own sources.
 
-WHAT IT FIXES
+WHAT IT DOES WELL
 
-Playback that holds. Built on libmpv, the engine behind mpv and VLC, rather than the system
-player. It handles the awkward codecs and odd containers that IPTV lines are full of, and it
-recovers from a stalled stream instead of dropping you back to a grid.
+Playback that holds. Built on libmpv, the engine behind mpv, rather than the system player. It
+handles awkward codecs and containers — MPEG-TS, HLS, HEVC, MKV — and recovers from a stalled
+stream instead of dropping you back to a list.
 
 Resume that works. Every film and episode remembers where you stopped, and the home screen puts
 it back in front of you. Not approximately — to the second.
 
 Languages it learns. Choose an audio track or a subtitle language once and Dawn Player applies
-it to everything you open afterwards. No more setting the same language on every single episode.
+it to everything you open afterwards. No more setting the same language on every episode.
 
-A catalogue worth browsing. Films and series get posters, synopses and seasons laid out properly.
-Add your own free TMDB key and gaps in your provider's artwork fill themselves in.
+A library worth browsing. Films and series get posters, synopses and seasons laid out properly.
+Add your own free TMDB key and missing artwork fills itself in.
 
-Your playlist, your order. Providers name groups badly and order them worse. Hide what you never
-watch, rename what is misnamed, and drag the rest into an order that suits you. Your changes
-survive a catalogue refresh.
+Your playlist, your order. Hide what you never watch, rename what is misnamed, and drag the rest
+into an order that suits you. Your changes survive a refresh.
 
-A programme guide you can read. Your provider's EPG in a proper grid, with now-and-next on every
-channel and a jump straight to what is on.
+A programme guide you can read. If your source publishes an XMLTV guide, you get a proper grid
+with now-and-next and a jump straight to what is on.
 
-Search that finds things. One search box across live channels, films and series.
+Search that finds things. One search box across everything you have added.
 
 BUILT FOR TELEVISION TOO
 
-The same app runs on Android TV and Google TV, with its own home-screen banner and full
-remote-control navigation. On Android you can also cast to a Chromecast on your network.
+The same app runs on Android TV and Google TV, with full remote-control navigation. On Android
+you can also cast to Google Cast devices on your network.
 
-PRIVATE BY CONSTRUCTION
+PRIVATE BY DESIGN
 
-No account, no sign-up, no analytics, no advertising, no tracking. Your credentials live in your
+No account, no sign-up, no analytics, no advertising, no tracking. Credentials live in your
 device's secure credential store, your watch history stays on the device, and streams travel
-directly from your provider to you. There is no server of ours in the path — read the privacy
-policy and see how short it is.
+directly from your source to you. There is no server of ours in the path.
 
-Optionally, sync your history and preferences between your own devices by pointing the app at a
-server you run yourself. Off by default.
+Optionally, sync your history and preferences between your own devices through a server you run
+yourself. Off by default.
 
 WHAT YOU NEED
 
-An Xtream Codes login or an M3U playlist URL from a provider of your own choosing. Dawn Player
-cannot supply one, and is not affiliated with any provider.
+An M3U / M3U8 playlist link or file, or the login for a media server you use. Dawn Player does
+not supply, list or recommend content sources and is not affiliated with any content provider.
+Use it only with content you have the right to access.
 
 Some artwork and metadata from TMDB. This product uses the TMDB API but is not endorsed or
 certified by TMDB.
@@ -132,7 +148,7 @@ certified by TMDB.
 | Field | Answer |
 |---|---|
 | App category | Video Players & Editors |
-| Tags | Video player, Streaming |
+| Tags | Video player, Media player |
 | Contains ads | **No** |
 | In-app purchases | **No** |
 | Target audience | 18+ only. Do **not** tick any age band below 18 — the app plays unfiltered third-party content, and claiming a younger audience pulls in Families policy and Play's designed-for-children rules. |
@@ -158,7 +174,7 @@ Then:
 
 | Question | Answer |
 |---|---|
-| Is all user data encrypted in transit? | Provide the nuance: the app uses HTTPS wherever the user's provider offers it, but many IPTV providers serve only plain HTTP and the app must permit that to work at all. Declare accordingly rather than claiming blanket encryption. |
+| Is all user data encrypted in transit? | Provide the nuance: the app uses HTTPS wherever the user's server offers it, but many media servers (home servers especially) serve only plain HTTP and the app must permit that to work at all. Declare accordingly rather than claiming blanket encryption. |
 | Do you provide a way to request data deletion? | Yes — uninstall removes everything; per-provider removal in Settings → Accounts. Point the deletion URL at `https://dawnplayer.com/privacy.html#deleting-your-data`. |
 | Committed to Play Families policy | No |
 | Independent security review | No |
@@ -169,8 +185,8 @@ storage versus collection: the credentials never reach a developer-controlled en
 ### 3.4 Content rating (IARC questionnaire)
 
 Answer the questionnaire honestly and expect a mature rating. The load-bearing question is whether
-the app gives access to content the developer does not control or filter — for an IPTV player the
-answer is yes.
+the app gives access to content the developer does not control or filter — for a player of
+user-supplied media the answer is yes.
 
 - Category: **Utility / Productivity / Communication** (it is a player, not a game)
 - Does the app allow users to access uncontrolled/unfiltered content from the internet? → **Yes**
@@ -236,21 +252,25 @@ Dawn Player
 **Subtitle** (30 max) — 29 chars:
 
 ```
-Your own IPTV line, done well
+Play your own media, properly
 ```
 
 **Promotional text** (170 max):
 
 ```
-Point it at the Xtream Codes or M3U line you already pay for: playback that holds, resume to the
-second, and audio and subtitle languages it learns once and remembers.
+Your own playlists and media server, played properly: playback that holds, resume to the second,
+and audio and subtitle languages it learns once and remembers.
 ```
 
-**Keywords** (100 max, comma-separated, no spaces after commas) — 92 chars:
+**Keywords** (100 max, comma-separated, no spaces after commas) — 91 chars:
 
 ```
-iptv,m3u,xtream,playlist,epg,live tv,player,subtitles,chromecast,streaming,libmpv,vod,series
+video player,m3u,m3u8,hls,playlist,subtitles,media player,resume,epg,tv guide,mkv,hevc,cast
 ```
+
+No `iptv` or `xtream`, and no other company's trademark (`chromecast`, `netflix`, competitor
+player names). Apple rejects trademarked keywords under 2.3.7, and "IPTV" in metadata is the single
+fastest way to get a player read as a piracy app before anyone opens it.
 
 **Description**: reuse the Play full description from §3.1. It is within Apple's 4000-character
 limit and needs no changes — Apple has no separate short-description field.
@@ -275,37 +295,41 @@ be accused, and it explains the ATS exception before a reviewer finds it and ass
 ```
 WHAT THIS APP IS
 
-Dawn Player is a media player, not a content service. It ships with no channels, films or series
-and has no catalogue of its own. It is unusable until the user supplies their own Xtream Codes
-credentials or M3U playlist URL from a provider they have chosen and pay for independently. The
+Dawn Player is a general-purpose media player, not a content service. It ships with no channels,
+films or series and has no catalogue of its own. It is empty until the user adds a media source
+of their own: an M3U/M3U8 playlist link or file, or the login for a media server they use. The
 relationship is the same as a web browser to a website, or VLC to a video file.
 
 We do not host, provide, resell, aggregate, index or recommend any content. We have no business
 relationship with any content provider and receive no revenue from any. There is no in-app
-discovery of providers, no directory of playlists, and no way to obtain content through the app.
+discovery of sources, no directory of playlists, no third-party brand names or logos, and no way
+to obtain content through the app. The screen where a source is added states that the app
+includes no content and that users must only add sources they have the right to access, and the
+terms of use (https://dawnplayer.com/terms.html) prohibit infringing use.
 
 DEMO ACCOUNT — LEGAL CONTENT ONLY
 
-The demo credentials below connect to a test panel we operate that serves only legal, publicly
+The demo credentials below connect to a test server we operate that serves only legal, publicly
 available streams: Apple's own sample HLS stream, DW English and Red Bull TV (both free-to-air),
-and Big Buck Bunny (Creative Commons). Nothing reachable through these credentials is
-copyrighted material we lack the right to make available.
+and the Blender Foundation's Big Buck Bunny and Sintel (both Creative Commons Attribution).
+Nothing reachable through these credentials is copyrighted material we lack the right to make
+available.
 
   Server:   https://demo.dawnplayer.com
   Username: aurora
   Password: test
 
-To review: launch the app, tap Add account, choose Xtream Codes, enter the three values above,
-and wait for the catalogue to load. Live channels, films, series, the programme guide, search and
-resume are all exercisable from there.
+To review: launch the app, tap Add a playlist, choose Login details, enter the three values above,
+tap Connect and wait for the library to load. Live streams, films, series, the programme guide,
+search and resume are all exercisable from there.
 
 WHY THE APP TRANSPORT SECURITY EXCEPTION IS PRESENT
 
-Info.plist sets NSAllowsArbitraryLoads. This is required, not convenient: the app plays streams
-from server addresses the user types in, and a large share of IPTV providers still serve over
-plain HTTP. Without the exception those streams fail silently and the app cannot perform its
-only function. We control none of these hosts, so a domain allowlist is not possible. The app
-uses HTTPS whenever the user's provider offers it. No data of ours travels over these
+Info.plist sets NSAllowsArbitraryLoads. This is required, not convenient: the app plays media from
+server addresses the user types in, and many media servers — particularly home servers on a local
+network — serve over plain HTTP. Without the exception those streams fail silently and the app
+cannot perform its only function. We control none of these hosts, so a domain allowlist is not
+possible. The app uses HTTPS whenever the server offers it. No data of ours travels over these
 connections — the app has no backend.
 
 PRIVACY
@@ -319,7 +343,7 @@ METADATA ATTRIBUTION
 Artwork and synopses are fetched from TMDB only if the user supplies their own TMDB API key, and
 are off by default. The bundled list of award-winning titles derives from Wikidata (CC0) and
 Wikipedia (CC BY-SA 4.0) and contains titles and years only — no artwork and no content. It is
-used solely to recognise titles that already exist in the user's own playlist.
+used solely to recognise titles that already exist in the user's own library.
 ```
 
 ### 4.4 Signing and upload without a Mac
@@ -419,6 +443,69 @@ catches the cheap rejections — missing icon, bad Info.plist key, wrong bundle 
 than after a long upload. Build numbers must strictly increase per version string, so treat
 `git rev-list --count HEAD` as the source of truth if you ever lose track.
 
+Both `--validate-app` and `--upload-app` require the app record to exist first. Run the workflow
+with `submit_to_testflight` unchecked until it does: that exercises the entire signing path and
+produces a signed IPA artifact without touching App Store Connect.
+
+### 4.5 Filling the listing without retyping it
+
+`tool/asc.mjs` writes the listing into App Store Connect over its API, from
+`tool/asc-listing.json` — the machine-readable mirror of §4.1 and §4.3 above. Change wording in one
+and change it in the other; the prose here is what a human reads, the JSON is what gets pushed.
+
+```powershell
+$env:ASC_ISSUER_ID = "<Users and Access → Integrations → Issuer ID>"
+node tool/asc.mjs status          # what ASC currently holds
+node tool/asc.mjs push --dry-run  # what would change
+node tool/asc.mjs push            # name, subtitle, description, keywords, urls,
+                                  # review notes, demo credentials, age rating
+node tool/asc.mjs shots build/screenshots   # upload the 6.9" set, in page order
+```
+
+It authenticates with the same `AuthKey_*.p8` the release workflow uses (`ASC_KEY_ID` defaults to
+`77QHZJDRNT`, the key file to `%USERPROFILE%\dawnplayer-ios\`). ES256 tokens must carry a raw r‖s
+signature — Node signs DER by default and Apple answers a DER-signed token with a bare 401, which
+is a long afternoon if you do not know it.
+
+It deliberately does **not** submit for review, set pricing, or accept agreements. Those carry legal
+attestations that belong to a person clicking them.
+
+#### Troubleshooting: "No development certificates available to code sign app"
+
+Hit on the first signed build, and misleading — it appears even with a valid Apple Distribution
+certificate and App Store profile installed. The cause is in Flutter itself
+(`flutter_tools/lib/src/ios/code_signing.dart`): when the Xcode project has no `DEVELOPMENT_TEAM`
+build setting, Flutter searches the keychain for a *development* identity and fails hard if it finds
+none, and a distribution certificate never matches that search.
+
+Fixed by setting `DEVELOPMENT_TEAM`, `CODE_SIGN_STYLE = Manual`,
+`CODE_SIGN_IDENTITY[sdk=iphoneos*] = "Apple Distribution"` and `PROVISIONING_PROFILE_SPECIFIER` on
+the **Runner target's** Release configuration. Target level matters: the Flutter template puts
+`CODE_SIGN_IDENTITY[sdk=iphoneos*] = "iPhone Developer"` at *project* level, and project settings
+outrank `Release.xcconfig` — so an xcconfig override looks right and silently loses.
+
+`ios-unsigned.yml` is unaffected, because `--no-codesign` passes `CODE_SIGNING_ALLOWED=NO` on the
+xcodebuild command line, which outranks everything in the project.
+
+## 4.6 Store-compliance posture
+
+Players like this one are rejected far more often for how they *present* than for what they do.
+Apple 5.2.1 / 5.2.3 and Play's Intellectual Property and Impersonation policies are applied to the
+listing, the screenshots, the website and the first screens of the app together, so all of them
+follow the same rules:
+
+| Rule | Where it is enforced |
+|---|---|
+| Describe it as a **media / video player** for the user's own sources. Never "IPTV", never "Xtream Codes", never "the line you pay for". | Listing text (§3.1, §4.1), `tool/asc-listing.json`, `site/`, in-app copy (Add a playlist, empty states, About, guide empty state) |
+| No other company's brand used to front content. | The **Services** tab (Netflix, Disney+, Prime Video… shelves built from playlist group names) is hidden in store builds; it appears only with `--dart-define=DAWN_SIDELOAD=true` (`app_shell.dart`). The User-Agent presets no longer impersonate branded IPTV apps (TiviMate, IPTV Smarters). |
+| No real broadcasters, channels or fixtures in marketing. | Website guide mock-up uses invented channel names; screenshots come only from the demo server (§2). The design-system folder, whose mockups still carry real names, is no longer deployed (`pages.yml`). |
+| State the user's responsibility where they act on it. | Rights notice under **Connect** on the Add a playlist screen; About screen; `site/terms.html`. |
+| A terms-of-use page that prohibits infringing use and references Apple's standard EULA. | `https://dawnplayer.com/terms.html` — paste into App Store Connect → App Information → License Agreement (or leave the standard EULA, which the page already references), and link it from the Play listing's website. |
+| Error messages never coach around blocks. | Player errors no longer suggest switching VPN servers. |
+| No updating outside the store. | Already true: the update check is compiled in only with `DAWN_SIDELOAD`, which `android-release.yml` sets on the sideload APK and never on the AAB, and `ios-release.yml` never sets. |
+
+Anything new — a feature, a string, a page — gets checked against this table before it ships.
+
 ---
 
 ## 5. Graphic assets
@@ -441,41 +528,137 @@ None of these exist yet. Dimensions are exact requirements, not suggestions.
 
 | Asset | Spec | Notes |
 |---|---|---|
-| App icon | 1024×1024 PNG, no alpha, no rounded corners | From `assets/icon/dawn_icon.png` |
-| 6.9" iPhone | 1320×2868 or 2868×1320 | Required |
-| 6.5" iPhone | 1242×2688 or 2688×1242 | Required |
-| 13" iPad | 2064×2752 or 2752×2064 | Required only while `TARGETED_DEVICE_FAMILY = "1,2"`. Either produce them or drop iPad support — do not ship a stretched phone UI |
+| App icon | 1024×1024 PNG, no alpha, no rounded corners | Ships inside the binary from `assets/icon/dawn_icon.png`; App Store Connect reads it from there |
+| 6.9" iPhone | 1320×2868 or 2868×1320 | The only screenshot size still required. Produced by the workflow below |
+| 6.5" iPhone | 1242×2688 | No longer required — App Store Connect scales the 6.9" set down |
+| 13" iPad | 2064×2752 | Not applicable. `TARGETED_DEVICE_FAMILY = "1"`, so the app is iPhone-only and ASC does not ask |
 
 Screenshots need a running app on the right form factor, so they come after the emulator/device
 pass, not before. Use the mock panel from §2 to populate them — it gives a full, realistic
 catalogue with legal artwork, and it means no screenshot ever shows a real provider's channel list.
 
+### 5.1 How the iPhone screenshots are produced
+
+The development iPhone is a base iPhone 17 — 6.3", 1206×2622 — and the 6.9" slot takes only
+1320×2868. Rather than composite real captures into designed frames (artwork to redo by hand every
+release), `.github/workflows/ios-screenshots.yml` captures them on a simulator that is natively
+that size.
+
+It runs `tool/mock_xtream.php` on the runner itself, boots an iPhone Pro Max simulator, overrides
+the status bar to Apple's 9:41 convention, and launches the app with `--dart-define=DAWN_TOUR=true`.
+That switch turns on `lib/tour/screenshot_tour.dart`, which seeds the demo account, caches the
+catalogue and the guide, leaves three films part-watched so Continue Watching is not an empty row,
+then walks home → live → guide → films → a series → the player, printing a marker line at each stop.
+
+The capture itself happens outside Flutter, via `xcrun simctl io … screenshot`, because a
+Flutter-side screenshot renders only the Flutter layer — the player would come out as a black
+rectangle where the video is. The job then asserts every PNG is exactly 1320×2868 and fails if one
+is not, which is the check that would otherwise happen as a rejection.
+
+The tour is a capture harness, not a test suite: nothing asserts, and a stop that throws is logged
+and skipped so the rest of the run still yields its images. `screenshotTourEnabled` is a
+`const false` in every normal build, so all of it compiles out of a release.
+
+The player shot deliberately plays Big Buck Bunny rather than a live channel: it is Creative
+Commons, so the one screenshot containing video contains nothing anybody else owns, and a film also
+puts the seek bar in frame, which live playback hides.
+
 ---
 
 ## 6. Open items before submission
 
-- [ ] `support@dawnplayer.com` created and receiving mail. The domain is on Cloudflare with **no MX
-      records**, so Cloudflare Email Routing (free) forwards `support@` to a personal mailbox
-      without overwriting anything. Receiving is enough for both stores; sending needs a real mailbox
+- [x] `support@dawnplayer.com` — Cloudflare Email Routing configured 2026-09-01; `dawnplayer.com`
+      MX now answers `route1/2/3.mx.cloudflare.net`. Send it a test mail from outside and confirm it
+      lands before submitting; receiving is enough for both stores, sending needs a real mailbox
 - [x] `dawnplayer.com` DNS — already resolving to GitHub Pages (185.199.108-111.153) before any of
       this work; nothing to configure
 - [x] `site/` merged to `plexus/site` and deployed 2026-08-26 (run 32977270235). Verified live:
       `/privacy.html` and `/support.html` both 200, and `robots.txt` now serves the Allow rules.
       Worth noting the blanket `Disallow: /` had been live and effective on the custom domain, so
       Play's privacy-policy fetch would have failed had this not been caught
-- [ ] Mock panel deployed at `https://demo.dawnplayer.com`
+- [x] **Mock panel live at `https://demo.dawnplayer.com`** (2026-09-02, Ploi/`167.235.194.99`).
+      Verified end to end over HTTPS from outside: auth 1 with the demo credentials and auth 0 with
+      a wrong password, 10 live categories / 60 channels / 200 films / 24 series, films and episodes
+      302-ing to `media.w3.org`, the live HLS playlist proxied, and **no copyrighted title anywhere
+      in the catalogue**. Runbook in `deploy/demo/README.md`.
+
+      Two things cost an hour between "deployed" and "working", both worth knowing for next time.
+      The site was created with the default web directory `/public`, which this repo does not have —
+      that is what the Let's Encrypt failure (`/home/ploi/.../public does not exist`) was really
+      telling us, and the nginx root was wrong for the same reason. And Ploi's generated deploy
+      script pulls a branch into a checkout of the default branch, which fails outright once the two
+      diverge; a deploy target wants `git fetch` + `git reset --hard origin/<branch>`, not a merge
 - [ ] Play developer account registered (start the 12-tester clock early — §3.5)
-- [ ] Apple Developer Program membership active — **the only thing blocking the iOS path**; the
-      certificate must be issued against a real team (§4.4)
+- [x] Apple Developer Program membership active (2026-08-31). Team `XTBG48BLG7`
+- [x] iOS signing works end to end. All 7 secrets loaded; run 33371032544 produced a **signed**
+      IPA (31.5 MB) whose `embedded.mobileprovision` is `Dawn Player App Store` for
+      `XTBG48BLG7.com.dawnplayer.app`, `get-task-allow false`, no provisioned devices —
+      a genuine App Store distribution build. Certificate valid to 2027-08-31
+- [x] **App Store Connect app record** created 2026-09-01
+- [ ] Note: the legacy `com.example.aurora` App ID still exists in the portal from sideloading days.
+      Harmless; rename its description so it cannot be picked by mistake when issuing profiles
 - [x] iOS build verified on Xcode (run 32967296683, `plexus/apps`). The built `Info.plist` reads
       `com.dawnplayer.app`, `UIDeviceFamily [1]`, `ITSAppUsesNonExemptEncryption false`,
       `MinimumOSVersion 13.0`, version `1.0.0 (1)`; the app-level `PrivacyInfo.xcprivacy` is present
       in `Runner.app`, and all six bundled fonts plus both OFL texts ship in `flutter_assets`
-- [ ] iOS screenshots. The dev iPhone is a base iPhone 17 (6.3", 1206×2622) and the required 6.9"
-      slot takes only 1320×2868 / 1290×2796 / 1260×2736 — so raw captures from it are not accepted.
-      Either composite real captures into 1320×2868 designed screenshots, or borrow a 6.9" device
-- [ ] `flutter build ios` warns that plugins not adopting Swift Package Manager "will become an
-      error in a future version of Flutter". Not urgent, but it dates the toolchain pin
+- [x] iOS screenshots done 2026-09-02 — six captured (home, live, guide, films, series, player) and
+      uploaded in page order. Note there is **no `APP_IPHONE_69`** display type in the API: 6.9"
+      screenshots belong to `APP_IPHONE_67`, which the web UI labels *iPhone 6.9" Display*
+- [x] Listing text pushed to ASC 2026-09-01 via `tool/asc.mjs push`, and read back: name, subtitle,
+      privacy URL, a 2305-character description, keywords, promotional text, support and marketing
+      URLs, and the age-rating questionnaire (`unrestrictedWebAccess: true`). Issuer ID
+      `9b8c74b9-d412-4772-8500-b5dde7e6b3d5`
+- [x] Version string corrected **1.0 → 1.0.0**. The record Apple created said `1.0` while both
+      binaries say `1.0.0`; a build is only offered for a version whose string matches its
+      `CFBundleShortVersionString`, so the build picker would have been empty with no explanation
+- [ ] **Review details** — blocked on a contact phone number. Fill `contactPhone` in
+      `tool/asc-listing.json` and re-run `node tool/asc.mjs push`; the script refuses to write a
+      half-filled review detail, because one that looks answered is worse than one that is empty.
+
+      Not optional, and tested rather than assumed: posting review details without it returns
+      `409 ENTITY_ERROR.ATTRIBUTE.REQUIRED`, so the notes and demo credentials cannot be stored at
+      all until it is there. It must begin with `+` and a country code — `+31 6 12345678` — or a
+      second 409 rejects the format. It reaches App Review only and is not shown on the product
+      page, unlike Play's developer contact email
+- [x] Review details written 2026-09-03 — notes (2587 chars), demo credentials, contact. The phone
+      was typed into the web UI rather than committed; `push` now takes `ASC_CONTACT_PHONE` from the
+      environment or keeps whatever ASC already holds, and `status` prints only whether one is set
+- [x] **Content rights: `DOES_NOT_USE_THIRD_PARTY_CONTENT`** (2026-09-03). The app ships no content
+      and reaches only what the user supplies — the same relationship a browser has to a website.
+      The alternative attests that *we* hold rights to that content, which we do not and must not
+      claim; saying so would hand a reviewer the 5.2.3 case in our own words
+- [x] **Build 4 attached to 1.0.0** (2026-09-03). Build 3 carried the `player_screen.dart` dispose
+      fix but still baked `https://aurora.laffort.nl` into the pairing screen, so do not attach it.
+
+      That one is worth remembering. `PairDeviceScreen` defaulted to the project's own backend and
+      opened a session the moment the screen appeared, so a store build contacted a
+      developer-operated server before the user had chosen any server — while `site/privacy.html`
+      says "no server of ours in the data path" and lists every destination as one the user
+      configured. Credentials never actually leaked (the phone refuses to send a payload without a
+      sync server the user configured), but the sentence was untrue, and a stranger opening the
+      screen got a pairing code their phone could never claim. The default is now empty;
+      `DAWN_SYNC_URL` still overrides it for personal builds and **must not** be added to
+      `ios-release.yml`. The app's destinations now match the published policy exactly
+- [ ] **App Privacy → Data Not Collected**, and availability. Web UI only, and not for want of
+      trying: there is no App Privacy resource in the App Store Connect API at all
+      (`PATH_ERROR: The resource 'v1/appDataUsages' does not exist`), and availability answers
+      `NOT_FOUND` on every documented shape. The answer is No to *"do you or your third-party
+      partners collect data from this app?"*, which ends the questionnaire in one question —
+      credentials go only to the user's own provider, history stays on device or on a server the
+      user runs, there is no analytics/crash/ads SDK, and `NSPrivacyCollectedDataTypes` in the
+      binary is already an empty array, which Apple cross-checks the label against
+- [ ] **Submit for Review** — deliberately not scripted. It is irreversible and carries attestations
+      that belong to a person
+- [x] Minimum iOS raised 13.0 -> 15.0, clearing Apple warning 90068 (uploads below 15.0 are
+      refused from Spring 2027). No reach lost: iOS 15 covers the same iPhone generations as 13
+- [x] Launch screen replaced. It was the Flutter placeholder — pure white background and a 1x1
+      transparent pixel — so every cold start flashed white before a near-black app. Now #0B0D12
+      with the icon at 120pt, alpha rounded corners
+- [x] Builds uploaded: build 1 (2026-08-31, `state=VALID` at Apple) and build 2 with both fixes
+      above. Build 2's validation reports **no errors and no warnings** at all
+- [ ] `flutter build ios` warns that plugins not adopting Swift Package Manager (media_kit_video,
+      media_kit_libs_ios_video) "will become an error in a future version of Flutter". Not urgent,
+      but it dates the toolchain pin
 - [x] Signed AAB produced and verified — signed `CN=Dawn Player, O=Laffort, C=NL`, ABIs
       arm64-v8a / armeabi-v7a / x86_64, all native libs stripped and 16 KB aligned.
       `build/` in this worktree is now a junction to `D:\dev\flutter-build\streamer-aurora-apps`

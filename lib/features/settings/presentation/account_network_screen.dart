@@ -22,14 +22,14 @@ class AccountNetworkScreen extends ConsumerStatefulWidget {
       _AccountNetworkScreenState();
 }
 
-/// Strings that panels are known to accept. A panel that refuses libmpv's
+/// Strings that servers are known to accept. A server that refuses libmpv's
 /// default will usually take one of these, and typing them by hand from memory
-/// is how the last few hours of debugging started.
+/// is how the last few hours of debugging started. General-purpose players
+/// only: presenting as another vendor's branded app is impersonation as far as
+/// store review is concerned.
 const _presets = <(String, String)>[
   ('VLC', 'VLC/3.0.21 LibVLC/3.0.21'),
-  ('TiviMate', 'TiviMate/5.0.0 (Android)'),
   ('Kodi', 'Kodi/20.2 (Android)'),
-  ('Smarters', 'IPTVSmartersPlayer/1.0'),
 ];
 
 class _AccountNetworkScreenState extends ConsumerState<AccountNetworkScreen> {
@@ -94,7 +94,7 @@ class _AccountNetworkScreenState extends ConsumerState<AccountNetworkScreen> {
                     style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text(
-                  'Many panels serve the catalogue to anyone but only hand over '
+                  'Some servers serve the catalogue to anyone but only hand over '
                   'the video to a player they recognise. If the catalogue loads '
                   'and every stream fails, this is the first thing to change.',
                   style: TextStyle(color: AppColors.textSecondary, fontSize: 13),

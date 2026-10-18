@@ -5,16 +5,27 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/cast/cast_service.dart';
 
+/// What was chosen in the picker.
+enum CastPick {
+  /// A Chromecast is connecting; the caller loads the stream on it.
+  chromecast,
+
+  /// AirPlay (iPhone): the caller hands the stream to [CastService.airPlay],
+  /// which opens Apple's own device list.
+  airPlay,
+}
+
 /// Device chooser for casting.
 ///
 /// Built here rather than using the Cast SDK's own dialog: that one is a
 /// phone-shaped Material view that cannot be driven with a D-pad, so it would be
-/// unusable on the television build and look foreign everywhere else.
+/// unusable on the television build and look foreign everywhere else. On an
+/// iPhone it also carries an AirPlay row, since AirPlay devices cannot be
+/// listed — Apple's own list opens from there.
 ///
-/// Returns true when the user picked a device (the caller then loads the
-/// stream), false or null when they backed out.
-Future<bool?> showCastPicker(BuildContext context) {
-  return showModalBottomSheet<bool>(
+/// Returns what was picked, or null when the user backed out.
+Future<CastPick?> showCastPicker(BuildContext context) {
+  return showModalBottomSheet<CastPick>(
     context: context,
     backgroundColor: AppColors.surface,
     builder: (context) => const SafeArea(child: _CastPicker()),
@@ -28,6 +39,7 @@ class _CastPicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final devices = ref.watch(castDevicesProvider);
     final status = ref.watch(castStatusProvider).value ?? const CastStatus();
+    final airPlay = ref.read(castServiceProvider).offersAirPlay;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -36,19 +48,27 @@ class _CastPicker extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
           child: Row(
             children: [
-              Text('Cast to', style: AppTypography.title),
+              Text('Play on', style: AppTypography.title),
               const Spacer(),
               if (status.isCasting)
                 TextButton(
                   onPressed: () async {
                     await ref.read(castServiceProvider).disconnect();
-                    if (context.mounted) Navigator.pop(context, false);
+                    if (context.mounted) Navigator.pop(context);
                   },
-                  child: const Text('Stop casting'),
+                  child: const Text('Stop'),
                 ),
             ],
           ),
         ),
+        if (airPlay)
+          ListTile(
+            leading: Icon(Icons.airplay, color: AppColors.textSecondary),
+            title: const Text('AirPlay'),
+            subtitle: Text('Apple TV and AirPlay TVs',
+                style: TextStyle(color: AppColors.textSecondary)),
+            onTap: () => Navigator.pop(context, CastPick.airPlay),
+          ),
         devices.when(
           loading: () => Padding(
             padding: EdgeInsets.all(28),
@@ -75,8 +95,8 @@ class _CastPicker extends ConsumerWidget {
               return Padding(
                 padding: EdgeInsets.fromLTRB(24, 12, 24, 28),
                 child: Text(
-                  'No devices found. A Chromecast has to be on the same '
-                  'network as this device.',
+                  'No Chromecasts found. A Chromecast or Google TV has to be '
+                  'on the same Wi-Fi as this device.',
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
               );
@@ -100,7 +120,9 @@ class _CastPicker extends ConsumerWidget {
                             maxLines: 1, overflow: TextOverflow.ellipsis),
                     onTap: () async {
                       await ref.read(castServiceProvider).connect(device.id);
-                      if (context.mounted) Navigator.pop(context, true);
+                      if (context.mounted) {
+                        Navigator.pop(context, CastPick.chromecast);
+                      }
                     },
                   ),
                 const SizedBox(height: 12),

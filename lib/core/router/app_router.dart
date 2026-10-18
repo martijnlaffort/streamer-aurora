@@ -2,12 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/home/presentation/home_screen.dart';
+import '../../features/live/presentation/guide_coverage_screen.dart';
 import '../../features/live/presentation/guide_screen.dart';
 import '../../features/live/presentation/live_screen.dart';
 import '../../features/live/presentation/multi_view_screen.dart';
 import '../../features/movies/presentation/movie_category_screen.dart';
 import '../../features/movies/presentation/movie_detail_screen.dart';
 import '../../features/movies/presentation/movies_screen.dart';
+import '../../features/providers/presentation/provider_detail_screen.dart';
+import '../../features/providers/presentation/providers_screen.dart';
 import '../../features/player/player_request.dart';
 import '../../features/player/presentation/player_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
@@ -19,6 +22,7 @@ import '../../features/settings/presentation/account_network_screen.dart';
 import '../../features/settings/presentation/accounts_screen.dart';
 import '../../features/settings/presentation/add_account_screen.dart';
 import '../../features/settings/presentation/content_languages_screen.dart';
+import '../../features/settings/presentation/custom_groups_screen.dart';
 import '../../features/settings/presentation/hidden_channels_screen.dart';
 import '../../features/settings/presentation/manage_categories_screen.dart';
 import '../../features/settings/presentation/pair_device_screen.dart';
@@ -92,6 +96,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(
+                path: '/providers',
+                name: 'providers',
+                builder: (context, state) => const ProvidersScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
                 path: '/search',
                 name: 'search',
                 builder: (context, state) => const SearchScreen()),
@@ -132,9 +142,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             PlayerScreen(request: state.extra! as PlayerRequest),
       ),
       GoRoute(
+        path: '/providers/:id',
+        name: 'providerDetail',
+        builder: (context, state) => ProviderDetailScreen(
+          brandId: Uri.decodeComponent(state.pathParameters['id']!),
+        ),
+      ),
+      GoRoute(
         path: '/guide',
         name: 'guide',
         builder: (context, state) => const GuideScreen(),
+      ),
+      GoRoute(
+        path: '/guide/coverage',
+        name: 'guideCoverage',
+        builder: (context, state) => const GuideCoverageScreen(),
       ),
       GoRoute(
         path: '/multiview',
@@ -167,6 +189,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const PairTvScreen(),
       ),
       GoRoute(
+        path: '/settings/page/:section',
+        name: 'settingsSection',
+        // An unknown section (a stale link) lands on Settings itself.
+        redirect: (context, state) =>
+            SettingsSection.byName(state.pathParameters['section']) == null
+                ? '/settings'
+                : null,
+        builder: (context, state) => SettingsSectionScreen(
+          section: SettingsSection.byName(state.pathParameters['section'])!,
+        ),
+      ),
+      GoRoute(
         path: '/settings/sync',
         name: 'sync',
         builder: (context, state) => const SyncSettingsScreen(),
@@ -190,6 +224,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings/hidden-channels',
         name: 'hiddenChannels',
         builder: (context, state) => const HiddenChannelsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/custom-groups',
+        name: 'customGroups',
+        builder: (context, state) => const CustomGroupsScreen(),
       ),
       GoRoute(
         path: '/settings/languages',

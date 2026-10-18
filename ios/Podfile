@@ -1,5 +1,7 @@
-# media_kit's libmpv backend requires iOS 13.0+.
-platform :ios, '13.0'
+# media_kit's libmpv backend requires iOS 13.0+; we set 15.0 because Apple
+# stops accepting uploads below 15.0 in Spring 2027, and iOS 15 covers the
+# same iPhone generations as 13 (6s and later) so it costs no reach.
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -32,6 +34,12 @@ target 'Runner' do
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # Chromecast from the iPhone (CastBridge in Runner/AppDelegate.swift). The
+  # same stock Default Media Receiver the Android build uses; AirPlay needs no
+  # SDK. Pinned to the 4.8 line, which ships an xcframework with the
+  # arm64 simulator slice.
+  pod 'google-cast-sdk', '~> 4.8'
 end
 
 post_install do |installer|
@@ -39,9 +47,9 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
 
     # Force every pod to the same minimum deployment target so media_kit's
-    # native libs (which require 13.0) don't get overridden to a lower value.
+    # native libs (which require 13.0+) don't get overridden to a lower value.
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
     end
   end
 end

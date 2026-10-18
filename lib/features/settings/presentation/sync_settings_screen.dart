@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../data/providers.dart' show serverClockProvider;
 import '../../../data/sync/sync_config.dart';
 import '../../../data/sync/sync_providers.dart';
 import '../../home/home_providers.dart';
@@ -18,6 +19,19 @@ class SyncSettingsScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<SyncSettingsScreen> createState() =>
       _SyncSettingsScreenState();
+}
+
+/// "3 hours ahead of" / "12 minutes behind" — the shape that reads as a
+/// sentence where a signed duration would not.
+String _describeSkew(Duration offset) {
+  // The offset is server-minus-device, so a POSITIVE offset means the device
+  // is behind.
+  final behind = offset.isNegative == false;
+  final abs = offset.abs();
+  final amount = abs.inHours >= 1
+      ? '${abs.inHours} hour${abs.inHours == 1 ? '' : 's'}'
+      : '${abs.inMinutes} minute${abs.inMinutes == 1 ? '' : 's'}';
+  return '$amount ${behind ? 'behind' : 'ahead of'}';
 }
 
 class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
@@ -78,7 +92,13 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
         null => 'Saved, but sync is off or not configured.',
         _ when result.ok =>
           'Connected. Syncing automatically from now on.',
-        _ => 'Could not reach the server: ${result.error}',
+        // Not the raw error — a DioException dump is not something to show
+        // anyone. It still goes to the log for whoever runs the server.
+        _ => () {
+            debugPrint('[dawn] sync check failed: ${result.error}');
+            return 'Could not reach the sync server. Check the address and '
+                'access code, and that this device is online.';
+          }(),
       };
     });
   }
@@ -94,10 +114,10 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'Sync watch progress, favorites, and preferences across your '
-            'devices via your own server — automatically, in the background. '
-            'Optional; Dawn Player works fully without it. Usually there is '
-            'nothing to do here: pairing a device fills this in for you.',
+            'Keeps watch progress, My List and settings the same on all your '
+            'devices, automatically. Optional — Dawn Player works fully '
+            'without it. Usually there is nothing to fill in here: pairing a '
+            'device (Settings → Devices & sync) does it for you.',
             style: TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
@@ -106,7 +126,7 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
             autocorrect: false,
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
-              labelText: 'Backend URL',
+              labelText: 'Sync server address',
               hintText: 'https://sync.example.com',
               border: OutlineInputBorder(),
             ),
@@ -117,11 +137,10 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
             autocorrect: false,
             obscureText: true,
             decoration: const InputDecoration(
-              labelText: 'Token',
-              // Still `aurora:token`: that is the command name registered by the
-              // deployed backend. Renaming it here would print an instruction
-              // that fails on the server until the backend is redeployed.
-              helperText: 'From `php artisan aurora:token` on the server',
+              labelText: 'Access code',
+              // The server-side command (`php artisan aurora:token`) is for
+              // whoever runs the server, not for the person holding the remote.
+              helperText: 'Given to you by whoever runs your sync server',
               border: OutlineInputBorder(),
             ),
           ),
@@ -148,6 +167,31 @@ class _SyncSettingsScreenState extends ConsumerState<SyncSettingsScreen> {
             const SizedBox(height: 16),
             Text(_status!,
                 style: TextStyle(color: AppColors.textSecondary)),
+          ],
+          // A wrong clock is invisible and does real damage: sync resolves
+          // every conflict by comparing timestamps, so a device hours ahead
+          // wins them all and quietly overwrites the others. Stamps are
+          // corrected automatically; this is here so the cause is findable if
+          // something still looks wrong.
+          if (ref.watch(serverClockProvider).isSkewed) ...[
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.schedule, size: 18, color: AppColors.accentAlt),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "This device's clock is "
+                    '${_describeSkew(ref.watch(serverClockProvider).offset!)} '
+                    'the server. Timestamps are being corrected, but setting '
+                    'the clock automatically is worth doing.',
+                    style: TextStyle(
+                        color: AppColors.textSecondary, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
           ],
         ],
       ),

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/platform/television.dart';
 import 'core/router/app_router.dart';
+import 'data/account_warmup.dart';
 import 'data/notifications/reminder_service.dart';
 import 'features/player/player_request.dart';
 import 'core/theme/app_colors.dart';
@@ -13,7 +14,7 @@ import 'core/theme/app_theme.dart';
 import 'data/providers.dart';
 import 'data/sync/sync_providers.dart';
 import 'domain/models/models.dart'
-    show AppThemeMode, Preferences, StreamRef, StreamType, contentKeyFor;
+    show Account, AppThemeMode, Preferences, StreamRef, StreamType, contentKeyFor;
 import 'data/sync/sync_trigger.dart';
 import 'features/home/home_providers.dart';
 import 'features/live/live_providers.dart' show favoriteChannelsProvider;
@@ -136,6 +137,9 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
           ref.invalidate(favoriteChannelsProvider);
           ref.invalidate(isFavoriteProvider);
         }
+        // Curation from another device changes which categories and channels
+        // exist at all, so every list that filters by it has to be rebuilt.
+        if (result.overridesChanged) ref.invalidate(catalogOverridesProvider);
       }
     } finally {
       _syncing = false;
@@ -179,6 +183,20 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
     final prefs =
         ref.watch(preferencesProvider).value ?? const Preferences.defaults();
 
+    // Warm a newly-active account the moment it changes — on first launch, on
+    // an account switch, and right after pairing (all of which resolve a new
+    // active account here). Without this, a freshly paired or first-time
+    // account shows empty screens until the user opens each tab and triggers
+    // its first fetch; warming downloads the catalogue and pulls history in the
+    // background so the content is usually there before they look. Guarded on
+    // the id so a plain rebuild, or the account merely re-resolving to the same
+    // value, does not re-warm.
+    ref.listen<AsyncValue<Account?>>(activeAccountProvider, (prev, next) {
+      final account = next.value;
+      if (account == null || prev?.value?.id == account.id) return;
+      unawaited(warmAccount(ref, account));
+    });
+
     // Material draws a widget's focus highlight only while the focus manager
     // is in `traditional` mode, and on Android it starts in `touch` mode and
     // only leaves it when a key event arrives from a real input device. A
@@ -192,7 +210,8 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
     // keyevent` injects with deviceId -1 (the virtual keyboard), which Flutter
     // deliberately ignores for this purpose, so focus moved invisibly there and
     // every scripted D-pad test looked broken when it was not.
-    if (isTelevisionOf(ref)) {
+    final tv = isTelevisionOf(ref);
+    if (tv) {
       FocusManager.instance.highlightStrategy =
           FocusHighlightStrategy.alwaysTraditional;
     }
@@ -214,8 +233,9 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
 
     return MaterialApp.router(
       title: 'Dawn Player',
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      // On a TV every button and chip also carries the remote's cursor.
+      theme: AppTheme.lightFor(tv: tv),
+      darkTheme: AppTheme.darkFor(tv: tv),
       themeMode: switch (prefs.themeMode) {
         AppThemeMode.dark => ThemeMode.dark,
         AppThemeMode.light => ThemeMode.light,

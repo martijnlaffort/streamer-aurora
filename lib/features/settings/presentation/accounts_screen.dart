@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
 
@@ -31,7 +32,7 @@ class AccountsScreen extends ConsumerWidget {
       body: accounts.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
-          child: Text('Could not load accounts: $e',
+          child: Text('Could not load your playlists. ${ErrorView.messageFor(e)}',
               style: TextStyle(color: AppColors.error)),
         ),
         data: (list) {
@@ -44,7 +45,7 @@ class AccountsScreen extends ConsumerWidget {
                   SizedBox(height: 12),
                   Text('No accounts yet.'),
                   Text(
-                    'Add an Xtream or M3U playlist to get started.',
+                    'Add a playlist or media server to get started.',
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ],

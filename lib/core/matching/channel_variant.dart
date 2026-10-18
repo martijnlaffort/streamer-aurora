@@ -12,6 +12,30 @@
 /// `UK | Discovery`, which are different channels showing different things.
 library;
 
+import 'name_tags.dart';
+
+/// The name a channel sorts and indexes under — the provider's packaging taken
+/// off the front, so the A–Z index and the alphabetical sort land on the word a
+/// person actually reads. `|UCL| ZIGGO SPORT` sorts under Z, `:MLS 04` under M,
+/// and `| PPV | The Fight` under T.
+///
+/// Leading only: trailing tags (`HD`, `[NL]`) are left alone, because they
+/// distinguish one row from the next. Nothing here touches [ChannelVariant.key]
+/// — grouping still keeps the country prefix, so `NL | Discovery` and
+/// `UK | Discovery` never collapse into one row.
+///
+/// Falls back to the original when stripping would leave nothing, so a channel
+/// that is ALL packaging still has something to sort on.
+String channelSortName(String raw) {
+  // Any leading bracketed tag (`|UCL|`, `[PPV]`, `«NL»`) is packaging for the
+  // purpose of sorting; every one of them is noise here.
+  var s = stripLeadingTag(raw, (_) => true);
+  // Then a lone leading punctuation run with no closing partner — `:MLS 04`,
+  // `- Sky Sports`, `. TNT` — which stripLeadingTag leaves untouched.
+  s = s.replaceFirst(RegExp(r'^[^\p{L}\p{N}]+', unicode: true), '').trim();
+  return s.isEmpty ? raw.trim() : s;
+}
+
 /// Quality tags, lowercased and stripped of punctuation, with the rank used to
 /// decide which variant a group plays by default.
 ///
@@ -55,7 +79,12 @@ const _codecNoise = {
 /// `+` survives into the key: it is load-bearing in channel names. Without it
 /// `Canal+` collapses into `Canal` and `Film4 +1` into `Film4 1`, merging
 /// channels that are genuinely different.
-final _punctuation = RegExp(r'[^a-z0-9+]');
+///
+/// Letters and digits of EVERY script survive, not just a–z. An ASCII-only
+/// class reduced `НТВ` and `Первый канал` to the same empty key — merging every
+/// Cyrillic, Greek, Arabic and CJK channel on a line into one row — and made
+/// the tag loop below throw away a trailing non-Latin word as if it were a tag.
+final _punctuation = RegExp(r'[^\p{L}\p{N}+]', unicode: true);
 final _whitespace = RegExp(r'\s+');
 final _trailingJunk = RegExp(r'[\s\-–—_:|/\\(\[\{]+$');
 
@@ -80,7 +109,14 @@ class ChannelVariant {
 
   /// Grouping key: [baseName] reduced to letters and digits so punctuation and
   /// spacing differences between a line's own rows cannot split a group.
-  String get key => baseName.toLowerCase().replaceAll(_punctuation, '');
+  ///
+  /// Null when nothing is left (a name made only of symbols or emoji). The
+  /// grouped query falls back to the channel's own id for a null key, so such
+  /// a channel stays a row of its own instead of merging with every other one.
+  String? get key {
+    final k = baseName.toLowerCase().replaceAll(_punctuation, '');
+    return k.isEmpty ? null : k;
+  }
 }
 
 /// Splits [rawName] into its channel and its quality.

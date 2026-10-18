@@ -16,6 +16,7 @@ import '../../../domain/models/models.dart';
 import '../../home/home_providers.dart';
 import '../../movies/movies_providers.dart';
 import '../../player/player_request.dart';
+import '../../player/presentation/cast_controls.dart';
 import '../series_providers.dart';
 
 /// Series detail (PRD §8.4/§8.7): season selector, episode list with
@@ -62,6 +63,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
             seriesName: detail.series.name,
           ),
           contentKey: _episodeKey(accountId, e),
+          seriesId: detail.series.id,
+          season: e.seasonNumber,
+          episode: e.episodeNumber,
+          episodeTitle: e.title,
+          imageUrl: e.stillUrl ?? detail.series.posterUrl,
+          durationSeconds: e.durationSeconds,
         ),
     ];
     await context.push('/player',
@@ -240,6 +247,27 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
                                 accountId: account.id, id: series.id),
                           ),
                         ),
+                        // Cast the next-up episode straight to a TV. Hidden with
+                        // its gap where casting is not offered (see CastButton).
+                        if (hasEpisodes &&
+                            (ref.watch(castOfferedProvider).value ?? false))
+                          CastButton(
+                            streamRef: StreamRef(
+                              accountId: account.id,
+                              type: StreamType.episode,
+                              streamId: next!.id,
+                              containerExt: next.containerExt,
+                            ),
+                            title: prettyTitle(series.name, year: series.year),
+                            subtitle: episodeLabel(
+                              season: next.seasonNumber,
+                              episode: next.episodeNumber,
+                              title: next.title,
+                              seriesName: series.name,
+                            ),
+                            positionSeconds:
+                                resume ? nextProgress!.positionSeconds : 0,
+                          ),
                       ],
                     ),
                   ],
@@ -247,7 +275,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen> {
               ),
               if (seasons.length > 1)
                 SizedBox(
-                  height: 44,
+                  // Grows with the text size; a fixed 44 clipped the chips at
+                  // Large and above.
+                  height: MediaQuery.textScalerOf(context).scale(44),
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: EdgeInsets.symmetric(horizontal: sidePad - 4),

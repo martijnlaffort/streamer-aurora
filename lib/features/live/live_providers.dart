@@ -52,8 +52,67 @@ final nowNextProvider =
         (ref, channel) async {
   final account = await ref.watch(activeAccountProvider.future);
   if (account == null) return const [];
-  return ref.watch(epgRepositoryProvider).nowNext(account, channel, limit: 2);
+  final overrides = await ref.watch(catalogOverridesProvider.future);
+  return ref.watch(epgRepositoryProvider).nowNext(
+        account,
+        channel,
+        limit: 2,
+        epgKeyOverride: overrides.epgIds[channel.id],
+      );
 });
+
+/// How much of the channel list the guide covers.
+///
+/// Surfaced rather than left silent: a channel with no guide data looks
+/// identical to a broken app, and the count is what turns "the guide doesn't
+/// work" into "1,847 channels have no guide data, here they are".
+final guideCoverageProvider =
+    FutureProvider<({int total, int covered})?>((ref) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return null;
+  // Recount when a mapping is added, or the number would never improve.
+  ref.watch(catalogOverridesProvider);
+  return ref.watch(epgRepositoryProvider).guideCoverage(account);
+});
+
+/// The channels the guide has nothing for, for the mapping screen.
+final channelsWithoutEpgProvider = FutureProvider<List<Channel>>((ref) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return const [];
+  ref.watch(catalogOverridesProvider);
+  return ref.watch(epgRepositoryProvider).channelsWithoutEpg(account);
+});
+
+/// Guide keys the EPG actually holds — the options a manual mapping can pick.
+final knownEpgKeysProvider = FutureProvider<List<String>>((ref) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return const [];
+  return ref.watch(epgRepositoryProvider).knownEpgKeys(account);
+});
+
+/// The channels in one of the user's own groups, in the user's order.
+///
+/// Resolved by id, so a channel the playlist has since dropped simply does not
+/// appear rather than showing as a dead row. A group is small by construction
+/// (someone picked every channel in it by hand), so this is a handful of indexed
+/// lookups — no paging needed.
+final groupChannelsProvider =
+    FutureProvider.family<List<Channel>, String>((ref, groupId) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return const [];
+  final overrides = await ref.watch(catalogOverridesProvider.future);
+  final catalog = ref.watch(catalogRepositoryProvider);
+  final out = <Channel>[];
+  for (final id in overrides.groupMembers[groupId] ?? const <String>[]) {
+    final c = await catalog.channelById(account, id);
+    if (c != null) out.add(c);
+  }
+  return out;
+});
+
+/// Prefix that marks a chip id as one of the user's own groups rather than a
+/// playlist category. Never reaches the repository.
+const customGroupPrefix = 'group:';
 
 /// Whether the active account has any EPG data (drives the guide entry point).
 final hasEpgProvider = FutureProvider<bool>((ref) async {
@@ -70,7 +129,12 @@ class GuideData {
     required this.windowStart,
     required this.windowEnd,
     this.truncated = false,
+    this.epgIds = const {},
   });
+
+  /// Hand-set channel → XMLTV mappings, so the grid reads each row under the
+  /// same key the provider built it with.
+  final Map<String, String> epgIds;
 
   final List<Channel> channels;
 
@@ -110,19 +174,35 @@ final guideProvider = FutureProvider<GuideData?>((ref) async {
   final truncated = keys.length > guideChannelLimit;
   final shown = (truncated ? keys.take(guideChannelLimit) : keys).toSet();
 
+  // Channels the user mapped by hand belong in the grid even though the
+  // playlist's own id matched nothing — that mapping IS the fix, and it would
+  // be perverse to keep hiding the row that proves it worked.
+  final overrides = await ref.watch(catalogOverridesProvider.future);
+  final withMapped = {...shown, ...overrides.epgIds.values};
+
   final programmes =
-      await epg.guideWindow(account, start, end, channelKeys: shown);
-  final channels = await ref
-      .watch(catalogRepositoryProvider)
-      .channelsByEpgKeys(account, shown);
+      await epg.guideWindow(account, start, end, channelKeys: withMapped);
+  final catalog = ref.watch(catalogRepositoryProvider);
+  final channels = <Channel>[
+    ...await catalog.channelsByEpgKeys(account, shown),
+  ];
+  final seen = {for (final c in channels) c.id};
+  for (final entry in overrides.epgIds.entries) {
+    if (seen.contains(entry.key)) continue;
+    final mapped = await catalog.channelById(account, entry.key);
+    if (mapped != null) channels.add(mapped);
+  }
 
   // A key with no matching channel row (guide lists a channel the playlist
   // does not carry) simply has no row to draw.
   return GuideData(
     channels: channels
-        .where(
-            (c) => (programmes[c.epgChannelId ?? c.id] ?? const []).isNotEmpty)
+        .where((c) =>
+            (programmes[overrides.epgKey(c.id, c.epgChannelId ?? c.id)] ??
+                    const [])
+                .isNotEmpty)
         .toList(),
+    epgIds: overrides.epgIds,
     programmes: programmes,
     windowStart: start,
     windowEnd: end,

@@ -46,7 +46,8 @@ flutter analyze                   # must stay clean (global rule)
 
 The `ios/` scaffold is committed. `ios/Runner/Info.plist` carries the App Transport
 Security exception (IPTV panels are plain HTTP) and `ios/Podfile` pins deployment target
-13.0 (media_kit requirement); `tool/patch_ios.sh` re-asserts both, idempotently.
+15.0 (above media_kit's 13.0 floor; Apple blocks uploads below 15.0 from Spring 2027);
+`tool/patch_ios.sh` re-asserts both, idempotently.
 
 CI (`.github/workflows/ios-unsigned.yml`) builds an **unsigned** `app-unsigned.ipa`
 artifact on every push to `main` (or manually via workflow_dispatch). Sideload it with

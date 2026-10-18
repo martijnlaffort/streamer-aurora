@@ -1,14 +1,14 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
+import '../../../core/platform/screen_orientation.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/error_view.dart';
 import '../../../data/providers.dart';
 import '../../../domain/models/models.dart';
 import '../../player/presentation/player_screen.dart' show kStreamUserAgent;
@@ -38,36 +38,35 @@ class _MultiViewScreenState extends ConsumerState<MultiViewScreen> {
   /// Index of the pane you can hear.
   int _audioPane = 0;
 
-  /// Fullscreen and the orientation lock are a phone/tablet concern; on desktop
-  /// these calls can pin the window to a broken size, and a TV has no
-  /// orientation to lock.
-  bool get _isMobile => Platform.isAndroid || Platform.isIOS;
+  /// Landscape and full-bleed: two 16:9 panes side by side make no sense in
+  /// portrait, and the chrome would eat the little height there is. Released
+  /// when the route pops and again in dispose (idempotent); see
+  /// [LandscapeLock].
+  LandscapeLock? _landscape;
 
   @override
   void initState() {
     super.initState();
-    // Landscape and full-bleed: two 16:9 panes side by side make no sense in
-    // portrait, and the chrome would eat the little height there is.
-    if (_isMobile) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    }
+    _landscape = LandscapeLock.acquire();
   }
 
   @override
   void dispose() {
-    if (_isMobile) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    }
+    _landscape?.release();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PopScope(
+        // On pop rather than in dispose, which runs after the exit animation
+        // and would let the screen underneath slide in sideways.
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) _landscape?.release();
+        },
+        child: _screen(context),
+      );
+
+  Widget _screen(BuildContext context) {
     final panes = widget.channels.take(2).toList();
     return Scaffold(
       backgroundColor: Colors.black,
@@ -172,7 +171,8 @@ class _CompanionPicker extends ConsumerWidget {
           child: options.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(
-                child: Text('$e', style: TextStyle(color: AppColors.error))),
+                child: Text(ErrorView.messageFor(e),
+                style: TextStyle(color: AppColors.error))),
             data: (list) {
               final choices = [
                 for (final c in list)
@@ -287,7 +287,7 @@ class _MultiPaneState extends ConsumerState<_MultiPane> {
       await _player.open(Media(url));
     } on Object catch (e) {
       // One pane failing must not take the other down with it.
-      if (mounted) setState(() => _error = '$e');
+      if (mounted) setState(() => _error = ErrorView.messageFor(e));
     }
   }
 

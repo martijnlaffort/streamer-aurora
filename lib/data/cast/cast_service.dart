@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,12 +28,16 @@ class CastStatus {
     this.deviceName,
     this.positionSeconds = 0,
     this.durationSeconds = 0,
+    this.viaAirPlay = false,
   });
 
   final CastState state;
   final String? deviceName;
   final int positionSeconds;
   final int durationSeconds;
+
+  /// Playing on an AirPlay device (iPhone) rather than a Chromecast.
+  final bool viaAirPlay;
 
   bool get isCasting =>
       state == CastState.connected ||
@@ -43,16 +48,46 @@ class CastStatus {
   bool get isPlaying => state == CastState.playing;
 }
 
-/// Thin wrapper over the Android Cast bridge (see CastBridge.kt).
+/// Thin wrapper over the native bridge: Chromecast on Android (CastBridge.kt);
+/// Chromecast and AirPlay on iPhone (CastBridge in AppDelegate.swift). Both
+/// speak the same channels, so everything above this — the picker, casting
+/// view, mini bar and remote — is shared.
 ///
-/// Android only, by design: on iOS the Cast SDK needs local-network and Bonjour
-/// permissions that a sideloaded unsigned build cannot reliably obtain, so
-/// [isAvailable] simply answers false there and the UI hides the button rather
-/// than offering something that will not work.
+/// The one difference is AirPlay. Chromecasts are published as a device list
+/// for the Flutter picker; iOS offers no such list for AirPlay, only Apple's
+/// own route picker, so the picker shows a single AirPlay row ([offersAirPlay])
+/// and [airPlay] prepares the stream and opens Apple's list in one step.
 class CastService {
   CastService._();
 
   static final instance = CastService._();
+
+  /// iPhone/iPad: AirPlay is offered alongside any Chromecasts.
+  bool get offersAirPlay => Platform.isIOS;
+
+  /// Opens the AirPlay picker for [url] and answers true once it is playing on
+  /// a device, false when the picker was closed without choosing one. When
+  /// already on a device, swaps the stream there instead.
+  Future<bool> airPlay({
+    required String url,
+    required bool isLive,
+    required String title,
+    String? subtitle,
+    int positionSeconds = 0,
+  }) async {
+    try {
+      return await _method.invokeMethod<bool>('airplay', {
+            'url': url,
+            'isLive': isLive,
+            'title': title,
+            'subtitle': subtitle,
+            'positionSeconds': positionSeconds,
+          }) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
 
   static const _method = MethodChannel('dawnplayer/cast');
   static const _devices = EventChannel('dawnplayer/cast/devices');
@@ -125,6 +160,7 @@ class CastService {
           deviceName: map['deviceName'] as String?,
           positionSeconds: (map['positionSeconds'] as num?)?.toInt() ?? 0,
           durationSeconds: (map['durationSeconds'] as num?)?.toInt() ?? 0,
+          viaAirPlay: map['kind'] == 'airplay',
         );
       });
 

@@ -76,6 +76,14 @@ Two things in this kit the newer design changed, so read the cards with that in 
   corner joined by a "same position, both screens" line, and under 820px the nav keeps only its
   "Get set up" CTA.
 
+## Update 2026-10-18: the real screenshots are gone again
+
+For the App Store / Play submission the site is the marketing URL both stores link to, and the four
+screenshots in `site/shots/` showed a real line's catalogue — current cinema releases, a dubbed
+broadcast series. To a reviewer that is evidence for guideline 5.2.3, so they were removed and the hero
+went back to its mockup. Any screenshot on the public site must come from the demo server
+(`docs/store-listing.md` §2) — invented or Creative Commons titles only. The note below is history.
+
 ## Update 2026-08-27: the shipped site now mixes real screenshots with mockups
 
 `site/shots/` holds four real iPhone screenshots, used in the hero and in the discovery section. So the

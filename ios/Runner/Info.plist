@@ -53,13 +53,30 @@
 		<string>audio</string>
 	</array>
 
-	<!-- App Transport Security: most IPTV panels serve plain HTTP, which iOS
-	     blocks by default. Without this the stream fails silently. -->
+	<!-- App Transport Security: many media servers (home servers especially)
+	     serve plain HTTP, which iOS blocks by default. Without this the stream
+	     fails silently. Justified to App Review in docs/store-listing.md §4.3. -->
 	<!-- Export compliance: Dawn Player adds no encryption of its own; it
 	     only uses HTTPS/TLS from the OS. Declaring this here answers the
 	     export-compliance question once, instead of on every upload. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Camera: only to scan the pairing QR a television shows (Settings ->
+	     Set up a TV). Never on without that screen open. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Scans the pairing code shown on your TV.</string>
+
+	<!-- Chromecast: finding Cast devices is a local-network (Bonjour) search,
+	     which iOS 14+ only allows for the services listed here, and only after
+	     the user agrees. The prompt appears when the cast list is first opened,
+	     not at launch. _CC1AD845 is the Default Media Receiver's app id. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Finds Chromecasts and TVs on your network so you can play on them.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_googlecast._tcp</string>
+		<string>_CC1AD845._googlecast._tcp</string>
+	</array>
 
 	<key>NSAppTransportSecurity</key>
 	<dict>

@@ -34,10 +34,14 @@ jobs:
       # always be traced back to an exact revision. Injected here rather than
       # passed by hand, because the one time it is forgotten is the build whose
       # identity someone needs.
+      # DAWN_SIDELOAD turns on the "a newer build exists" check. This IPA is
+      # sideloaded, so no store tells anyone about updates; the TestFlight
+      # build (ios-release.yml) must never carry it.
       - name: Build (unsigned, stamped with the commit)
         run: |
           flutter build ios --release --no-codesign \
-            --dart-define=DAWN_COMMIT=${GITHUB_SHA::7}
+            --dart-define=DAWN_COMMIT=${GITHUB_SHA::7} \
+            --dart-define=DAWN_SIDELOAD=true
 
       - name: Package unsigned IPA
         run: |

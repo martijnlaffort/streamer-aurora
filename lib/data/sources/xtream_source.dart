@@ -35,11 +35,11 @@ class XtreamSource implements PlaylistSource {
   final DateTime Function() _clock;
   final void Function(String message) _onSkippedRow;
 
-  /// Server URL without a trailing slash.
-  String get _server {
-    final s = account.serverUrl.trim();
-    return s.endsWith('/') ? s.substring(0, s.length - 1) : s;
-  }
+  /// Server URL without any trailing slash(es): a pasted "https://host/" would
+  /// otherwise build "https://host//player_api.php", which panels 404 on. The
+  /// regex handles more than one, which `endsWith` alone did not.
+  String get _server =>
+      account.serverUrl.trim().replaceFirst(RegExp(r'/+$'), '');
 
   Uri _api({String? action, Map<String, String> extra = const {}}) {
     return Uri.parse('$_server/player_api.php').replace(queryParameters: {

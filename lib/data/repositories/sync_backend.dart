@@ -31,6 +31,26 @@ typedef FavoriteRecord = ({
   DateTime updatedAt,
 });
 
+/// One curation edit as it travels through sync: which account, which thing,
+/// and what the user did to it. Last-write-wins per (account, scope, target).
+///
+/// There is no tombstone: "not hidden, no custom name, no position" IS the
+/// cleared state, so a reset propagates as an ordinary newer edit.
+typedef OverrideRecord = ({
+  String accountId,
+  String scope,
+  String targetId,
+  bool hidden,
+  String? customName,
+  int? sortIndex,
+  DateTime updatedAt,
+});
+
+abstract interface class OverridesSyncBackend {
+  Future<void> push(List<OverrideRecord> records);
+  Future<List<OverrideRecord>> pull();
+}
+
 abstract interface class FavoritesSyncBackend {
   /// Upserts [records] on the server (last-write-wins by updatedAt).
   Future<void> push(List<FavoriteRecord> records);

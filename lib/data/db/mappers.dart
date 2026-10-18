@@ -215,6 +215,7 @@ extension ChannelMapper on Channel {
       variantKey: Value(variant.key),
       baseName: Value(variant.baseName),
       qualityRank: Value(variant.qualityRank),
+      sortName: Value(channelSortName(name)),
     );
   }
 }
@@ -266,6 +267,8 @@ extension PreferencesRowMapper on PreferencesRow {
         ),
         uiScale: uiScale ?? 1.0,
         groupChannelVariants: groupChannelVariants ?? true,
+        audioDelayMs: audioDelayMs ?? 0,
+        showPlaybackStats: showPlaybackStats ?? false,
       );
 }
 

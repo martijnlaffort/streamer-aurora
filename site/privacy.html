@@ -54,7 +54,7 @@
   <h1 class="h1">Privacy <em>Policy</em></h1>
   <p class="lead">The short version: Dawn Player is a player, not a service. There is nothing to
     sign up for, and no server of ours for your data to sit on.</p>
-  <p class="doc-meta"><b>Last updated:</b> 24 August 2026 &nbsp;·&nbsp; <b>Applies to:</b> Dawn Player for Android, Android TV, iOS and Windows</p>
+  <p class="doc-meta"><b>Last updated:</b> 18 October 2026 &nbsp;·&nbsp; <b>Applies to:</b> Dawn Player for Android, Android TV, iOS and Windows</p>
 </section>
 
 <div class="wrap doc">
@@ -63,8 +63,8 @@
     <p><strong>Dawn Player collects no personal data.</strong> No user accounts, no analytics, no
       advertising, no crash reporting, no tracking of any kind. The developer receives nothing about
       you or your viewing, because there is no server of ours in the data path.</p>
-    <p>Your playlists, provider credentials, watch history and settings are stored on your own
-      device. Video streams travel directly from your provider to your device.</p>
+    <p>Your playlists, source credentials, watch history and settings are stored on your own
+      device. Video streams travel directly from the source you configured to your device.</p>
   </div>
 
   <h2>Who this policy is from</h2>
@@ -74,17 +74,17 @@
 
   <h2>What Dawn Player is, and what that means for your data</h2>
   <p>Dawn Player does not provide, host, resell or aggregate any television channels, films or
-    series. It is an empty player until you point it at an <strong>Xtream Codes</strong> or
-    <strong>M3U</strong> playlist you already hold from a provider of your own choosing.</p>
-  <p>That shapes the whole privacy picture, because it determines who sees what. Your provider sees
-    your viewing, because your device requests streams directly from your provider's servers —
+    series. It is an empty player until you add a media source of your own — a playlist link or file,
+    or the login for a media server you use.</p>
+  <p>That shapes the whole privacy picture, because it determines who sees what. The operator of that source sees
+    your viewing, because your device requests streams directly from that source's servers —
     exactly as it would with any other player. We are not in the middle of that connection and
     could not observe it if we wanted to.</p>
 
   <h2>Data stored on your device</h2>
   <p>All of the following stays on the device and is never transmitted to us:</p>
   <ul>
-    <li><strong>Provider credentials.</strong> Your Xtream Codes username and password, or your M3U
+    <li><strong>Source credentials.</strong> The username and password for a media server, or your
       playlist URL, held in the operating system's secure credential store — the iOS Keychain, or
       Android's Keystore-backed encrypted storage. They are never written to ordinary app storage
       or to logs.</li>
@@ -111,22 +111,22 @@
     </thead>
     <tbody>
       <tr>
-        <td>Your IPTV provider</td>
+        <td>The media source you added</td>
         <td>When you refresh your catalogue or play something</td>
-        <td>Your credentials, to authenticate as the provider requires; the stream you asked for;
-          and your device's IP address. Governed by your provider's privacy policy, not this one.</td>
+        <td>Your credentials, to authenticate as that server requires; the stream you asked for;
+          and your device's IP address. Governed by that operator's privacy policy, not this one.</td>
       </tr>
       <tr>
         <td>Your EPG source</td>
         <td>When the programme guide refreshes</td>
         <td>A request for the XMLTV guide file, to whatever URL your playlist or your settings
-          specify — usually the same provider as above.</td>
+          specify — usually the same source as above.</td>
       </tr>
       <tr>
         <td>The Movie Database<br><code>api.themoviedb.org</code></td>
         <td>Only if you enter your own TMDB API key in Settings. Off by default.</td>
         <td>The title and year being looked up, so a film or series can be matched to artwork and a
-          synopsis. No identifier of you, your device or your provider is included. Subject to
+          synopsis. No identifier of you, your device or your source is included. Subject to
           <a href="https://www.themoviedb.org/privacy-policy" rel="noopener">TMDB's privacy policy</a>.</td>
       </tr>
       <tr>
@@ -161,7 +161,7 @@
   <ul>
     <li><strong>Everything at once:</strong> uninstall Dawn Player. The operating system removes all
       local storage, including the credential store and the cached catalogue.</li>
-    <li><strong>One provider:</strong> Settings &rarr; Accounts &rarr; remove the account. Its
+    <li><strong>One source:</strong> Settings &rarr; Accounts &rarr; remove the account. Its
       credentials, catalogue and cached artwork go with it.</li>
     <li><strong>Sync data:</strong> the sync server is one you supply, so deleting data there is
       done on that server. We have no access to it.</li>
@@ -169,23 +169,36 @@
 
   <h2>Children</h2>
   <p>Dawn Player is not directed at children and is not designed for use by them. It collects no
-    data from anyone, children included. Because the app plays whatever your provider's playlist
+    data from anyone, children included. Because the app plays whatever the source you add
     contains, and we neither select nor filter that content, it is intended for adults who are
     responsible for the source they connect.</p>
 
   <h2>Security</h2>
   <p>Credentials are held in the platform's own secure credential store rather than in application
-    storage. Where your provider offers HTTPS, connections use it. Many IPTV providers still serve
-    over plain HTTP; the app permits that, because otherwise it could not play those streams at all.
-    It does mean the connection between your device and your provider may be unencrypted. That is a
-    property of your provider rather than of the app, and it is worth asking them about.</p>
+    storage. Where your source offers HTTPS, connections use it. Many media servers on home networks
+    still serve over plain HTTP; the app permits that, because otherwise it could not play those
+    streams at all. It does mean the connection between your device and that server may be
+    unencrypted. That is a property of the server rather than of the app.</p>
+
+  <h2 id="permissions">Device permissions</h2>
+  <ul>
+    <li><strong>Camera</strong> — only on the screen that scans a television's pairing code. Images
+      are processed on the device and never stored or sent anywhere.</li>
+    <li><strong>Notifications and alarms</strong> (Android) — only to show programme reminders you set
+      yourself. Reminders are scheduled locally.</li>
+    <li><strong>Local network</strong> — only to find Chromecasts and TVs when you open the cast
+      picker.</li>
+  </ul>
+  <p>Each permission is requested at the moment the feature needs it, and declining it leaves the
+    rest of the app working.</p>
 
   <h2>Third-party content and attribution</h2>
   <p>Dawn Player ships no channels, films or series, and is not affiliated with, endorsed by or
     connected to any content provider. Some artwork and metadata come from TMDB, only when you
     supply your own API key: this product uses the TMDB API but is not endorsed or certified by
     TMDB. The bundled list of award-winning titles derives from Wikidata (CC0) and Wikipedia
-    (CC BY-SA 4.0), and is used only to recognise titles that already exist in your own playlist.</p>
+    (CC BY-SA 4.0), and is used only to recognise titles that already exist in your own playlist. Use of the app is also
+    governed by the <a href="terms.html">terms of use</a>.</p>
 
   <h2>Changes to this policy</h2>
   <p>If the app's behaviour changes, this page changes with it and the date at the top is updated.
@@ -233,12 +246,14 @@
         <a href="index.html#features">Features</a>
         <a href="support.html">Support</a>
         <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
       </div>
     </div>
     <div class="rule"></div>
     <div class="fine">
-      <p class="fine__note"><b>Dawn Player ships no content.</b> No channels, no films, no provider — it plays the
-        Xtream Codes or M3U line you already subscribe to, and it is not affiliated with any provider.</p>
+      <p class="fine__note"><b>Dawn Player ships no content.</b> It is a media player: it includes no channels,
+        films or series, and plays only the media you add yourself. Use it only with content you have the right to
+        access. Dawn Player is not affiliated with any content provider.</p>
       <p class="tmdb"><i></i>Some artwork and metadata from TMDB. Not endorsed or certified by TMDB.</p>
       <p>© 2026</p>
     </div>

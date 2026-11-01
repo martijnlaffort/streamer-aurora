@@ -28,8 +28,8 @@ stores, and renaming it would churn the Cast provider class path for nothing.
 
 ## 2. The reviewer demo problem, and its solution
 
-Both stores require working credentials for anything behind a login. For an IPTV player that is a
-trap: handing a reviewer a real subscription puts copyrighted third-party channels in front of
+Both stores require working credentials for anything behind a login. For a player of user-supplied
+media that is a trap: handing a reviewer a real subscription puts copyrighted third-party channels in front of
 App Review, which is precisely what triggers **guideline 5.2.3** (proof of rights to content).
 
 **Do not give reviewers a real provider.** Use the mock panel already in the repo.
@@ -80,64 +80,64 @@ again on every update.
 Dawn Player
 ```
 
-**Short description** (80 max) — 73 chars:
+**Short description** (80 max) — 77 chars:
 
 ```
-Play the Xtream Codes or M3U line you already pay for. Resume that works.
+A video player for your own media. Resume that works, languages it remembers.
 ```
 
 **Full description** (4000 max):
 
 ```
-Dawn Player is a player for the IPTV line you already have — not a provider. Point it at your
-own Xtream Codes login or M3U playlist and it turns a wall of unsorted channels into something
-that behaves like a streaming service.
+Dawn Player is a video player for media you already have the right to watch — a playlist from
+your own media server, a home library, or streams a broadcaster makes freely available. It turns
+a long, unsorted list into something that behaves like a streaming app.
 
-It ships no channels, no films and no series. You bring the source.
+Dawn Player includes no content of any kind: no channels, no films, no series, and no way to find
+or buy any. You add your own sources.
 
-WHAT IT FIXES
+WHAT IT DOES WELL
 
-Playback that holds. Built on libmpv, the engine behind mpv and VLC, rather than the system
-player. It handles the awkward codecs and odd containers that IPTV lines are full of, and it
-recovers from a stalled stream instead of dropping you back to a grid.
+Playback that holds. Built on libmpv, the engine behind mpv, rather than the system player. It
+handles awkward codecs and containers — MPEG-TS, HLS, HEVC, MKV — and recovers from a stalled
+stream instead of dropping you back to a list.
 
 Resume that works. Every film and episode remembers where you stopped, and the home screen puts
 it back in front of you. Not approximately — to the second.
 
 Languages it learns. Choose an audio track or a subtitle language once and Dawn Player applies
-it to everything you open afterwards. No more setting the same language on every single episode.
+it to everything you open afterwards. No more setting the same language on every episode.
 
-A catalogue worth browsing. Films and series get posters, synopses and seasons laid out properly.
-Add your own free TMDB key and gaps in your provider's artwork fill themselves in.
+A library worth browsing. Films and series get posters, synopses and seasons laid out properly.
+Add your own free TMDB key and missing artwork fills itself in.
 
-Your playlist, your order. Providers name groups badly and order them worse. Hide what you never
-watch, rename what is misnamed, and drag the rest into an order that suits you. Your changes
-survive a catalogue refresh.
+Your playlist, your order. Hide what you never watch, rename what is misnamed, and drag the rest
+into an order that suits you. Your changes survive a refresh.
 
-A programme guide you can read. Your provider's EPG in a proper grid, with now-and-next on every
-channel and a jump straight to what is on.
+A programme guide you can read. If your source publishes an XMLTV guide, you get a proper grid
+with now-and-next and a jump straight to what is on.
 
-Search that finds things. One search box across live channels, films and series.
+Search that finds things. One search box across everything you have added.
 
 BUILT FOR TELEVISION TOO
 
-The same app runs on Android TV and Google TV, with its own home-screen banner and full
-remote-control navigation. On Android you can also cast to a Chromecast on your network.
+The same app runs on Android TV and Google TV, with full remote-control navigation. On Android
+you can also cast to Google Cast devices on your network.
 
-PRIVATE BY CONSTRUCTION
+PRIVATE BY DESIGN
 
-No account, no sign-up, no analytics, no advertising, no tracking. Your credentials live in your
+No account, no sign-up, no analytics, no advertising, no tracking. Credentials live in your
 device's secure credential store, your watch history stays on the device, and streams travel
-directly from your provider to you. There is no server of ours in the path — read the privacy
-policy and see how short it is.
+directly from your source to you. There is no server of ours in the path.
 
-Optionally, sync your history and preferences between your own devices by pointing the app at a
-server you run yourself. Off by default.
+Optionally, sync your history and preferences between your own devices through a server you run
+yourself. Off by default.
 
 WHAT YOU NEED
 
-An Xtream Codes login or an M3U playlist URL from a provider of your own choosing. Dawn Player
-cannot supply one, and is not affiliated with any provider.
+An M3U / M3U8 playlist link or file, or the login for a media server you use. Dawn Player does
+not supply, list or recommend content sources and is not affiliated with any content provider.
+Use it only with content you have the right to access.
 
 Some artwork and metadata from TMDB. This product uses the TMDB API but is not endorsed or
 certified by TMDB.
@@ -148,7 +148,7 @@ certified by TMDB.
 | Field | Answer |
 |---|---|
 | App category | Video Players & Editors |
-| Tags | Video player, Streaming |
+| Tags | Video player, Media player |
 | Contains ads | **No** |
 | In-app purchases | **No** |
 | Target audience | 18+ only. Do **not** tick any age band below 18 — the app plays unfiltered third-party content, and claiming a younger audience pulls in Families policy and Play's designed-for-children rules. |
@@ -174,7 +174,7 @@ Then:
 
 | Question | Answer |
 |---|---|
-| Is all user data encrypted in transit? | Provide the nuance: the app uses HTTPS wherever the user's provider offers it, but many IPTV providers serve only plain HTTP and the app must permit that to work at all. Declare accordingly rather than claiming blanket encryption. |
+| Is all user data encrypted in transit? | Provide the nuance: the app uses HTTPS wherever the user's server offers it, but many media servers (home servers especially) serve only plain HTTP and the app must permit that to work at all. Declare accordingly rather than claiming blanket encryption. |
 | Do you provide a way to request data deletion? | Yes — uninstall removes everything; per-provider removal in Settings → Accounts. Point the deletion URL at `https://dawnplayer.com/privacy.html#deleting-your-data`. |
 | Committed to Play Families policy | No |
 | Independent security review | No |
@@ -185,8 +185,8 @@ storage versus collection: the credentials never reach a developer-controlled en
 ### 3.4 Content rating (IARC questionnaire)
 
 Answer the questionnaire honestly and expect a mature rating. The load-bearing question is whether
-the app gives access to content the developer does not control or filter — for an IPTV player the
-answer is yes.
+the app gives access to content the developer does not control or filter — for a player of
+user-supplied media the answer is yes.
 
 - Category: **Utility / Productivity / Communication** (it is a player, not a game)
 - Does the app allow users to access uncontrolled/unfiltered content from the internet? → **Yes**
@@ -252,21 +252,25 @@ Dawn Player
 **Subtitle** (30 max) — 29 chars:
 
 ```
-Your own IPTV line, done well
+Play your own media, properly
 ```
 
 **Promotional text** (170 max):
 
 ```
-Point it at the Xtream Codes or M3U line you already pay for: playback that holds, resume to the
-second, and audio and subtitle languages it learns once and remembers.
+Your own playlists and media server, played properly: playback that holds, resume to the second,
+and audio and subtitle languages it learns once and remembers.
 ```
 
-**Keywords** (100 max, comma-separated, no spaces after commas) — 92 chars:
+**Keywords** (100 max, comma-separated, no spaces after commas) — 91 chars:
 
 ```
-iptv,m3u,xtream,playlist,epg,live tv,player,subtitles,chromecast,streaming,libmpv,vod,series
+video player,m3u,m3u8,hls,playlist,subtitles,media player,resume,epg,tv guide,mkv,hevc,cast
 ```
+
+No `iptv` or `xtream`, and no other company's trademark (`chromecast`, `netflix`, competitor
+player names). Apple rejects trademarked keywords under 2.3.7, and "IPTV" in metadata is the single
+fastest way to get a player read as a piracy app before anyone opens it.
 
 **Description**: reuse the Play full description from §3.1. It is within Apple's 4000-character
 limit and needs no changes — Apple has no separate short-description field.
@@ -291,18 +295,21 @@ be accused, and it explains the ATS exception before a reviewer finds it and ass
 ```
 WHAT THIS APP IS
 
-Dawn Player is a media player, not a content service. It ships with no channels, films or series
-and has no catalogue of its own. It is unusable until the user supplies their own Xtream Codes
-credentials or M3U playlist URL from a provider they have chosen and pay for independently. The
+Dawn Player is a general-purpose media player, not a content service. It ships with no channels,
+films or series and has no catalogue of its own. It is empty until the user adds a media source
+of their own: an M3U/M3U8 playlist link or file, or the login for a media server they use. The
 relationship is the same as a web browser to a website, or VLC to a video file.
 
 We do not host, provide, resell, aggregate, index or recommend any content. We have no business
 relationship with any content provider and receive no revenue from any. There is no in-app
-discovery of providers, no directory of playlists, and no way to obtain content through the app.
+discovery of sources, no directory of playlists, no third-party brand names or logos, and no way
+to obtain content through the app. The screen where a source is added states that the app
+includes no content and that users must only add sources they have the right to access, and the
+terms of use (https://dawnplayer.com/terms.html) prohibit infringing use.
 
 DEMO ACCOUNT — LEGAL CONTENT ONLY
 
-The demo credentials below connect to a test panel we operate that serves only legal, publicly
+The demo credentials below connect to a test server we operate that serves only legal, publicly
 available streams: Apple's own sample HLS stream, DW English and Red Bull TV (both free-to-air),
 and the Blender Foundation's Big Buck Bunny and Sintel (both Creative Commons Attribution).
 Nothing reachable through these credentials is copyrighted material we lack the right to make
@@ -312,17 +319,17 @@ available.
   Username: aurora
   Password: test
 
-To review: launch the app, tap Add account, choose Xtream Codes, enter the three values above,
-and wait for the catalogue to load. Live channels, films, series, the programme guide, search and
-resume are all exercisable from there.
+To review: launch the app, tap Add a playlist, choose Login details, enter the three values above,
+tap Connect and wait for the library to load. Live streams, films, series, the programme guide,
+search and resume are all exercisable from there.
 
 WHY THE APP TRANSPORT SECURITY EXCEPTION IS PRESENT
 
-Info.plist sets NSAllowsArbitraryLoads. This is required, not convenient: the app plays streams
-from server addresses the user types in, and a large share of IPTV providers still serve over
-plain HTTP. Without the exception those streams fail silently and the app cannot perform its
-only function. We control none of these hosts, so a domain allowlist is not possible. The app
-uses HTTPS whenever the user's provider offers it. No data of ours travels over these
+Info.plist sets NSAllowsArbitraryLoads. This is required, not convenient: the app plays media from
+server addresses the user types in, and many media servers — particularly home servers on a local
+network — serve over plain HTTP. Without the exception those streams fail silently and the app
+cannot perform its only function. We control none of these hosts, so a domain allowlist is not
+possible. The app uses HTTPS whenever the server offers it. No data of ours travels over these
 connections — the app has no backend.
 
 PRIVACY
@@ -336,7 +343,7 @@ METADATA ATTRIBUTION
 Artwork and synopses are fetched from TMDB only if the user supplies their own TMDB API key, and
 are off by default. The bundled list of award-winning titles derives from Wikidata (CC0) and
 Wikipedia (CC BY-SA 4.0) and contains titles and years only — no artwork and no content. It is
-used solely to recognise titles that already exist in the user's own playlist.
+used solely to recognise titles that already exist in the user's own library.
 ```
 
 ### 4.4 Signing and upload without a Mac
@@ -479,6 +486,25 @@ outrank `Release.xcconfig` — so an xcconfig override looks right and silently 
 
 `ios-unsigned.yml` is unaffected, because `--no-codesign` passes `CODE_SIGNING_ALLOWED=NO` on the
 xcodebuild command line, which outranks everything in the project.
+
+## 4.6 Store-compliance posture
+
+Players like this one are rejected far more often for how they *present* than for what they do.
+Apple 5.2.1 / 5.2.3 and Play's Intellectual Property and Impersonation policies are applied to the
+listing, the screenshots, the website and the first screens of the app together, so all of them
+follow the same rules:
+
+| Rule | Where it is enforced |
+|---|---|
+| Describe it as a **media / video player** for the user's own sources. Never "IPTV", never "Xtream Codes", never "the line you pay for". | Listing text (§3.1, §4.1), `tool/asc-listing.json`, `site/`, in-app copy (Add a playlist, empty states, About, guide empty state) |
+| No other company's brand used to front content. | The **Services** tab (Netflix, Disney+, Prime Video… shelves built from playlist group names) is hidden in store builds; it appears only with `--dart-define=DAWN_SIDELOAD=true` (`app_shell.dart`). The User-Agent presets no longer impersonate branded IPTV apps (TiviMate, IPTV Smarters). |
+| No real broadcasters, channels or fixtures in marketing. | Website guide mock-up uses invented channel names; screenshots come only from the demo server (§2). The design-system folder, whose mockups still carry real names, is no longer deployed (`pages.yml`). |
+| State the user's responsibility where they act on it. | Rights notice under **Connect** on the Add a playlist screen; About screen; `site/terms.html`. |
+| A terms-of-use page that prohibits infringing use and references Apple's standard EULA. | `https://dawnplayer.com/terms.html` — paste into App Store Connect → App Information → License Agreement (or leave the standard EULA, which the page already references), and link it from the Play listing's website. |
+| Error messages never coach around blocks. | Player errors no longer suggest switching VPN servers. |
+| No updating outside the store. | Already true: the update check is compiled in only with `DAWN_SIDELOAD`, which `android-release.yml` sets on the sideload APK and never on the AAB, and `ios-release.yml` never sets. |
+
+Anything new — a feature, a string, a page — gets checked against this table before it ships.
 
 ---
 

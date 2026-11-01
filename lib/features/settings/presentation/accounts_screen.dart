@@ -45,7 +45,7 @@ class AccountsScreen extends ConsumerWidget {
                   SizedBox(height: 12),
                   Text('No accounts yet.'),
                   Text(
-                    'Add an Xtream or M3U playlist to get started.',
+                    'Add a playlist or media server to get started.',
                     style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ],

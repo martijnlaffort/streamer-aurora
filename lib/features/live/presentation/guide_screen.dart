@@ -346,8 +346,8 @@ class _GuideScreenState extends ConsumerState<GuideScreen> {
                         textAlign: TextAlign.center),
                     SizedBox(height: 4),
                     Text(
-                      'Xtream panels expose one automatically; for M3U, add an '
-                      'XMLTV EPG URL when editing the account.',
+                      'Server logins provide one automatically; for a playlist '
+                      'link, add an XMLTV guide URL when editing the account.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.textSecondary),
                     ),

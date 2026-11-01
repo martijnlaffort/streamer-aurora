@@ -32,7 +32,7 @@ class NoPlaylistView extends ConsumerWidget {
               Text(
                 tv
                     ? 'Pair with your phone to bring your playlists across.'
-                    : 'Add the playlist your provider sent you to get started.',
+                    : 'Add your own playlist or media server to get started.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textSecondary),
               ),

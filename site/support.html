@@ -6,7 +6,7 @@
 <!-- Indexable on purpose, unlike index.html: this is the support URL both store
      listings point at, and reviewers open it. site/robots.txt allows this path. -->
 <title>Support — Dawn Player</title>
-<meta name="description" content="Help with Dawn Player: connecting an Xtream Codes or M3U playlist, playback and buffering, the programme guide, casting, and how to get in touch.">
+<meta name="description" content="Help with Dawn Player: adding a playlist or media server, playback and buffering, the programme guide, casting, and how to get in touch.">
 <meta name="theme-color" content="#171C25">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,7 +51,7 @@
 <section class="wrap doc-head">
   <p class="eyebrow">Help</p>
   <h1 class="h1">Support</h1>
-  <p class="lead">Most problems with an IPTV player are really problems with the line behind it.
+  <p class="lead">Most playback problems are really problems with the stream or server behind it.
     Here is how to tell which one you have.</p>
   <p class="doc-meta"><b>Last updated:</b> 24 August 2026</p>
 </section>
@@ -59,10 +59,11 @@
 <div class="wrap doc">
 
   <div class="doc-callout">
-    <p><strong>Dawn Player does not sell or supply television.</strong> It ships with no channels,
-      no films and no provider. To use it you need your own Xtream Codes login or M3U playlist URL
-      from a service you already subscribe to. We cannot provide one, recommend one, or help with
-      an account you hold with a provider.</p>
+    <p><strong>Dawn Player does not sell or supply any content.</strong> It ships with no channels,
+      no films and no series. To use it you add your own media source — a playlist or a media
+      server — that you have the right to use. We cannot provide one, recommend one, or help with
+      an account you hold elsewhere. Please only use content you are legally entitled to access;
+      see the <a href="terms.html">terms of use</a>.</p>
   </div>
 
   <h2>Getting in touch</h2>
@@ -71,9 +72,9 @@
     <p><a class="mail" href="mailto:support@dawnplayer.com">support@dawnplayer.com</a></p>
   </div>
   <p>To get a useful answer first time, please include: your device and OS version, the app version
-    and build (Settings &rarr; About &amp; credits), whether your source is Xtream Codes or M3U, and
+    and build (Settings &rarr; About &amp; credits), whether your source is a server login or a playlist link, and
     what exactly you saw — the wording of any error, and whether it affects one channel or all of
-    them. Please don't send your provider password.</p>
+    them. Please don't send any password.</p>
 
   <h2>Setting up</h2>
 
@@ -82,12 +83,12 @@
     <div class="faq__body">
       <p>Settings &rarr; Accounts &rarr; add an account, then pick the kind you have:</p>
       <ul>
-        <li><strong>Xtream Codes</strong> — the server address, your username and your password.
-          Your provider gives you all three. Enter the server exactly as they wrote it, including
+        <li><strong>Login details</strong> — the server address, your username and your password
+          for a media server you use. Enter the server exactly as it was given to you, including
           <code>http://</code> or <code>https://</code> and the port number if there is one.</li>
-        <li><strong>M3U</strong> — the full playlist URL, or a playlist file on the device.</li>
+        <li><strong>Playlist link</strong> — the full M3U / M3U8 playlist URL, or a playlist file on the device.</li>
       </ul>
-      <p>The first load reads your whole catalogue and can take a minute or two on a large line.
+      <p>The first load reads your whole catalogue and can take a minute or two on a large library.
         After that it opens from the local copy and refreshes in the background.</p>
     </div>
   </details>
@@ -98,20 +99,22 @@
       <p>Almost always one of four things:</p>
       <ul>
         <li>A typo in the server address, or a missing port number.</li>
-        <li><code>http://</code> where the provider wants <code>https://</code>, or the reverse.</li>
-        <li>Credentials that have expired, or a subscription that has lapsed — try them in your
-          provider's own web portal to check.</li>
-        <li>Your provider limits how many devices or connections can be active at once, and another
+        <li><code>http://</code> where the server wants <code>https://</code>, or the reverse.</li>
+        <li>Credentials that have expired or changed — try them in the server's own web interface
+          to check.</li>
+        <li>The server limits how many devices or connections can be active at once, and another
           device is holding the slot.</li>
       </ul>
     </div>
   </details>
 
   <details class="faq">
-    <summary>Where do I get a playlist or an Xtream login?</summary>
+    <summary>Where do I get a playlist?</summary>
     <div class="faq__body">
-      <p>From a provider of your own choosing — we are not one and cannot point you at one. Dawn
-        Player is a player, in the same sense that a web browser is not a website.</p>
+      <p>Dawn Player does not supply, list or recommend any content sources. Use your own media
+        server, a playlist you created, or one published by a broadcaster that makes its streams
+        freely available. Dawn Player is a player, in the same sense that a web browser is not a
+        website.</p>
     </div>
   </details>
 
@@ -120,12 +123,12 @@
   <details class="faq">
     <summary>A channel buffers, stutters or won't start</summary>
     <div class="faq__body">
-      <p>First, work out whether it is the app or the line. If <em>one</em> channel misbehaves while
-        the rest are fine, the problem is that stream at your provider, and nothing in the app will
+      <p>First, work out whether it is the app or the stream. If <em>one</em> channel misbehaves while
+        the rest are fine, the problem is that stream at its source, and nothing in the app will
         fix it. If <em>everything</em> stutters, suspect the connection between you and them.</p>
       <p>Worth trying, in order: a wired connection or 5 GHz Wi-Fi instead of 2.4 GHz; pausing other
-        large downloads; and asking your provider whether they offer a nearer server or a lower
-        bitrate of the same channel. Live IPTV has no buffer to fall back on the way an on-demand
+        large downloads; and checking whether the source offers a lower bitrate of the same
+        stream. Live streams have no buffer to fall back on the way an on-demand
         service does, so a brief network dip is immediately visible.</p>
     </div>
   </details>
@@ -148,7 +151,7 @@
     <div class="faq__body">
       <p>Resume positions are recorded per title, on the device. They are not shared between devices
         unless you have turned on sync and pointed it at a server of your own. If a title's identity
-        changed at your provider — a renamed entry, or a different stream id after a catalogue
+        changed at its source — a renamed entry, or a different stream id after a catalogue
         rebuild — the app can no longer match it to the old position.</p>
     </div>
   </details>
@@ -158,7 +161,7 @@
   <details class="faq">
     <summary>The programme guide is empty or wrong</summary>
     <div class="faq__body">
-      <p>The guide comes from your provider's XMLTV data, not from us. If it is empty, they may not
+      <p>The guide comes from your source's XMLTV data, not from us. If it is empty, the source may not
         publish one, or the URL in your playlist may be stale. If times are consistently offset,
         their guide is published in a different timezone than it claims; if titles are missing for
         some channels only, their guide simply does not cover those channels.</p>
@@ -178,7 +181,7 @@
   <details class="faq">
     <summary>Hiding, renaming and reordering</summary>
     <div class="faq__body">
-      <p>Playlists arrive with groups and names chosen by the provider, and those are frequently
+      <p>Playlists arrive with groups and names chosen by whoever made them, and those are frequently
         neither. Long-press or open the menu on any group or channel to hide it, rename it, or move
         it. Changes are yours and local, and survive a catalogue refresh.</p>
     </div>
@@ -211,8 +214,8 @@
   <details class="faq">
     <summary>What does the app send, and to whom?</summary>
     <div class="faq__body">
-      <p>Nothing to us — there is no account and no server of ours. Your credentials go only to your
-        provider, to authenticate. The <a href="privacy.html">privacy policy</a> lists every
+      <p>Nothing to us — there is no account and no server of ours. Your credentials go only to the
+        server you added, to authenticate. The <a href="privacy.html">privacy policy</a> lists every
         connection the app makes and what travels over it.</p>
     </div>
   </details>
@@ -220,7 +223,7 @@
   <details class="faq">
     <summary>How do I delete everything?</summary>
     <div class="faq__body">
-      <p>Uninstalling removes all local data, credentials included. To remove one provider without
+      <p>Uninstalling removes all local data, credentials included. To remove one source without
         losing the rest, delete that account in Settings &rarr; Accounts; its catalogue and cached
         artwork go with it.</p>
     </div>
@@ -260,12 +263,14 @@
         <a href="index.html#features">Features</a>
         <a href="support.html">Support</a>
         <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
       </div>
     </div>
     <div class="rule"></div>
     <div class="fine">
-      <p class="fine__note"><b>Dawn Player ships no content.</b> No channels, no films, no provider — it plays the
-        Xtream Codes or M3U line you already subscribe to, and it is not affiliated with any provider.</p>
+      <p class="fine__note"><b>Dawn Player ships no content.</b> It is a media player: it includes no channels,
+        films or series, and plays only the media you add yourself. Use it only with content you have the right to
+        access. Dawn Player is not affiliated with any content provider.</p>
       <p class="tmdb"><i></i>Some artwork and metadata from TMDB. Not endorsed or certified by TMDB.</p>
       <p>© 2026</p>
     </div>

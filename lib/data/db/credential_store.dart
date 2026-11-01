@@ -10,6 +10,16 @@ abstract interface class CredentialStore {
   Future<String?> readPassword(String accountId);
 
   Future<void> deletePassword(String accountId);
+
+  /// Remembers that [accountId] was deleted on this device, so sync does not
+  /// adopt it again from the server or another device. Kept here rather than
+  /// in drift because it must outlive the account's row.
+  Future<void> markDeleted(String accountId);
+
+  Future<bool> isDeleted(String accountId);
+
+  /// Forgets the deletion — the playlist was added again on purpose.
+  Future<void> clearDeleted(String accountId);
 }
 
 /// Keychain/Keystore-backed implementation via flutter_secure_storage.
@@ -32,4 +42,18 @@ class SecureCredentialStore implements CredentialStore {
   @override
   Future<void> deletePassword(String accountId) =>
       _storage.delete(key: _key(accountId));
+
+  String _deletedKey(String accountId) => 'account_deleted_$accountId';
+
+  @override
+  Future<void> markDeleted(String accountId) =>
+      _storage.write(key: _deletedKey(accountId), value: 'true');
+
+  @override
+  Future<bool> isDeleted(String accountId) async =>
+      await _storage.read(key: _deletedKey(accountId)) == 'true';
+
+  @override
+  Future<void> clearDeleted(String accountId) =>
+      _storage.delete(key: _deletedKey(accountId));
 }

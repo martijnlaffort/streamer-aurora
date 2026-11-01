@@ -16,10 +16,25 @@ class AccountRepository {
   final CredentialStore _credentials;
 
   /// Upserts the account row and stores the password in secure storage.
+  ///
+  /// Saving is an explicit add, so it also lifts an earlier deletion of the
+  /// same playlist (the id is derived from server + login).
   Future<void> saveAccount(Account account) async {
     await _credentials.savePassword(account.id, account.password);
+    await _credentials.clearDeleted(account.id);
     await _db.accountsTable.insertOnConflictUpdate(account.toCompanion());
   }
+
+  /// Changes only the display name. The id stays, so progress, favourites and
+  /// the cached catalogue keep belonging to it.
+  Future<void> renameAccount(String id, String name) async {
+    await (_db.accountsTable.update()..where((t) => t.id.equals(id)))
+        .write(AccountsTableCompanion(name: Value(name)));
+  }
+
+  /// Whether this playlist was deleted on this device. Sync must not adopt it
+  /// again: the server, and other devices, still hold it.
+  Future<bool> wasDeleted(String id) => _credentials.isDeleted(id);
 
   Future<List<Account>> getAccounts() async {
     final rows = await _db.accountsTable.select().get();
@@ -40,6 +55,8 @@ class AccountRepository {
   /// Removes the account, its credential, and every trace of its catalog,
   /// progress, and favorites.
   Future<void> deleteAccount(String id) async {
+    // First, so a sync that lands mid-delete cannot re-adopt it.
+    await _credentials.markDeleted(id);
     await _credentials.deletePassword(id);
     await _db.transaction(() async {
       await (_db.accountsTable.delete()..where((t) => t.id.equals(id))).go();

@@ -90,6 +90,12 @@ class AccountsScreen extends ConsumerWidget {
                             '/accounts/${Uri.encodeComponent(account.id)}/network'),
                       ),
                       IconButton(
+                        tooltip: 'Rename',
+                        icon: Icon(Icons.edit_outlined,
+                            color: AppColors.textSecondary),
+                        onPressed: () => _rename(context, ref, account),
+                      ),
+                      IconButton(
                         tooltip: 'Delete',
                         icon: Icon(Icons.delete_outline,
                             color: AppColors.textSecondary),
@@ -117,6 +123,18 @@ class AccountsScreen extends ConsumerWidget {
   String _hostOf(String url) => Uri.tryParse(url)?.host.isNotEmpty ?? false
       ? Uri.parse(url).host
       : url;
+
+  Future<void> _rename(
+      BuildContext context, WidgetRef ref, Account account) async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => _RenameDialog(initial: account.name),
+    );
+    if (name == null || name == account.name) return;
+    await ref.read(accountRepositoryProvider).renameAccount(account.id, name);
+    ref.invalidate(accountsProvider);
+    ref.invalidate(activeAccountProvider);
+  }
 
   Future<void> _confirmDelete(
       BuildContext context, WidgetRef ref, Account account) async {
@@ -146,5 +164,57 @@ class AccountsScreen extends ConsumerWidget {
     await ref.read(accountRepositoryProvider).deleteAccount(account.id);
     ref.invalidate(accountsProvider);
     ref.invalidate(activeAccountProvider);
+  }
+}
+
+/// Asks for a new display name; pops it trimmed, or null when cancelled.
+/// Stateful so the text controller is disposed with the dialog.
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final _controller = TextEditingController(text: widget.initial)
+    ..selection =
+        TextSelection(baseOffset: 0, extentOffset: widget.initial.length);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final name = _controller.text.trim();
+    // An empty name would leave a blank row in every account list.
+    if (name.isEmpty) return;
+    Navigator.pop(context, name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Rename account'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
+        textInputAction: TextInputAction.done,
+        decoration: const InputDecoration(labelText: 'Name'),
+        onSubmitted: (_) => _save(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _save, child: const Text('Save')),
+      ],
+    );
   }
 }

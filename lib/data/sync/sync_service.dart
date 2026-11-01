@@ -87,8 +87,9 @@ class SyncResult {
 ///   dated tombstone that propagates like an add, so removing something from My
 ///   List on one device removes it everywhere.
 /// - **Accounts**: union by the account's stable id, so a playlist added on any
-///   device appears on the others (with its credentials). Deletions are not
-///   synced. Skipped entirely when no account repo/backend is wired.
+///   device appears on the others (with its credentials). Deletions and renames
+///   are not synced, but a playlist deleted on a device is never adopted back
+///   onto it. Skipped entirely when no account repo/backend is wired.
 class SyncService {
   SyncService({
     required this._progressRepo,
@@ -334,6 +335,9 @@ class SyncService {
     final localIds = (await repo.getAccounts()).map((a) => a.id).toSet();
     for (final r in remote) {
       if (localIds.contains(r.accountId)) continue;
+      // Deleted here: the server and other devices still hold it, and without
+      // this the next sync put it straight back.
+      if (await repo.wasDeleted(r.accountId)) continue;
       await repo.saveAccount(Account(
         id: r.accountId,
         type: AccountType.values.firstWhere((t) => t.name == r.type,

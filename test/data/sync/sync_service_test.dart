@@ -1,4 +1,5 @@
 import 'package:dawnplayer/data/db/app_database.dart';
+import 'package:dawnplayer/data/repositories/account_repository.dart';
 import 'package:dawnplayer/data/repositories/favorites_repository.dart';
 import 'package:dawnplayer/data/repositories/preferences_repository.dart';
 import 'package:dawnplayer/data/repositories/sync_backend.dart';
@@ -36,6 +37,16 @@ class _FakeFavs implements FavoritesSyncBackend {
       pushed.addAll(records);
   @override
   Future<List<FavoriteRecord>> pull() async => remote;
+}
+
+class _FakeAccounts implements AccountSyncBackend {
+  List<AccountRecord> remote = [];
+  final pushed = <AccountRecord>[];
+  @override
+  Future<void> push(List<AccountRecord> records) async =>
+      pushed.addAll(records);
+  @override
+  Future<List<AccountRecord>> pull() async => remote;
 }
 
 class _MemState implements SyncStateStore {
@@ -163,6 +174,44 @@ void main() {
     expect(local, isNot(contains('acc:movie:Z'))); // tombstoned away
     // The full local set is pushed for the server to arbitrate LWW.
     expect(favs.pushed.map((r) => r.contentKey), contains('acc:movie:X'));
+  });
+
+  test('a playlist deleted here is not adopted back from the server',
+      () async {
+    final accountsRepo =
+        AccountRepository(db: db, credentials: InMemoryCredentialStore());
+    final accounts = _FakeAccounts();
+    AccountRecord record(String id) => (
+          accountId: id,
+          type: 'xtream',
+          name: 'Playlist $id',
+          serverUrl: 'http://panel.example.com',
+          username: 'user',
+          password: 'pw',
+          epgUrl: null,
+          updatedAt: now,
+        );
+    accounts.remote = [record('kept'), record('gone')];
+    SyncService withAccounts() => SyncService(
+          progressRepo: progressRepo,
+          preferencesRepo: prefsRepo,
+          favoritesRepo: favRepo,
+          progress: progress,
+          preferences: prefs,
+          favorites: favs,
+          configStore: state,
+          accountsRepo: accountsRepo,
+          accounts: accounts,
+          clock: () => now,
+        );
+
+    await withAccounts().reconcile();
+    expect((await accountsRepo.getAccounts()).map((a) => a.id),
+        unorderedEquals(['kept', 'gone']));
+
+    await accountsRepo.deleteAccount('gone');
+    await withAccounts().reconcile();
+    expect((await accountsRepo.getAccounts()).map((a) => a.id), ['kept']);
   });
 
   test('reconcile surfaces a backend error instead of throwing', () async {

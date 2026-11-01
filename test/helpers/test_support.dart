@@ -22,4 +22,19 @@ class InMemoryCredentialStore implements CredentialStore {
   Future<void> deletePassword(String accountId) async {
     passwords.remove(accountId);
   }
+
+  final Set<String> deleted = {};
+
+  @override
+  Future<void> markDeleted(String accountId) async {
+    deleted.add(accountId);
+  }
+
+  @override
+  Future<bool> isDeleted(String accountId) async => deleted.contains(accountId);
+
+  @override
+  Future<void> clearDeleted(String accountId) async {
+    deleted.remove(accountId);
+  }
 }

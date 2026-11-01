@@ -94,6 +94,30 @@ void main() {
       expect(await db.watchProgressTable.select().get(), isEmpty);
       expect(await db.favoritesTable.select().get(), isEmpty);
     });
+
+    test('a deleted account stays deleted until it is added again', () async {
+      final repo = AccountRepository(db: db, credentials: credentials);
+      await repo.saveAccount(account());
+      expect(await repo.wasDeleted('acc1'), isFalse);
+
+      await repo.deleteAccount('acc1');
+      expect(await repo.wasDeleted('acc1'), isTrue,
+          reason: 'sync must not adopt it back');
+
+      await repo.saveAccount(account());
+      expect(await repo.wasDeleted('acc1'), isFalse);
+    });
+
+    test('rename changes only the name', () async {
+      final repo = AccountRepository(db: db, credentials: credentials);
+      await repo.saveAccount(account());
+
+      await repo.renameAccount('acc1', 'Living room');
+      final loaded = await repo.getAccount('acc1');
+      expect(loaded!.name, 'Living room');
+      expect(loaded.serverUrl, account().serverUrl);
+      expect(loaded.password, 'secret-password');
+    });
   });
 
   group('CatalogRepository (DoD: cache catalog, read back offline)', () {

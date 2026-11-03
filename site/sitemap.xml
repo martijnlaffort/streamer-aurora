@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Every public page. Add new pages here, and bump lastmod when one changes
+     meaningfully, so search engines recrawl it. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://dawnplayer.com/</loc><lastmod>2026-11-03</lastmod></url>
+  <url><loc>https://dawnplayer.com/support.html</loc><lastmod>2026-11-03</lastmod></url>
+  <url><loc>https://dawnplayer.com/privacy.html</loc><lastmod>2026-11-03</lastmod></url>
+  <url><loc>https://dawnplayer.com/terms.html</loc><lastmod>2026-11-03</lastmod></url>
+</urlset>

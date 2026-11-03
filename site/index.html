@@ -3,15 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Unlisted on purpose: reachable by anyone with the link, absent from search.
-     This meta tag is what actually enforces it (see site/robots.txt). -->
-<meta name="robots" content="noindex, nofollow">
 <title>Dawn Player — a video player that remembers</title>
 <meta name="description" content="Dawn Player is a video player for media you already have the rights to: your own playlists, your own server, your own files. Playback that holds, resume that works, and languages it learns. It ships no content.">
+<link rel="canonical" href="https://dawnplayer.com/">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Dawn Player">
+<meta property="og:url" content="https://dawnplayer.com/">
 <meta property="og:title" content="Dawn Player — a video player that remembers">
 <meta property="og:description" content="Playback that holds, resume that works, languages it learns. Phone, desktop and television, one codebase. Ships no content.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Dawn Player — a video player that remembers">
+<meta name="twitter:description" content="Playback that holds, resume that works, languages it learns. Phone, desktop and television, one codebase. Ships no content.">
 <meta name="theme-color" content="#171C25">
+<!-- What search engines show beside the result. No offers or ratings yet:
+     add them when the store listings are public. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Dawn Player",
+  "url": "https://dawnplayer.com/",
+  "description": "A video player for media you already have the rights to: your own playlists, your own server, your own files. It remembers where you stopped, which languages you watch in, and what you meant to watch next.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "iOS, Android, Android TV, Windows"
+}
+</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -77,6 +93,21 @@
       <div class="btn-row">
         <a class="btn btn--primary" href="#fixes">See what it fixes</a>
         <a class="btn btn--ghost" href="#built">Under the hood</a>
+      </div>
+      <!-- Not Apple's or Google's badge artwork: their guidelines only allow
+           those as links to a live listing. When a listing is public, swap its
+           <span> for the official badge inside
+           <a href="https://apps.apple.com/app/id…"> or
+           <a href="https://play.google.com/store/apps/details?id=com.dawnplayer.player">. -->
+      <div class="stores" aria-label="Download">
+        <span class="store" aria-disabled="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+          <span><small>Coming soon to the</small>App Store</span>
+        </span>
+        <span class="store" aria-disabled="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+          <span><small>Coming soon to</small>Google Play</span>
+        </span>
       </div>
       <ul class="factlist">
         <li><i></i>M3U playlists &amp; HLS</li>

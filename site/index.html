@@ -3,32 +3,52 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dawn Player — a video player that remembers</title>
-<meta name="description" content="Dawn Player is a video player for media you already have the rights to: your own playlists, your own server, your own files. Playback that holds, resume that works, and languages it learns. It ships no content.">
+<title>Dawn Player — free M3U &amp; HLS video player for iPhone &amp; Android</title>
+<meta name="description" content="Pick up exactly where you stopped, in your own languages. Dawn Player is a free M3U &amp; HLS video player for iPhone and Android. It ships no content.">
 <link rel="canonical" href="https://dawnplayer.com/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Dawn Player">
 <meta property="og:url" content="https://dawnplayer.com/">
-<meta property="og:title" content="Dawn Player — a video player that remembers">
-<meta property="og:description" content="Playback that holds, resume that works, languages it learns. Phone, desktop and television, one codebase. Ships no content.">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Dawn Player — a video player that remembers">
-<meta name="twitter:description" content="Playback that holds, resume that works, languages it learns. Phone, desktop and television, one codebase. Ships no content.">
+<meta property="og:title" content="Dawn Player — free M3U &amp; HLS video player for iPhone &amp; Android">
+<meta property="og:description" content="Pick up exactly where you stopped, in your own languages. Dawn Player is a free M3U &amp; HLS video player for iPhone and Android. It ships no content.">
+<meta property="og:image" content="https://dawnplayer.com/img/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Dawn Player: your own videos, played like a streaming service. A free M3U and HLS video player for iPhone and Android.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Dawn Player — free M3U &amp; HLS video player for iPhone &amp; Android">
+<meta name="twitter:description" content="Pick up exactly where you stopped, in your own languages. Dawn Player is a free M3U &amp; HLS video player for iPhone and Android. It ships no content.">
+<meta name="twitter:image" content="https://dawnplayer.com/img/og-image.jpg">
+<meta name="twitter:image:alt" content="Dawn Player: your own videos, played like a streaming service. A free M3U and HLS video player for iPhone and Android.">
 <meta name="theme-color" content="#171C25">
-<!-- What search engines show beside the result. No offers or ratings yet:
-     add them when the store listings are public. -->
+<!-- What search engines show beside the result. No aggregateRating or
+     reviews: there are none, and inventing them gets a site penalised.
+     TODO(store-urls): replace both downloadUrl values with the live store URLs.
+     TODO(publisher): author/publisher should match the seller name shown on
+     the App Store and Google Play. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Dawn Player",
   "url": "https://dawnplayer.com/",
-  "description": "A video player for media you already have the rights to: your own playlists, your own server, your own files. It remembers where you stopped, which languages you watch in, and what you meant to watch next.",
+  "description": "A free M3U and HLS video player for media you already have the right to watch: your own playlists, your own server, your own files. It remembers where you stopped, which languages you watch in, and what you meant to watch next. It ships no content.",
   "applicationCategory": "MultimediaApplication",
-  "operatingSystem": "iOS, Android, Android TV, Windows"
+  "operatingSystem": "iOS, Android",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "downloadUrl": ["TODO_APP_STORE_URL", "TODO_PLAY_STORE_URL"],
+  "image": "https://dawnplayer.com/img/og-image.jpg",
+  "screenshot": ["https://dawnplayer.com/img/screenshot-player.png"],
+  "author": { "@type": "Organization", "name": "Dawn Player", "url": "https://dawnplayer.com/", "email": "support@dawnplayer.com" },
+  "publisher": { "@type": "Organization", "name": "Dawn Player", "url": "https://dawnplayer.com/", "email": "support@dawnplayer.com" }
 }
 </script>
+<!-- favicon.ico first: browsers that ignore the SVG ask for /favicon.ico on
+     their own, and that request was the console 404. -->
+<link rel="icon" href="favicon.ico" sizes="32x32">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="tokens.css">
@@ -68,7 +88,7 @@
       <a href="#catalogue">Films &amp; series</a>
       <a href="#tv">Television</a>
       <a href="#built">Under the hood</a>
-      <a class="nav-cta" href="#how">Get set up</a>
+      <a class="nav-cta" href="#download">Download</a>
     </nav>
   </div>
 </header>
@@ -84,41 +104,33 @@
 
   <div class="wrap hero__in">
     <div>
-      <p class="badge"><i data-ambient></i>A personal project</p>
-      <h1 class="h1">Your own videos, played like a <em>streaming service</em>.</h1>
+      <p class="badge"><i data-ambient></i>Free · No account · No ads</p>
+      <h1 class="h1"><span class="h1__kicker">Free M3U &amp; HLS player for iPhone and Android</span> Your own videos, played like a <em>streaming service</em>.</h1>
       <p class="lead lead--hero">Dawn Player is a video player for media you already have the right to watch — a playlist
-        from your own server, a home media library, or free broadcasts that publish one.
+        from your own server, a home media library, or a stream a broadcaster publishes itself.
         <b class="strong">It remembers where you stopped, which languages you watch in, and what
         you meant to watch next</b> — the three things most players get wrong.</p>
-      <div class="btn-row">
-        <a class="btn btn--primary" href="#fixes">See what it fixes</a>
-        <a class="btn btn--ghost" href="#built">Under the hood</a>
+      <div class="getapp" id="download">
+        <!-- TODO(store-urls): set both hrefs to the live listings. Official
+             artwork, unmodified: Apple's badge at its 40px minimum height;
+             Google's PNG carries its own clear space, hence the larger box. -->
+        <a class="getapp__badge" href="TODO_APP_STORE_URL"><img src="img/badges/app-store.svg" width="120" height="40" alt="Download on the App Store"></a>
+        <a class="getapp__badge getapp__badge--play" href="TODO_PLAY_STORE_URL"><img src="img/badges/google-play.png" width="155" height="60" alt="Get it on Google Play"></a>
       </div>
-      <!-- Not Apple's or Google's badge artwork: their guidelines only allow
-           those as links to a live listing. When a listing is public, swap its
-           <span> for the official badge inside
-           <a href="https://apps.apple.com/app/id…"> or
-           <a href="https://play.google.com/store/apps/details?id=com.dawnplayer.player">. -->
-      <div class="stores" aria-label="Download">
-        <span class="store" aria-disabled="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
-          <span><small>Coming soon to the</small>App Store</span>
-        </span>
-        <span class="store" aria-disabled="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
-          <span><small>Coming soon to</small>Google Play</span>
-        </span>
+      <div class="btn-row">
+        <a class="btn btn--ghost" href="#fixes">See what it fixes</a>
       </div>
       <ul class="factlist">
         <li><i></i>M3U playlists &amp; HLS</li>
         <li><i></i>libmpv playback</li>
         <li><i></i>XMLTV guide</li>
-        <li><i></i>iPhone · Android · Windows · Android TV</li>
+        <li><i></i>iPhone &amp; Android · TV and Windows coming soon</li>
       </ul>
     </div>
 
-    <!-- Television with the phone laid over its corner: one resume point, two screens. -->
-    <div class="duo">
+    <!-- Television with the phone laid over its corner: one resume point, two screens.
+         Decorative, like every mock-up on this page: hidden from assistive tech. -->
+    <div class="duo" aria-hidden="true">
       <svg class="duo__line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <defs><linearGradient id="syncline" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stop-color="#7C5CFF"/><stop offset="1" stop-color="#4FD1C5"/>
@@ -137,13 +149,13 @@
               <!-- Must match the phone mockup beside it: the pill above claims
                    they are the same resume point, so they had better agree. -->
               <p class="dev-eyebrow" style="font-size:1.9cqw;letter-spacing:.18em;margin-bottom:1.4%">Continue watching · Living room</p>
-              <h3 class="dev-title" style="font-size:5cqw;margin-bottom:1.6%">Harbourline</h3>
+              <p class="dev-title" style="font-size:5cqw;margin-bottom:1.6%">Harbourline</p>
               <p style="margin:0 0 2.6%;font-size:2.1cqw;color:var(--muted)">S2 · E4 — The Undertow · 22 min left</p>
               <div style="position:relative;height:3px;border-radius:2px;background:rgba(255,255,255,.18);width:46%">
                 <i style="position:absolute;inset:0 auto 0 0;width:64%;border-radius:2px;background:var(--violet)"></i>
               </div>
             </div>
-            <span style="position:absolute;top:5%;right:4%;display:inline-flex;align-items:center;font-size:1.9cqw;font-weight:600;color:var(--text);background:rgba(23,28,37,.72);border:1px solid var(--line-strong);border-radius:999px;padding:1.1% 2.6%">Android TV</span>
+            <span style="position:absolute;top:5%;right:4%;display:inline-flex;align-items:center;font-size:1.9cqw;font-weight:600;color:var(--text);background:rgba(23,28,37,.72);border:1px solid var(--line-strong);border-radius:999px;padding:1.1% 2.6%">Coming to Android TV</span>
           </div>
         </div>
         <div class="stand" style="width:22%"></div>
@@ -158,7 +170,7 @@
               <div class="scrim-hero"></div>
               <div style="position:absolute;left:15px;right:15px;bottom:13px">
                 <p class="dev-eyebrow" style="font-size:9.5px;letter-spacing:.7px;margin-bottom:4px">Recently added</p>
-                <h3 class="dev-title" style="font-size:21px;letter-spacing:-.5px;line-height:1.1;margin-bottom:10px;max-width:190px">The Quiet Coast</h3>
+                <p class="dev-title" style="font-size:21px;letter-spacing:-.5px;line-height:1.1;margin-bottom:10px;max-width:190px">The Quiet Coast</p>
                 <div style="display:flex;align-items:center;gap:6px">
                   <span class="chip chip--primary">Details</span>
                   <span class="chip chip--tonal">My List</span>
@@ -167,7 +179,7 @@
               </div>
             </div>
             <div class="rail">
-              <h4>Continue Watching</h4>
+              <p class="mock-h">Continue Watching</p>
               <div class="rail__track">
                 <div class="cw">
                   <div class="cw__thumb art-blue"><div class="bar"><i style="width:64%"></i></div></div>
@@ -180,7 +192,7 @@
               </div>
             </div>
             <div class="rail">
-              <h4>Award-winning series &amp; films</h4>
+              <p class="mock-h">Award-winning series &amp; films</p>
               <div class="rail__track">
                 <div class="poster art-rose"></div>
                 <div class="poster art-teal"></div>
@@ -268,7 +280,7 @@
     </ul>
   </div>
   <div data-reveal>
-    <div class="player-shell">
+    <div class="player-shell" aria-hidden="true">
       <div class="stage art-player">
         <div class="stage__top-fade"></div>
         <div class="stage__bot-fade"></div>
@@ -341,22 +353,52 @@
       </div>
       <div class="feature feature--teal" data-reveal>
         <div class="tile tile--teal"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.4 11.4a7.6 7.6 0 0 1 12.9-4.3l2.3 2.2"/><path d="M19.6 4.9v4.4h-4.4"/><path d="M19.6 12.6a7.6 7.6 0 0 1-12.9 4.3l-2.3-2.2"/><path d="M4.4 19.1v-4.4h4.4"/></svg></div>
-        <h3>Phone, desktop, television</h3>
-        <p>One Flutter codebase, an Android TV layer that takes a D-pad, remote control support, and progress that follows you between devices.</p>
+        <h3>Phone now, television next</h3>
+        <p>iPhone and Android today, with progress that follows you between devices. Android TV and Windows come from the same Flutter codebase and are on the way.</p>
       </div>
     </div>
   </div>
 </section>
 
+<!-- ============================== screenshots ============================== -->
+<section class="sec" id="screenshots">
+  <div class="wrap">
+    <div class="head" data-reveal>
+      <p class="eyebrow">Screenshots</p>
+      <h2 class="h2">The real app, not a mock-up</h2>
+      <p class="lead">Captured from the app itself, playing a film that is free to share. Audio and subtitles are the two
+        buttons in the top-right corner, one tap from anywhere in the video.</p>
+    </div>
+    <figure class="shot" data-reveal>
+      <picture>
+        <source type="image/webp" srcset="img/screenshot-player-720.webp 720w, img/screenshot-player.webp 1200w" sizes="(max-width: 1180px) calc(100vw - 32px), 1100px">
+        <img src="img/screenshot-player.png" width="960" height="442" loading="lazy" decoding="async"
+          alt="Dawn Player on iPhone in landscape, playing Big Buck Bunny, with the audio and subtitle buttons in the top-right corner and the seek bar along the bottom">
+      </picture>
+      <figcaption>The player on iPhone. <i>Big Buck Bunny</i> © Blender Foundation, <a href="https://creativecommons.org/licenses/by/3.0/" rel="license">CC BY 3.0</a>.</figcaption>
+    </figure>
+    <!-- TODO(screenshots): three more, exported from licence-free demo media
+         only (no real film titles, no channel names that read like a TV service):
+           img/screenshot-home.webp + .png    phone home screen, portrait 1320x2868 source, shown 600 px wide
+           img/screenshot-tracks.webp + .png  player with the audio/subtitle panel open, landscape 2868x1320, 1200 px wide
+           img/screenshot-guide.webp + .png   TV guide, 1920x1080, 1200 px wide
+         Markup per screenshot, same pattern as above:
+         <figure class="shot"><picture>
+           <source type="image/webp" srcset="img/screenshot-home.webp">
+           <img src="img/screenshot-home.png" width="600" height="1304" loading="lazy" alt="…">
+         </picture><figcaption>…</figcaption></figure> -->
+  </div>
+</section>
+
 <!-- ============================== catalogue ============================== -->
 <section class="split split--flip" id="catalogue">
-  <div class="cat-shell" data-reveal>
+  <div class="cat-shell" data-reveal aria-hidden="true">
     <div class="cat-screen">
       <div class="cat-hero art-cat">
         <div class="cat-hero__scrim"></div>
         <div style="position:absolute;left:4%;right:4%;bottom:5%">
           <p class="dev-eyebrow" style="font-size:1.7cqw;letter-spacing:.18em;margin-bottom:1.2%">Series · 3 seasons · 2024</p>
-          <h3 class="dev-title" style="font-size:4.6cqw;line-height:1.04;margin-bottom:1.6%">Nightfold</h3>
+          <p class="dev-title" style="font-size:4.6cqw;line-height:1.04;margin-bottom:1.6%">Nightfold</p>
           <p style="margin:0 0 2.4%;font-size:1.9cqw;line-height:1.45;color:var(--muted);max-width:52%">A harbour town closes ranks after a winter storm. Continue with S2 · E4 — 22 minutes left.</p>
           <div style="display:flex;align-items:center;gap:1.6%">
             <span style="display:inline-flex;align-items:center;font-size:1.8cqw;font-weight:600;padding:1.2% 3%;border-radius:999px;background:var(--violet);color:#fff">Resume S2 · E4</span>
@@ -454,7 +496,7 @@
 <!-- ============================== television ============================== -->
 <section class="split" id="tv">
   <div data-reveal>
-    <p class="eyebrow">Live TV &amp; the big screen</p>
+    <p class="eyebrow">Live TV &amp; the big screen · Android TV coming soon</p>
     <h2 class="h2 h2--split">It grew a television</h2>
     <p class="lead lead--split">The same components, with focus turned up: a navigation rail instead of a tab
       bar, and a white ring wherever the D-pad is. <b class="strong">Nothing was forked to get there.</b></p>
@@ -466,7 +508,7 @@
     </ul>
   </div>
   <div data-reveal>
-    <div class="guide-shell">
+    <div class="guide-shell" aria-hidden="true">
       <div class="guide-screen">
         <div class="tvrail">
           <span><svg viewBox="0 0 24 24" width="58%" height="58%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4.6l8 6.6V19a1.4 1.4 0 0 1-1.4 1.4H5.4A1.4 1.4 0 0 1 4 19z"/></svg></span>
@@ -476,7 +518,7 @@
           <span><svg viewBox="0 0 24 24" width="58%" height="58%" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.4"/><path d="m15.8 15.8 4.4 4.4"/></svg></span>
         </div>
         <div class="guide-body">
-          <h4>TV Guide</h4>
+          <p class="mock-h">TV Guide</p>
           <div class="grow">
             <div class="gchan"><b></b>Harbour One</div>
             <div class="gprogs">
@@ -534,7 +576,7 @@
         <p class="eyebrow">One app, three screens</p>
         <h2 class="h2">The same home, wherever you opened it</h2>
         <p class="lead">One Flutter codebase. The rails, the artwork and your resume points are identical — only
-          the input changes: thumb, mouse, D-pad.</p>
+          the input changes: thumb, mouse, D-pad. Phone is out now; Windows and television are on the way.</p>
       </div>
       <div class="tabs" role="tablist" aria-label="Device">
         <button type="button" role="tab" data-device="phone" aria-selected="true" aria-controls="screen-phone">Phone</button>
@@ -552,7 +594,7 @@
             <div class="scrim-hero" style="background:linear-gradient(180deg,rgba(23,28,37,.3) 0%,rgba(23,28,37,0) 28%,rgba(23,28,37,.84) 72%,var(--bg) 100%)"></div>
             <div style="position:absolute;left:14px;right:14px;bottom:12px">
               <p class="dev-eyebrow" style="font-size:9.5px;letter-spacing:.7px;margin-bottom:4px">Recently added</p>
-              <h3 class="dev-title" style="font-size:20px;letter-spacing:-.5px;line-height:1.1;margin-bottom:9px">The Quiet Coast</h3>
+              <p class="dev-title" style="font-size:20px;letter-spacing:-.5px;line-height:1.1;margin-bottom:9px">The Quiet Coast</p>
               <div style="display:flex;align-items:center;gap:6px">
                 <span class="chip chip--primary">Details</span>
                 <span class="chip chip--tonal">My List</span>
@@ -560,7 +602,7 @@
             </div>
           </div>
           <div class="rail" style="padding-top:12px">
-            <h4 style="font-size:12.5px;padding:0 14px">Continue Watching</h4>
+            <p class="mock-h" style="font-size:12.5px;padding:0 14px">Continue Watching</p>
             <div class="rail__track" style="padding:0 14px">
               <div class="cw" style="width:124px">
                 <div class="cw__thumb art-blue-2" style="border-radius:8px"><div class="bar" style="height:3px;background:rgba(255,255,255,.16)"><i style="width:64%"></i></div></div>
@@ -573,7 +615,7 @@
             </div>
           </div>
           <div class="rail" style="padding-top:12px">
-            <h4 style="font-size:12.5px;padding:0 14px">Award Winners</h4>
+            <p class="mock-h" style="font-size:12.5px;padding:0 14px">Award Winners</p>
             <div class="rail__track" style="padding:0 14px">
               <div class="poster art-rose-2" style="width:70px;border-radius:8px"></div>
               <div class="poster art-teal-2" style="width:70px;border-radius:8px"></div>
@@ -607,7 +649,7 @@
             </div>
             <div style="position:absolute;left:3%;bottom:6%;max-width:46%">
               <p class="dev-eyebrow" style="font-size:1.5cqw;letter-spacing:.16em;margin-bottom:1.4%">Recently added</p>
-              <h3 class="dev-title" style="font-size:4cqw;line-height:1.04;margin-bottom:2%">The Quiet Coast</h3>
+              <p class="dev-title" style="font-size:4cqw;line-height:1.04;margin-bottom:2%">The Quiet Coast</p>
               <div style="display:flex;gap:1.6%">
                 <span style="font-size:1.6cqw;font-weight:600;padding:1.1% 2.8%;border-radius:999px;background:var(--violet);color:#fff">Play</span>
                 <span style="font-size:1.6cqw;font-weight:600;padding:1.1% 2.8%;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line-strong);color:var(--text)">Details</span>
@@ -615,7 +657,7 @@
             </div>
           </div>
           <div style="flex:1;min-width:0;padding:2.4% 3% 0">
-            <h4 style="font-family:var(--display);font-size:1.9cqw;font-weight:600;margin:0 0 1.6%">Continue Watching</h4>
+            <p class="mock-h" style="font-family:var(--display);font-size:1.9cqw;font-weight:600;margin:0 0 1.6%">Continue Watching</p>
             <div style="display:flex;gap:1.4%">
               <div style="flex:none;width:19%"><div class="ep__thumb art-blue-2" style="border-radius:6px"><div class="bar" style="height:3px;background:rgba(255,255,255,.16)"><i style="width:64%"></i></div></div></div>
               <div style="flex:none;width:19%"><div class="ep__thumb art-amber-2" style="border-radius:6px"><div class="bar" style="height:3px;background:rgba(255,255,255,.16)"><i style="width:31%"></i></div></div></div>
@@ -643,13 +685,13 @@
                 <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(23,28,37,.2) 0%,rgba(23,28,37,0) 32%,rgba(23,28,37,.88) 80%,var(--bg) 100%)"></div>
                 <div style="position:absolute;left:4%;bottom:7%;max-width:52%">
                   <p class="dev-eyebrow" style="font-size:1.5cqw;letter-spacing:.16em;margin-bottom:1.4%">Continue watching</p>
-                  <h3 class="dev-title" style="font-size:4.4cqw;line-height:1.03;margin-bottom:2%">Harbourline</h3>
+                  <p class="dev-title" style="font-size:4.4cqw;line-height:1.03;margin-bottom:2%">Harbourline</p>
                   <p style="margin:0 0 2.4%;font-size:1.7cqw;color:var(--muted)">S2 · E4 — The Undertow · 22 min left</p>
                   <span style="display:inline-block;font-size:1.6cqw;font-weight:600;padding:1.1% 3%;border-radius:999px;background:var(--violet);color:#fff;outline:2px solid #fff;outline-offset:2px">Resume</span>
                 </div>
               </div>
               <div style="flex:1;padding:2.2% 4% 0">
-                <h4 style="font-family:var(--display);font-size:1.8cqw;font-weight:600;margin:0 0 1.8%">Award Winners</h4>
+                <p class="mock-h" style="font-family:var(--display);font-size:1.8cqw;font-weight:600;margin:0 0 1.8%">Award Winners</p>
                 <div style="display:flex;gap:1.6%">
                   <div class="ep__thumb art-rose-2" style="flex:none;width:11%;aspect-ratio:2/3;border-radius:6px"></div>
                   <div class="ep__thumb art-teal-2" style="flex:none;width:11%;aspect-ratio:2/3;border-radius:6px"></div>
@@ -702,6 +744,16 @@
         <p>Pairing one is a code, not a re-typed password: <span class="kbd">Settings → Pair a device</span></p>
       </div>
     </div>
+    <div class="getapp-row" data-reveal>
+      <p>Free on iPhone and Android.</p>
+      <div class="getapp">
+        <!-- TODO(store-urls): set both hrefs to the live listings. Official
+             artwork, unmodified: Apple's badge at its 40px minimum height;
+             Google's PNG carries its own clear space, hence the larger box. -->
+        <a class="getapp__badge" href="TODO_APP_STORE_URL"><img src="img/badges/app-store.svg" width="120" height="40" alt="Download on the App Store"></a>
+        <a class="getapp__badge getapp__badge--play" href="TODO_PLAY_STORE_URL"><img src="img/badges/google-play.png" width="155" height="60" alt="Get it on Google Play"></a>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -715,7 +767,7 @@
     <div class="built-grid">
       <div class="spec-strip" data-reveal>
         <dl>
-          <div class="spec"><dt>Framework</dt><dd>Flutter 3.44 — one codebase for iOS, Android, Windows and Android TV</dd></div>
+          <div class="spec"><dt>Framework</dt><dd>Flutter 3.44 — one codebase: iOS and Android today, Windows and Android TV in progress</dd></div>
           <div class="spec"><dt>Playback</dt><dd>libmpv via <em>media_kit</em> — chosen because it exposes audio and subtitle tracks <em>with</em> their language tags</dd></div>
           <div class="spec"><dt>Sources</dt><dd>M3U / M3U8 playlists, HLS and media-server logins, with an optional XMLTV guide</dd></div>
           <div class="spec"><dt>Storage</dt><dd>SQLite via drift, indexed for large catalogues · credentials in the platform keychain</dd></div>
@@ -764,12 +816,20 @@
           </svg>
           <span>Dawn Player</span>
         </div>
-        <p class="byline">A personal project. Built because the alternatives were annoying.</p>
+        <p class="byline">A free video player for the media you already have. No account, no ads.</p>
+        <div class="getapp getapp--foot">
+        <!-- TODO(store-urls): set both hrefs to the live listings. Official
+             artwork, unmodified: Apple's badge at its 40px minimum height;
+             Google's PNG carries its own clear space, hence the larger box. -->
+        <a class="getapp__badge" href="TODO_APP_STORE_URL"><img src="img/badges/app-store.svg" width="120" height="40" alt="Download on the App Store"></a>
+        <a class="getapp__badge getapp__badge--play" href="TODO_PLAY_STORE_URL"><img src="img/badges/google-play.png" width="155" height="60" alt="Get it on Google Play"></a>
+      </div>
       </div>
       <div class="footlinks">
         <a href="#fixes">What it fixes</a>
         <a href="#features">Features</a>
         <a href="#how">How it works</a>
+        <a href="#download">Download</a>
         <a href="#built">Under the hood</a>
         <a href="support.html">Support</a>
         <a href="privacy.html">Privacy</a>

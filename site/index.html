@@ -23,7 +23,7 @@
 <meta name="theme-color" content="#171C25">
 <!-- What search engines show beside the result. No aggregateRating or
      reviews: there are none, and inventing them gets a site penalised.
-     TODO(store-urls): replace both downloadUrl values with the live store URLs.
+     TODO(app-store-url): add the App Store URL to downloadUrl once the listing is live.
      TODO(publisher): author/publisher should match the seller name shown on
      the App Store and Google Play. -->
 <script type="application/ld+json">
@@ -36,7 +36,7 @@
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "iOS, Android",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
-  "downloadUrl": ["TODO_APP_STORE_URL", "TODO_PLAY_STORE_URL"],
+  "downloadUrl": ["https://play.google.com/store/apps/details?id=com.dawnplayer.player"],
   "image": "https://dawnplayer.com/img/og-image.jpg",
   "screenshot": ["https://dawnplayer.com/img/screenshot-player.png"],
   "author": { "@type": "Organization", "name": "Dawn Player", "url": "https://dawnplayer.com/", "email": "support@dawnplayer.com" },
@@ -111,11 +111,12 @@
         <b class="strong">It remembers where you stopped, which languages you watch in, and what
         you meant to watch next</b> — the three things most players get wrong.</p>
       <div class="getapp" id="download">
-        <!-- TODO(store-urls): set both hrefs to the live listings. Official
+        <!-- Google Play is linked; the App Store badge waits for its listing. Official
              artwork, unmodified: Apple's badge at its 40px minimum height;
              Google's PNG carries its own clear space, hence the larger box. -->
-        <a class="getapp__badge" href="TODO_APP_STORE_URL"><img src="img/badges/app-store.svg" width="120" height="40" alt="Download on the App Store"></a>
-        <a class="getapp__badge getapp__badge--play" href="TODO_PLAY_STORE_URL"><img src="img/badges/google-play.png" width="155" height="60" alt="Get it on Google Play"></a>
+        <!-- TODO(app-store-url): restore once the App Store listing is live:
+        <a class="getapp__badge" href="https://apps.apple.com/app/idXXXXXXXXXX"><img src="img/badges/app-store.svg" width="120" height="40" alt="Download on the App Store"></a> -->
+        <a class="getapp__badge getapp__badge--play" href="https://play.google.com/store/apps/details?id=com.dawnplayer.player"><img src="img/badges/google-play.png" width="155" height="60" alt="Get it on Google Play"></a>
       </div>
       <div class="btn-row">
         <a class="btn btn--ghost" href="#fixes">See what it fixes</a>
@@ -747,11 +748,12 @@
     <div class="getapp-row" data-reveal>
       <p>Free on iPhone and Android.</p>
       <div class="getapp">
-        <!-- TODO(store-urls): set both hrefs to the live listings. Official
+        <!-- Google Play is linked; the App Store badge waits for its listing. Official
              artwork, unmodified: Apple's badge at its 40px minimum height;
              Google's PNG carries its own clear space, hence the larger box. -->
-        <a class="getapp__badge" href="TODO_APP_STORE_URL"><img src="img/badges/app-store.svg" width="120" height="40" alt="Download on the App Store"></a>
-        <a class="getapp__badge getapp__badge--play" href="TODO_PLAY_STORE_URL"><img src="img/badges/google-play.png" width="155" height="60" alt="Get it on Google Play"></a>
+        <!-- TODO(app-store-url): restore once the App Store listing is live:
+        <a class="getapp__badge" href="https://apps.apple.com/app/idXXXXXXXXXX"><img src="img/badges/app-store.svg" width="120" height="40" alt="Download on the App Store"></a> -->
+        <a class="getapp__badge getapp__badge--play" href="https://play.google.com/store/apps/details?id=com.dawnplayer.player"><img src="img/badges/google-play.png" width="155" height="60" alt="Get it on Google Play"></a>
       </div>
     </div>
   </div>
@@ -818,11 +820,12 @@
         </div>
         <p class="byline">A free video player for the media you already have. No account, no ads.</p>
         <div class="getapp getapp--foot">
-        <!-- TODO(store-urls): set both hrefs to the live listings. Official
+        <!-- Google Play is linked; the App Store badge waits for its listing. Official
              artwork, unmodified: Apple's badge at its 40px minimum height;
              Google's PNG carries its own clear space, hence the larger box. -->
-        <a class="getapp__badge" href="TODO_APP_STORE_URL"><img src="img/badges/app-store.svg" width="120" height="40" alt="Download on the App Store"></a>
-        <a class="getapp__badge getapp__badge--play" href="TODO_PLAY_STORE_URL"><img src="img/badges/google-play.png" width="155" height="60" alt="Get it on Google Play"></a>
+        <!-- TODO(app-store-url): restore once the App Store listing is live:
+        <a class="getapp__badge" href="https://apps.apple.com/app/idXXXXXXXXXX"><img src="img/badges/app-store.svg" width="120" height="40" alt="Download on the App Store"></a> -->
+        <a class="getapp__badge getapp__badge--play" href="https://play.google.com/store/apps/details?id=com.dawnplayer.player"><img src="img/badges/google-play.png" width="155" height="60" alt="Get it on Google Play"></a>
       </div>
       </div>
       <div class="footlinks">

@@ -3,15 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Unlisted on purpose: reachable by anyone with the link, absent from search.
-     This meta tag is what actually enforces it (see site/robots.txt). -->
-<meta name="robots" content="noindex, nofollow">
 <title>Dawn Player — a video player that remembers</title>
 <meta name="description" content="Dawn Player is a video player for media you already have the rights to: your own playlists, your own server, your own files. Playback that holds, resume that works, and languages it learns. It ships no content.">
+<link rel="canonical" href="https://dawnplayer.com/">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="Dawn Player">
+<meta property="og:url" content="https://dawnplayer.com/">
 <meta property="og:title" content="Dawn Player — a video player that remembers">
 <meta property="og:description" content="Playback that holds, resume that works, languages it learns. Phone, desktop and television, one codebase. Ships no content.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Dawn Player — a video player that remembers">
+<meta name="twitter:description" content="Playback that holds, resume that works, languages it learns. Phone, desktop and television, one codebase. Ships no content.">
 <meta name="theme-color" content="#171C25">
+<!-- What search engines show beside the result. No offers or ratings yet:
+     add them when the store listings are public. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Dawn Player",
+  "url": "https://dawnplayer.com/",
+  "description": "A video player for media you already have the rights to: your own playlists, your own server, your own files. It remembers where you stopped, which languages you watch in, and what you meant to watch next.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "iOS, Android, Android TV, Windows"
+}
+</script>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -78,6 +94,21 @@
         <a class="btn btn--primary" href="#fixes">See what it fixes</a>
         <a class="btn btn--ghost" href="#built">Under the hood</a>
       </div>
+      <!-- Not Apple's or Google's badge artwork: their guidelines only allow
+           those as links to a live listing. When a listing is public, swap its
+           <span> for the official badge inside
+           <a href="https://apps.apple.com/app/id…"> or
+           <a href="https://play.google.com/store/apps/details?id=com.dawnplayer.player">. -->
+      <div class="stores" aria-label="Download">
+        <span class="store" aria-disabled="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+          <span><small>Coming soon to the</small>App Store</span>
+        </span>
+        <span class="store" aria-disabled="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+          <span><small>Coming soon to</small>Google Play</span>
+        </span>
+      </div>
       <ul class="factlist">
         <li><i></i>M3U playlists &amp; HLS</li>
         <li><i></i>libmpv playback</li>
@@ -103,6 +134,8 @@
           <div class="tv-shell__screen art-tv-hero">
             <div class="scrim-tv"></div>
             <div style="position:absolute;left:4%;right:4%;bottom:5%">
+              <!-- Must match the phone mockup beside it: the pill above claims
+                   they are the same resume point, so they had better agree. -->
               <p class="dev-eyebrow" style="font-size:1.9cqw;letter-spacing:.18em;margin-bottom:1.4%">Continue watching · Living room</p>
               <h3 class="dev-title" style="font-size:5cqw;margin-bottom:1.6%">Harbourline</h3>
               <p style="margin:0 0 2.6%;font-size:2.1cqw;color:var(--muted)">S2 · E4 — The Undertow · 22 min left</p>
@@ -299,7 +332,7 @@
       <div class="feature" data-reveal>
         <div class="tile"><svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8L3.6 9.7l5.8-.8z"/></svg></div>
         <h3>A catalogue worth browsing</h3>
-        <p>Top 10, Trending and New Releases ranked by something real, rails that deal a fresh hand each session, and missing posters filled in from TMDB.</p>
+        <p>Trending from Wikipedia, an award canon from Wikidata, rails that change with the season — none of it behind an API key. Missing posters filled in from TMDB.</p>
       </div>
       <div class="feature" data-reveal>
         <div class="tile"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="4.4" width="18.8" height="12.4" rx="2.4"/><path d="M8.4 19.8h7.2"/></svg></div>
@@ -364,11 +397,57 @@
     <p class="lead lead--split">Your library, sorted into something readable: rails with a reason to exist,
       series that know which episode you are on, and posters for the titles that came without artwork. <b class="strong">A hundred thousand titles stays scrollable.</b></p>
     <ul class="checks">
-      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Trending, New Releases and <b>award-winning</b> rails, ranked by something real rather than playlist order.</li>
+      <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg><b>Trending Today</b>, Top 10 in your region, New Releases, Critically Acclaimed and Award Winners — every rail ranked by something you can point at, not playlist order.</li>
       <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Series open on the <b>episode you are due</b>, with the part-watched one marked and the rest of the season in order.</li>
       <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Search across films, series and channels at once — <b>no category to pick first</b>.</li>
       <li><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>Missing posters and synopses are <b>filled in from TMDB</b>, and what you loaded still opens offline.</li>
     </ul>
+  </div>
+</section>
+
+<!-- ============================== discovery ============================== -->
+<section class="sec" id="discovery">
+  <div class="wrap">
+    <div class="head head--wide" data-reveal>
+      <p class="eyebrow">Where the rails come from</p>
+      <h2 class="h2">Discovery nobody can switch off</h2>
+      <p class="lead">Every other player's recommendations sit behind a metadata company's goodwill — an API
+        key, a rate limit, a price list. Dawn Player's three discovery sources need none of those, and
+        <b>two of them work with the network off</b>.</p>
+    </div>
+    <div class="grid3">
+      <div class="src" data-reveal>
+        <span class="src__what">Today's date</span>
+        <h3>Rails that know what month it is</h3>
+        <p>Horror through October, <b>Christmas Films</b> in December, Summer Blockbusters from mid-June.
+          Four seasons, deliberately few and absent for most of the year, so a seasonal rail still reads as
+          an event rather than another category row. It needs no data beyond the date and your own catalogue.</p>
+        <p class="aside"><b>Matched on genre and title both</b>, because playlists are inconsistent: Christmas
+          films are almost never genre-tagged as such but nearly always say so in the title, and horror is
+          the other way round.</p>
+      </div>
+      <div class="src" data-reveal>
+        <span class="src__what">Wikipedia pageviews</span>
+        <h3>What the world actually looked up</h3>
+        <p><b>Trending Today</b> comes from Wikimedia's pageviews API — no key, no account, no commercial
+          tier, openly licensed. It is read per language edition, so a Dutch device is told what the
+          Netherlands is reading rather than what the United States is.</p>
+        <p class="aside">Better than a streaming chart, too: crossing <b>what people are reading about</b>
+          with <b>what your library actually holds</b> leaves titles that are both current and watchable.</p>
+      </div>
+      <div class="src" data-reveal>
+        <span class="src__what">Wikidata, baked in</span>
+        <h3>An award canon that ships with the app</h3>
+        <p><b>428 films and 82 series</b> — Best Picture, the Palme d'Or, the Golden Lion, the Golden Bear,
+          BAFTA Best Film — generated from Wikidata at build time and shipped inside the binary. Award
+          Winners therefore makes <b>no network call at all</b>, and works offline.</p>
+        <p class="aside">Awards are resolved <b>by name, not by Wikidata id</b>: hardcoded ids were wrong
+          seven times out of twelve, and one wrong id silently returned a different award's winners.</p>
+      </div>
+    </div>
+    <p class="closer" data-reveal><b>TMDB is still in here — but only for pictures.</b> It fills in posters
+      and synopses your source never sent. Nothing about <i>what</i> you get shown depends on it, which is
+      the whole point: the day any of these APIs starts charging, the rails carry on working.</p>
   </div>
 </section>
 
@@ -494,7 +573,7 @@
             </div>
           </div>
           <div class="rail" style="padding-top:12px">
-            <h4 style="font-size:12.5px;padding:0 14px">Award-winning series &amp; films</h4>
+            <h4 style="font-size:12.5px;padding:0 14px">Award Winners</h4>
             <div class="rail__track" style="padding:0 14px">
               <div class="poster art-rose-2" style="width:70px;border-radius:8px"></div>
               <div class="poster art-teal-2" style="width:70px;border-radius:8px"></div>
@@ -570,7 +649,7 @@
                 </div>
               </div>
               <div style="flex:1;padding:2.2% 4% 0">
-                <h4 style="font-family:var(--display);font-size:1.8cqw;font-weight:600;margin:0 0 1.8%">Award-winning series &amp; films</h4>
+                <h4 style="font-family:var(--display);font-size:1.8cqw;font-weight:600;margin:0 0 1.8%">Award Winners</h4>
                 <div style="display:flex;gap:1.6%">
                   <div class="ep__thumb art-rose-2" style="flex:none;width:11%;aspect-ratio:2/3;border-radius:6px"></div>
                   <div class="ep__thumb art-teal-2" style="flex:none;width:11%;aspect-ratio:2/3;border-radius:6px"></div>
@@ -642,7 +721,8 @@
           <div class="spec"><dt>Storage</dt><dd>SQLite via drift, indexed for large catalogues · credentials in the platform keychain</dd></div>
           <div class="spec"><dt>State</dt><dd>Riverpod, over repositories the UI can't see past — no screen knows which kind of source it is talking to</dd></div>
           <div class="spec"><dt>Sync</dt><dd>Optional Laravel API with Sanctum tokens · last-write-wins on UTC timestamps</dd></div>
-          <div class="spec"><dt>Artwork</dt><dd>Your source's posters first, gaps filled from TMDB</dd></div>
+          <div class="spec"><dt>Discovery</dt><dd>Wikimedia pageviews for trending · a Wikidata award canon (428 films, 82 series) generated at build time and shipped in the binary · today's date for the seasonal rail. <em>No paid metadata API anywhere in it.</em></dd></div>
+          <div class="spec"><dt>Artwork</dt><dd>Your source's posters first, gaps filled from TMDB — pictures only, never ranking</dd></div>
         </dl>
       </div>
       <div class="plainly" data-reveal>

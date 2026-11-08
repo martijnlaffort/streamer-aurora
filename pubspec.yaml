@@ -1,7 +1,7 @@
 name: dawnplayer
 description: Dawn Player — a cinematic IPTV player for Xtream and M3U sources.
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+120
 
 environment:
   sdk: ^3.12.0

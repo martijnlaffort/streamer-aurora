@@ -57,6 +57,11 @@ jobs:
 
       - run: flutter pub get
 
+      # Nothing ships that does not analyze clean and pass its tests.
+      - run: flutter analyze --fatal-infos
+
+      - run: flutter test
+
       # build.gradle.kts quietly falls back to debug signing when
       # key.properties is missing, which Play rejects only after the upload.
       # Fail here instead if any secret is absent.
@@ -113,6 +118,18 @@ jobs:
               echo "::error::$(basename "$F") is unsigned or debug-signed"; exit 1
             fi
           done
+
+      # Play rejects USE_EXACT_ALARM outright for anything that is not an alarm
+      # clock or calendar, and only says so after review. The bundle's manifest
+      # is protobuf, but permission names sit in it as plain strings.
+      - name: Check Play-restricted permissions
+        run: |
+          AAB="$(ls build/dist/*.aab)"
+          PERMS="$(unzip -p "$AAB" base/manifest/AndroidManifest.xml | grep -a -o -E 'android\.permission\.[A-Z_]+' | sort -u)"
+          echo "$PERMS"
+          if echo "$PERMS" | grep -q 'USE_EXACT_ALARM'; then
+            echo "::error::USE_EXACT_ALARM is in the bundle; Play will reject it"; exit 1
+          fi
 
       - uses: actions/upload-artifact@v5
         with:

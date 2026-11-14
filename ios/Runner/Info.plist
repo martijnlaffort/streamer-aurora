@@ -170,9 +170,18 @@
 		<string>_CC1AD845._googlecast._tcp</string>
 	</array>
 
+	<!-- App Transport Security, narrowed from NSAllowsArbitraryLoads.
+	     ATS governs Apple's URL loading system only. Playback does not use it:
+	     libmpv/FFmpeg opens its own connections, and so does Dart's HttpClient
+	     (playlists, server API, artwork). What does go through Apple's stack is
+	     AirPlay (AVPlayer), which ArbitraryLoadsForMedia covers for http://
+	     media, and anything on the local network, which LocalNetworking
+	     covers. Explained to App Review in store/apple/review_notes.txt. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+		<key>NSAllowsArbitraryLoadsForMedia</key>
 		<true/>
 	</dict>
 </dict>

@@ -5,7 +5,9 @@
 # overwrite our committed ios/Runner/Info.plist and ios/Podfile with defaults.
 # This script re-asserts the iOS settings the build and the App Store listing
 # depend on, so both are correct regardless of what the scaffold produced:
-#   1. App Transport Security -> NSAllowsArbitraryLoads (plain-HTTP IPTV).
+#   1. App Transport Security -> NSAllowsLocalNetworking +
+#      NSAllowsArbitraryLoadsForMedia (see the comment in Info.plist for why
+#      that is enough: playback does not go through Apple's URL stack).
 #   2. Podfile platform + per-pod deployment target -> 15.0.
 #   3. Xcode project IPHONEOS_DEPLOYMENT_TARGET -> 15.0.
 #   4. PRODUCT_BUNDLE_IDENTIFIER -> com.dawnplayer.app (the App Store identity;
@@ -24,12 +26,13 @@ PBXPROJ="$ROOT/ios/Runner.xcodeproj/project.pbxproj"
 echo "==> Patching Info.plist ATS: $PLIST"
 if [ -f "$PLIST" ]; then
   if [ -x /usr/libexec/PlistBuddy ]; then
-    # Remove any existing ATS block, then add the permissive one. PlistBuddy is
+    # Remove any existing ATS block, then add the narrow one. PlistBuddy is
     # present on macOS runners; Delete is tolerant of a missing key.
     /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
     /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$PLIST"
-    /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$PLIST"
-  elif grep -q "NSAllowsArbitraryLoads" "$PLIST"; then
+    /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoadsForMedia bool true" "$PLIST"
+  elif grep -q "NSAllowsArbitraryLoadsForMedia" "$PLIST"; then
     # Off-macOS (Windows dev box): can't rewrite the plist, but the committed
     # one already carries the ATS block — nothing to do.
     echo "    PlistBuddy unavailable; ATS block already present, skipping."

@@ -9,10 +9,15 @@ class M3uEntry {
     required this.name,
     required this.url,
     required this.attributes,
+    this.durationSeconds,
   });
 
   final String name;
   final String url;
+
+  /// The `#EXTINF:<duration>` value. M3U uses it for the length of a finite
+  /// item and `-1` (or `0`) for a stream with no end; null when absent.
+  final double? durationSeconds;
 
   /// Raw `key="value"` attributes from the EXTINF line (tvg-id, tvg-name,
   /// tvg-logo, group-title, ...). Keys are lowercased.
@@ -46,6 +51,7 @@ class M3uPlaylist {
 }
 
 final _attrPattern = RegExp(r'([A-Za-z0-9_.\-]+)="([^"]*)"');
+final _durationPattern = RegExp(r'^\s*(-?\d+(?:\.\d+)?)');
 
 /// Parses playlist [text]. Lines that cannot be interpreted are reported to
 /// [onSkippedLine] (1-based line number + reason) and skipped.
@@ -59,6 +65,7 @@ M3uPlaylist parseM3u(String text, {void Function(String message)? onSkippedLine}
   // Pending EXTINF state, waiting for its URL line.
   String? pendingName;
   Map<String, String>? pendingAttrs;
+  double? pendingDuration;
   int pendingLine = 0;
 
   final lines = text.replaceFirst('﻿', '').split(RegExp(r'\r?\n'));
@@ -95,6 +102,8 @@ M3uPlaylist parseM3u(String text, {void Function(String message)? onSkippedLine}
       final title = commaIdx >= 0 ? content.substring(commaIdx + 1).trim() : '';
       pendingName = title;
       pendingAttrs = attrs;
+      pendingDuration =
+          double.tryParse(_durationPattern.firstMatch(content)?.group(1) ?? '');
       pendingLine = lineNo;
       continue;
     }
@@ -121,9 +130,15 @@ M3uPlaylist parseM3u(String text, {void Function(String message)? onSkippedLine}
         : (pendingAttrs['tvg-name']?.trim().isNotEmpty ?? false)
             ? pendingAttrs['tvg-name']!.trim()
             : 'Unnamed';
-    entries.add(M3uEntry(name: name, url: line, attributes: pendingAttrs));
+    entries.add(M3uEntry(
+      name: name,
+      url: line,
+      attributes: pendingAttrs,
+      durationSeconds: pendingDuration,
+    ));
     pendingName = null;
     pendingAttrs = null;
+    pendingDuration = null;
   }
 
   if (pendingAttrs != null) {

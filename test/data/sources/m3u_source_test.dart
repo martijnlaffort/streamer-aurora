@@ -145,6 +145,29 @@ void main() {
       expect(vodCategories.single.type, CategoryType.vod);
     });
 
+    test('an EXTINF length makes an HLS video a film, not a live stream',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('dawn_m3u_');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/demo.m3u')
+        ..writeAsStringSync('#EXTM3U\n'
+            '#EXTINF:1800 group-title="Samples",HLS sample\n'
+            'https://example.com/sample/master.m3u8\n'
+            '#EXTINF:-1 group-title="News",A live stream\n'
+            'https://example.com/live/index.m3u8\n'
+            // Placeholder lengths some playlists put on live entries.
+            '#EXTINF:1,Another live stream\n'
+            'https://example.com/live2/index.m3u8\n');
+      final playlist = parseM3u(file.readAsStringSync());
+      expect(playlist.entries.map((e) => e.durationSeconds), [1800, -1, 1]);
+
+      final (source, _) = build(file.path);
+      expect((await source.getVodStreams()).map((m) => m.name),
+          ['HLS sample']);
+      expect((await source.getLiveStreams()).map((c) => c.name),
+          ['A live stream', 'Another live stream']);
+    });
+
     test('vod info returns the same model; unknown id throws', () async {
       final (source, _) = build('test/fixtures/m3u/mixed.m3u');
       final movies = await source.getVodStreams();

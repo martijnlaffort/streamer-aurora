@@ -116,8 +116,18 @@ class M3uSource implements PlaylistSource {
     return playlist;
   }
 
+  /// A film rather than a live stream: a file extension that only finite
+  /// media uses, or an `#EXTINF` duration that says it has an end.
+  ///
+  /// The duration is what lets an HLS video (`.m3u8`, the same extension as
+  /// any live stream) land among films. A minute is the threshold because
+  /// live entries in the wild carry `-1`, `0` and sometimes `1` as
+  /// placeholders; no real live stream declares a length of minutes.
   bool _isVod(M3uEntry entry) =>
-      _vodExtensions.contains(_extensionOf(entry.url));
+      _vodExtensions.contains(_extensionOf(entry.url)) ||
+      (entry.durationSeconds ?? 0) >= _minFiniteSeconds;
+
+  static const _minFiniteSeconds = 60;
 
   String? _extensionOf(String url) {
     final path = Uri.tryParse(url)?.path ?? url;

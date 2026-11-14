@@ -52,10 +52,15 @@ Future<void> playLocalPick(
 /// so a file opened again tomorrow carries on where it stopped.
 Future<void> playLocalFile(
     BuildContext context, WidgetRef ref, LocalFile file) async {
-  await ref.read(appRouterProvider).push(
-        '/player',
-        extra: PlayerRequest(queue: [localPlayerItem(file)]),
-      );
+  final router = ref.read(appRouterProvider);
+  final request = PlayerRequest(queue: [localPlayerItem(file)]);
+  // A file opened from Files while something is already playing replaces that
+  // player. Pushed on top, the covered one would keep playing underneath.
+  final onPlayer =
+      router.routerDelegate.currentConfiguration.uri.path == '/player';
+  await (onPlayer
+      ? router.pushReplacement('/player', extra: request)
+      : router.push('/player', extra: request));
   if (!context.mounted) return;
   ref.invalidate(localFilesProvider);
   ref.invalidate(homeDataProvider);

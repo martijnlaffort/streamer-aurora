@@ -9,7 +9,7 @@ What is distinct about Dawn Player, and what changed in this build:
 - Remembers audio and subtitle language. The language the user picks is selected automatically on every later video that has it, and an external .srt or .ass subtitle file can be loaded and is remembered for that video.
 - A different playback engine. Dawn Player uses libmpv rather than the system player, so it plays MKV, HEVC, MPEG-TS and HLS with multiple audio and subtitle tracks, with adjustable audio sync.
 - A simpler, file-first experience. Sign-in to a server is now the last of three options and is labelled "Media server". The Live tab appears only when a source the user added contains live streams.
-- A new demo that needs no login. The review notes contain a single playlist link with two Creative Commons films and Apple's HLS sample, all hosted by us.
+- A new demo that needs no login. The review notes contain a single playlist link with two Creative Commons films, one as an HLS stream and one as an MKV file with several subtitle languages, both hosted by us.
 
 Dawn Player includes no content, has no account system, and contains no ads or tracking.
 

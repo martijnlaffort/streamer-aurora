@@ -30,7 +30,9 @@ stores, and renaming it would churn the Cast provider class path for nothing.
 
 > **Apple, from 1.0.1 on:** App Store Connect rejected 1.0.0 under 4.3(a). The App Store demo is now
 > a login-free playlist, `demo/demo.m3u` (served at `https://dawnplayer.com/demo/demo.m3u`), listing
-> only Big Buck Bunny, Sintel and Apple's HLS sample, all hosted on dawnplayer.com. The mock panel
+> only Big Buck Bunny (as HLS) and Sintel (as MKV with subtitle tracks), both CC BY and hosted on
+> dawnplayer.com; `tool/make_demo_media.sh` builds them. No third-party stream, Apple's samples
+> included: they contain Apple-owned footage. The mock panel
 > below (with its third-party broadcaster streams) is no longer given to Apple. The current App Store
 > description, keywords, promotional text, review notes and reply live in `store/apple/`; they
 > supersede §4.1 and §4.3 for iOS.

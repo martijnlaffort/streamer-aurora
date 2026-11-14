@@ -16,12 +16,11 @@ HOW TO REVIEW (no login needed)
 2. Tap "Add a playlist link or file".
 3. Paste this link into "Playlist link" and tap Connect:
    https://dawnplayer.com/demo/demo.m3u
-4. Tap "Start watching", then the Movies tab. The playlist contains three items, all hosted by us and all free to redistribute:
-   - Big Buck Bunny (2008), Blender Foundation, CC BY 3.0
-   - Sintel (2010), Blender Foundation, CC BY 3.0
-   - Apple's HLS sample stream (bipbop), from Apple's developer documentation; it has several subtitle languages and audio tracks
+4. Tap "Start watching", then the Movies tab. The playlist contains two films, both Creative Commons (CC BY 3.0, Blender Foundation) and both hosted by us:
+   - Big Buck Bunny (2008), as an HLS stream
+   - Sintel (2010), as an MKV file with subtitles in several languages
 5. Play a film, leave it part-way, close the app and reopen it: it is in Continue Watching and resumes at the same position.
-6. In the HLS sample, open Audio & subtitles and choose French subtitles. Open it again: French is selected automatically.
+6. In Sintel, open Audio & subtitles and choose French subtitles. Open Sintel again: French is selected automatically.
 
 To try a local file: save any video to Files, then use the share button in Files and choose Dawn Player, or tap the "Open a video file" icon at the top of Home.
 

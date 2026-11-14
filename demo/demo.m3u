@@ -1,14 +1,12 @@
 #EXTM3U
-# Dawn Player review demo. Every file below is hosted on dawnplayer.com.
+# Dawn Player review demo. Every file below is CC BY and hosted on dawnplayer.com;
+# tool/make_demo_media.sh builds them from the Blender Foundation's releases.
 # Big Buck Bunny (c) 2008 Blender Foundation | www.bigbuckbunny.org, CC BY 3.0
 # Sintel (c) 2010 Blender Foundation | www.sintel.org, CC BY 3.0
-# HLS sample: Apple Inc., "bipbop" advanced example from Apple's HTTP Live Streaming examples
 #
-# The #EXTINF length (seconds) is what makes Dawn Player treat each entry as a
-# film rather than a live stream; the HLS one has no file extension to go on.
+# The #EXTINF length (seconds) is what makes Dawn Player treat the HLS entry as
+# a film rather than a live stream: .m3u8 alone does not say which it is.
 #EXTINF:596 tvg-logo="https://dawnplayer.com/demo/big_buck_bunny.jpg" group-title="Open movies",Big Buck Bunny (2008)
-https://dawnplayer.com/demo/big_buck_bunny.mp4
+https://dawnplayer.com/demo/big_buck_bunny/master.m3u8
 #EXTINF:888 tvg-logo="https://dawnplayer.com/demo/sintel.jpg" group-title="Open movies",Sintel (2010)
-https://dawnplayer.com/demo/sintel.mp4
-#EXTINF:1800 tvg-logo="https://dawnplayer.com/demo/bipbop.jpg" group-title="Samples",Apple HLS sample (multi-language)
-https://dawnplayer.com/demo/bipbop/master.m3u8
+https://dawnplayer.com/demo/sintel.mkv

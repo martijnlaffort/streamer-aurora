@@ -111,7 +111,7 @@ Future<void> _editDiscovery(
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text(
-            'Trending, Popular and New Releases come from TMDB\'s public '
+            'Trending, Popular and Recently Released come from TMDB\'s public '
             'lists, filtered to what your playlist actually carries. Your '
             'playlist is never uploaded. A free key takes a minute: '
             'themoviedb.org → Settings → API.',

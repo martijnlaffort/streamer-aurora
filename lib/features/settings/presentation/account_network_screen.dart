@@ -130,7 +130,7 @@ class _AccountNetworkScreenState extends ConsumerState<AccountNetworkScreen> {
                 Text(
                   'One per line. When a stream will not open, the same request '
                   'is retried against each of these in turn before giving up. '
-                  'Providers hand out several hostnames and they are not '
+                  'Some servers answer on several addresses, and they are not '
                   'interchangeable — one can be blocked or badly routed while '
                   'another works.',
                   style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
@@ -144,7 +144,7 @@ class _AccountNetworkScreenState extends ConsumerState<AccountNetworkScreen> {
                   maxLines: 6,
                   decoration: const InputDecoration(
                     labelText: 'Fallback hosts',
-                    hintText: 'backup.provider.tv:8080\nhttp://alt.provider.tv',
+                    hintText: 'backup.example.com:8080\nhttp://alt.example.com',
                     border: OutlineInputBorder(),
                   ),
                 ),

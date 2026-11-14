@@ -57,11 +57,12 @@ class XtreamSource implements PlaylistSource {
     try {
       response = await _dio.getUri<dynamic>(uri);
     } on DioException catch (e) {
-      throw SourceException('Could not reach the panel: ${e.message}', e);
+      throw SourceException('Could not reach the server: ${e.message}', e);
     }
     final data = response.data;
     if (data == null) {
-      throw SourceException('Empty response from panel (${action ?? 'auth'})');
+      throw SourceException(
+          'Empty response from the server (${action ?? 'auth'})');
     }
     return data;
   }
@@ -73,7 +74,8 @@ class XtreamSource implements PlaylistSource {
     final data = optMap(await _get());
     final userInfo = optMap(data?['user_info']);
     if (userInfo == null) {
-      throw const SourceException('Unexpected response — not an Xtream panel?');
+      throw const SourceException('That address did not answer like a media '
+          'server. Check the address and port.');
     }
     final authed = optInt(userInfo['auth']) == 1;
     if (!authed) {
@@ -212,7 +214,7 @@ class XtreamSource implements PlaylistSource {
     // movie — which is what a title synced from another device but since
     // dropped by the panel would otherwise become in Continue Watching.
     if (info.isEmpty && movieData.isEmpty) {
-      throw SourceException('Title $vodId is not available on this panel');
+      throw SourceException('Title $vodId is not available on this server');
     }
     final id = optString(movieData['stream_id']) ?? vodId;
     return Movie(

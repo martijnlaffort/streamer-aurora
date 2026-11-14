@@ -74,14 +74,15 @@ class DiscoveryRepository {
         needsApiKey: true),
     DiscoveryList(
         id: 'tmdb-popular-movie',
-        // Relabelled per-region at render time — see discoveryRailsProvider.
-        label: 'Top 10 Movies',
+        // Not a ranked, numbered chart: a big-numeral "Top 10" row is a
+        // streaming service's storefront idiom, and this app is a player for
+        // the viewer's own library.
+        label: 'Popular Films',
         kind: DiscoveryKind.movie,
-        needsApiKey: true,
-        numbered: true),
+        needsApiKey: true),
     DiscoveryList(
         id: 'tmdb-new-movie',
-        label: 'New Releases',
+        label: 'Recently Released',
         kind: DiscoveryKind.movie,
         needsApiKey: true),
     DiscoveryList(

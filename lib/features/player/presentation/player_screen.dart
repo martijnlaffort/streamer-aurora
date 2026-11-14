@@ -1194,6 +1194,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final pick = await ref.read(localMediaPlatformProvider).pickSubtitle();
     if (pick == null || !mounted) return;
     await _useSubtitleFile(pick.path, pick.name);
+    if (!mounted) return;
     if (isLocalStream(_current.streamRef)) {
       await ref.read(localFilesRepositoryProvider).setSubtitle(
           _current.streamRef.streamId,

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/matching/title_match.dart';
 import '../../core/rotation.dart';
 import '../../core/seasonal.dart';
+import '../../data/local/local_files_repository.dart' show LocalFile;
 import '../../data/providers.dart';
 import '../../data/repositories/discovery_repository.dart';
 import '../../core/matching/title_label.dart';
@@ -19,6 +20,7 @@ class ContinueEntry {
     required this.streamRef,
     this.subtitle,
     this.imageUrl,
+    this.localFile,
   });
 
   final WatchProgress progress;
@@ -28,8 +30,12 @@ class ContinueEntry {
   final String? subtitle;
   final String? imageUrl;
 
-  /// Where the "Details" action goes ('/movie/:id' or '/series/:id').
-  final String route;
+  /// Where the "Details" action goes ('/movie/:id' or '/series/:id'). Null for
+  /// a file on this device, which has no detail page.
+  final String? route;
+
+  /// Set when this is a file on this device rather than a catalogue title.
+  final LocalFile? localFile;
 
   /// Everything needed to start playing without a detour via the detail page.
   /// Tapping this row should resume — two extra taps to get back into
@@ -48,10 +54,36 @@ class ContinueEntry {
 class HomeData {
   const HomeData({
     required this.continueWatching,
+    this.hasSource = true,
   });
 
-  /// Continue Watching (PRD §8.9): movies and series, most-recent first.
+  /// Continue Watching (PRD §8.9): movies, series and files on this device,
+  /// most-recent first.
   final List<ContinueEntry> continueWatching;
+
+  /// Whether a playlist or media server is active. Without one Home is the
+  /// getting-started page, with any part-watched files above it.
+  final bool hasSource;
+}
+
+/// Part-watched files on this device, as Continue Watching cards.
+Future<List<ContinueEntry>> _localContinueEntries(Ref ref) async {
+  final files = await ref.watch(localFilesProvider.future);
+  final progressRepo = ref.watch(watchProgressRepositoryProvider);
+  final entries = <ContinueEntry>[];
+  for (final file in files) {
+    final p = await progressRepo.get(file.contentKey);
+    if (p == null || p.completed || p.positionSeconds <= 0) continue;
+    entries.add(ContinueEntry(
+      progress: p,
+      title: file.title,
+      subtitle: 'On this device',
+      route: null,
+      streamRef: file.streamRef,
+      localFile: file,
+    ));
+  }
+  return entries;
 }
 
 const _railLength = 15;
@@ -94,7 +126,7 @@ final discoveryRailsProvider =
     }
     rails.add(DiscoveryRail<Object>(
       // A rank is only meaningful if you know what it ranks — say the region.
-      label: list.numbered ? 'Top 10 in $region' : list.label,
+      label: list.numbered ? 'Popular in $region' : list.label,
       items: items,
       numbered: list.numbered,
     ));
@@ -195,7 +227,10 @@ final heroBackdropProvider =
 
 final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   final account = await ref.watch(activeAccountProvider.future);
-  if (account == null) return null;
+  final local = await _localContinueEntries(ref);
+  if (account == null) {
+    return HomeData(continueWatching: local, hasSource: false);
+  }
   final catalog = ref.watch(catalogRepositoryProvider);
 
   // Continue Watching (PRD §8.9): movies play directly; episodes resolve back
@@ -298,8 +333,13 @@ final homeDataProvider = FutureProvider<HomeData?>((ref) async {
   // tabs, which are now category-first — Home linking to six arbitrary
   // categories was both redundant and the thing that made every cold start
   // refresh six categories before it could paint.
-  debugPrint('[dawn] home ready: ${continueWatching.length} to continue');
+  // Files on this device sit in the same row, in the same most-recent-first
+  // order: to the viewer it is all "things I was half-way through".
+  final merged = [...continueWatching, ...local]
+    ..sort((a, b) => b.progress.updatedAt.compareTo(a.progress.updatedAt));
+  if (merged.length > 20) merged.removeRange(20, merged.length);
+  debugPrint('[dawn] home ready: ${merged.length} to continue');
   return HomeData(
-    continueWatching: continueWatching,
+    continueWatching: merged,
   );
 });

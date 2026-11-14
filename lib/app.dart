@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show FileSystemException;
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/platform/television.dart';
 import 'core/router/app_router.dart';
 import 'data/account_warmup.dart';
+import 'data/local/local_media_platform.dart';
+import 'data/local/playlist_files.dart';
+import 'features/local/local_playback.dart';
 import 'data/notifications/reminder_service.dart';
 import 'features/player/player_request.dart';
 import 'core/theme/app_colors.dart';
@@ -55,7 +59,31 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
       _sync();
       _periodic = Timer.periodic(const Duration(minutes: 2), (_) => _sync());
       unawaited(_startReminders());
+      _openedFiles =
+          ref.read(localMediaPlatformProvider).opened.listen(_onOpenedFile);
     });
+  }
+
+  StreamSubscription<OpenedFile>? _openedFiles;
+
+  /// A file opened in Dawn Player from elsewhere — Files, a share sheet,
+  /// "Open with" — including the one that launched the app. A video plays
+  /// straight away; a playlist opens the add-playlist form with it filled in.
+  Future<void> _onOpenedFile(OpenedFile opened) async {
+    if (!mounted) return;
+    if (opened.kind == OpenedKind.video) {
+      await playLocalPick(context, ref, opened.pick);
+      return;
+    }
+    final String location;
+    try {
+      location = await importPlaylistFile(opened.pick);
+    } on FileSystemException catch (e) {
+      debugPrint('[dawn] could not import an opened playlist: $e');
+      return;
+    }
+    if (!mounted) return;
+    await ref.read(appRouterProvider).push('/accounts/add', extra: location);
   }
 
   /// Re-arms pending reminders and listens for taps on the ones that fire.
@@ -106,6 +134,7 @@ class _DawnPlayerAppState extends ConsumerState<DawnPlayerApp>
     _debounce?.cancel();
     _periodic?.cancel();
     _reminderTaps?.cancel();
+    _openedFiles?.cancel();
     ref.read(syncTriggerProvider).removeListener(_onLocalChange);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

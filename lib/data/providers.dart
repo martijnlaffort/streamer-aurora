@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../core/language/content_language.dart';
 import '../domain/models/models.dart';
 import 'db/app_database.dart';
 import 'db/credential_store.dart';
+import 'local/local_files_repository.dart';
+import 'local/local_media_platform.dart';
 import 'notifications/reminder_service.dart';
 import 'repositories/account_repository.dart';
 import 'repositories/artwork_repository.dart';
@@ -167,6 +170,36 @@ final watchProgressRepositoryProvider = Provider<WatchProgressRepository>(
           clock: ref.watch(serverClockProvider).now,
           onChanged: () => ref.read(syncTriggerProvider).ping(),
         ));
+
+/// The device's own files: picker, "Open in Dawn Player", re-opening later.
+final localMediaPlatformProvider =
+    Provider<LocalMediaPlatform>((ref) => MethodChannelLocalMedia());
+
+final localFilesRepositoryProvider = Provider<LocalFilesRepository>(
+    (ref) => LocalFilesRepository(directory: getApplicationSupportDirectory));
+
+/// Files opened on this device, most recent first. Invalidate after opening.
+final localFilesProvider = FutureProvider<List<LocalFile>>(
+    (ref) => ref.watch(localFilesRepositoryProvider).all());
+
+/// Whether the active source carries live streams at all.
+///
+/// The Live tab (and its guide) only appears when it does: a library of films
+/// and files has nothing to put there, and an empty Live tab reads as the app
+/// being for something the user never added.
+final activeHasLiveProvider = FutureProvider<bool>((ref) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return false;
+  final catalog = ref.watch(catalogRepositoryProvider);
+  try {
+    if ((await catalog.cacheStats(account)).channels > 0) return true;
+    return (await catalog.categories(account, CategoryType.live)).isNotEmpty;
+  } on Object {
+    // Offline with nothing cached: no evidence of live streams, so no tab. It
+    // appears as soon as a fetch finds some.
+    return false;
+  }
+});
 
 final preferencesRepositoryProvider = Provider<PreferencesRepository>(
     (ref) => PreferencesRepository(db: ref.watch(appDatabaseProvider)));

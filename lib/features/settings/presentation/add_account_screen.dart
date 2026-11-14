@@ -1,4 +1,4 @@
-import 'dart:io' show InternetAddress;
+import 'dart:io' show FileSystemException, InternetAddress;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../data/db/app_database.dart' show CatalogKind;
+import '../../../data/local/playlist_files.dart';
 import '../../../data/providers.dart';
 import '../../../data/sources/playlist_source.dart';
 import '../../../domain/models/models.dart';
@@ -24,19 +25,37 @@ class _KindProgress {
   String? error;
 }
 
-/// Add an Xtream or M3U account (PRD §8.1): validate on save, then cache the
+/// Add a playlist or media server (PRD §8.1): validate on save, then cache the
 /// catalog with visible per-slice progress.
 class AddAccountScreen extends ConsumerStatefulWidget {
-  const AddAccountScreen({super.key});
+  const AddAccountScreen({
+    super.key,
+    this.initialType = AccountType.m3u,
+    this.initialPlaylist,
+  });
+
+  /// Which form to open on. A playlist unless the viewer asked for a server.
+  final AccountType initialType;
+
+  /// A playlist file already imported into the app (see
+  /// `importPlaylistFile`), e.g. one opened in Dawn Player from Files.
+  final String? initialPlaylist;
 
   @override
   ConsumerState<AddAccountScreen> createState() => _AddAccountScreenState();
 }
 
 class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
-  AccountType _type = AccountType.xtream;
+  late AccountType _type =
+      widget.initialPlaylist != null ? AccountType.m3u : widget.initialType;
   final _name = TextEditingController();
-  final _server = TextEditingController(text: 'http://');
+  late final _server = TextEditingController(
+      text: _type == AccountType.xtream ? 'http://' : '');
+
+  /// A playlist FILE chosen instead of a link: its in-app location. The link
+  /// field is hidden while one is set.
+  late String? _playlistFile = widget.initialPlaylist;
+  bool _importing = false;
   final _username = TextEditingController();
   final _password = TextEditingController();
   final _epgUrl = TextEditingController();
@@ -54,8 +73,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   }
 
   Account _buildAccount() {
-    final raw = _server.text.trim();
-    // An Xtream server is a base URL. A trailing slash doesn't stop playback
+    final file = _type == AccountType.m3u ? _playlistFile : null;
+    final raw = file ?? _server.text.trim();
+    // A media server is a base URL. A trailing slash doesn't stop playback
     // (the client strips one when it builds requests), but it DOES change the
     // derived account id, so "host" and "host/" would be treated as two
     // different accounts that never share history. Normalise it away here. M3U's
@@ -76,7 +96,9 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       type: _type,
       name: _name.text.trim().isNotEmpty
           ? _name.text.trim()
-          : (fallbackName.isNotEmpty ? fallbackName : 'My playlist'),
+          : file != null
+              ? _withoutExtension(playlistDisplayName(file))
+              : (fallbackName.isNotEmpty ? fallbackName : 'My playlist'),
       serverUrl: server,
       username: username,
       password: _type == AccountType.xtream ? _password.text : '',
@@ -85,6 +107,31 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
           ? _epgUrl.text.trim()
           : null,
     );
+  }
+
+  static String _withoutExtension(String name) {
+    final dot = name.lastIndexOf('.');
+    return dot > 0 ? name.substring(0, dot) : name;
+  }
+
+  /// "Choose a playlist file": the document picker, then a private copy.
+  Future<void> _choosePlaylistFile() async {
+    final pick = await ref.read(localMediaPlatformProvider).pickPlaylist();
+    if (pick == null || !mounted) return;
+    setState(() => _importing = true);
+    try {
+      final location = await importPlaylistFile(pick);
+      if (!mounted) return;
+      setState(() {
+        _playlistFile = location;
+        _error = null;
+      });
+    } on FileSystemException {
+      if (!mounted) return;
+      setState(() => _error = 'Couldn’t read that file. Try choosing it again.');
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
   }
 
   Future<void> _save() async {
@@ -139,7 +186,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
     setState(() {
       _flow = _Flow.caching;
       _progress = [
-        _KindProgress(CatalogKind.live, 'Live channels'),
+        _KindProgress(CatalogKind.live, 'Live streams'),
         _KindProgress(CatalogKind.vod, 'Films'),
         _KindProgress(CatalogKind.series, 'Series'),
       ];
@@ -177,13 +224,19 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         });
       }
     }
-    if (mounted) setState(() => _flow = _Flow.done);
+    if (!mounted) return;
+    // The Live tab exists only for a source with live streams; now we know.
+    ref.invalidate(activeHasLiveProvider);
+    setState(() => _flow = _Flow.done);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add a playlist')),
+      appBar: AppBar(
+          title: Text(_type == AccountType.xtream
+              ? 'Connect a media server'
+              : 'Add a playlist')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -199,30 +252,42 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
   List<Widget> _form() {
     final validating = _flow == _Flow.validating;
     return [
-      // Named for what the provider sent, not the protocol: "Xtream" and
-      // "M3U" mean nothing to most people setting this up.
+      // Named for what the user has in hand, not the protocol: protocol names
+      // mean nothing to most people setting this up. Playlist first, server
+      // second, matching the getting-started screen.
       SegmentedButton<AccountType>(
         segments: const [
           ButtonSegment(
-              value: AccountType.xtream,
-              label: Text('Login details'),
-              icon: Icon(Icons.dns_outlined)),
-          ButtonSegment(
               value: AccountType.m3u,
-              label: Text('Playlist link'),
-              icon: Icon(Icons.link)),
+              label: Text('Playlist'),
+              icon: Icon(Icons.playlist_play)),
+          ButtonSegment(
+              value: AccountType.xtream,
+              label: Text('Media server'),
+              icon: Icon(Icons.dns_outlined)),
         ],
         selected: {_type},
         onSelectionChanged: validating
             ? null
-            : (s) => setState(() => _type = s.first),
+            : (s) => setState(() {
+                  _type = s.first;
+                  // The scheme is a useful head start for a server address and
+                  // noise in front of a pasted playlist link.
+                  final text = _server.text.trim();
+                  if (_type == AccountType.xtream && text.isEmpty) {
+                    _server.text = 'http://';
+                  } else if (_type == AccountType.m3u && text == 'http://') {
+                    _server.text = '';
+                  }
+                }),
       ),
       const SizedBox(height: 8),
       Text(
         _type == AccountType.xtream
-            ? 'A media server address, with your username and password.'
-            : 'A single playlist link, usually ending in .m3u or .m3u8, or a '
-                'playlist file.',
+            ? 'The address of a media server you use, with your username and '
+                'password for it.'
+            : 'A link to your playlist, usually ending in .m3u or .m3u8, or '
+                'a playlist file on this device.',
         style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
       ),
       const SizedBox(height: 16),
@@ -235,21 +300,48 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         ),
       ),
       const SizedBox(height: 12),
-      TextField(
-        controller: _server,
-        enabled: !validating,
-        autocorrect: false,
-        keyboardType: TextInputType.url,
-        decoration: InputDecoration(
-          labelText: _type == AccountType.xtream
-              ? 'Server address'
-              : 'Playlist link (or file)',
-          hintText: _type == AccountType.xtream
-              ? 'http://server.example:8080'
-              : 'http://server.example/playlist.m3u',
-          border: const OutlineInputBorder(),
+      if (_type == AccountType.m3u && _playlistFile != null)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.description_outlined),
+          title: Text(playlistDisplayName(_playlistFile!)),
+          subtitle: const Text('Playlist file on this device'),
+          trailing: IconButton(
+            tooltip: 'Use a link instead',
+            icon: const Icon(Icons.close),
+            onPressed:
+                validating ? null : () => setState(() => _playlistFile = null),
+          ),
+        )
+      else
+        TextField(
+          controller: _server,
+          enabled: !validating,
+          autocorrect: false,
+          keyboardType: TextInputType.url,
+          decoration: InputDecoration(
+            labelText: _type == AccountType.xtream
+                ? 'Server address'
+                : 'Playlist link',
+            hintText: _type == AccountType.xtream
+                ? 'http://server.example:8080'
+                : 'https://example.com/playlist.m3u',
+            border: const OutlineInputBorder(),
+          ),
         ),
-      ),
+      if (_type == AccountType.m3u &&
+          _playlistFile == null &&
+          ref.watch(localMediaPlatformProvider).isSupported) ...[
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: validating || _importing ? null : _choosePlaylistFile,
+            icon: const Icon(Icons.folder_open),
+            label: const Text('Choose a playlist file'),
+          ),
+        ),
+      ],
       if (_type == AccountType.xtream) ...[
         const SizedBox(height: 12),
         TextField(
@@ -328,7 +420,7 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
 
   List<Widget> _cachingProgress() {
     return [
-      Text('Getting your channels and films',
+      Text('Getting your library',
           style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 4),
       Text(

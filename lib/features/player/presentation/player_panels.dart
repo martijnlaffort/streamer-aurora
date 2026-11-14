@@ -74,6 +74,7 @@ class AudioSubtitlePanel extends StatefulWidget {
     required this.onSubtitle,
     this.audioDelayMs = 0,
     this.onAudioDelay,
+    this.onLoadSubtitleFile,
   });
 
   final List<TrackOption> audio;
@@ -86,6 +87,10 @@ class AudioSubtitlePanel extends StatefulWidget {
   /// Current Audio sync offset; positive holds the sound back.
   final int audioDelayMs;
   final ValueChanged<int>? onAudioDelay;
+
+  /// Offers "Load subtitle file…" under the subtitle list when set. The panel
+  /// closes first, so the document picker is not stacked over it.
+  final VoidCallback? onLoadSubtitleFile;
 
   /// 10 ms a press: small enough to settle on what looks right, and the
   /// remote's key repeat covers a long way quickly.
@@ -266,11 +271,24 @@ class _AudioSubtitlePanelState extends State<AudioSubtitlePanel> {
               nodes: _subtitleNodes,
               selected: _subtitle,
               autofocusId: null,
-              empty: 'No subtitles in this stream',
+              empty: 'No subtitles in this video',
               onPick: (id) {
                 setState(() => _subtitle = id);
                 widget.onSubtitle(id);
               },
+              footer: widget.onLoadSubtitleFile == null
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: TextButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).maybePop();
+                          widget.onLoadSubtitleFile!();
+                        },
+                        icon: const Icon(Icons.subtitles_outlined),
+                        label: const Text('Load subtitle file…'),
+                      ),
+                    ),
             ),
           ),
         ],
@@ -294,6 +312,7 @@ class _AudioSubtitlePanelState extends State<AudioSubtitlePanel> {
     required String? autofocusId,
     required String empty,
     required ValueChanged<String> onPick,
+    Widget? footer,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,6 +360,7 @@ class _AudioSubtitlePanelState extends State<AudioSubtitlePanel> {
                     onTap: () => onPick(option.id),
                   ),
                 ),
+              ?footer,
             ],
           ),
           ),

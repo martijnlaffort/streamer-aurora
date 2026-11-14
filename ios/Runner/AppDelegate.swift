@@ -3,11 +3,15 @@ import AVKit
 import Flutter
 import GoogleCast
 import UIKit
+import UniformTypeIdentifiers
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   /// Kept alive for the life of the app; see [CastBridge].
   private var cast: CastBridge?
+
+  /// Kept alive for the life of the app; see [LocalMediaBridge].
+  private var localMedia: LocalMediaBridge?
 
   override func application(
     _ application: UIApplication,
@@ -29,6 +33,12 @@ import UIKit
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DawnCast") {
       cast = CastBridge(messenger: registrar.messenger())
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "DawnLocalMedia") {
+      let bridge = LocalMediaBridge(messenger: registrar.messenger())
+      // Files opened in the app from elsewhere arrive as scene events.
+      registrar.addSceneDelegate(bridge)
+      localMedia = bridge
     }
   }
 }
@@ -623,6 +633,259 @@ final class ChromecastController: NSObject, GCKDiscoveryManagerListener,
     ]
     return payload
   }
+}
+
+// MARK: - Files on this device
+
+/// The device's own files, over `dawnplayer/local_media` (methods) and
+/// `dawnplayer/local_media/opened` (files opened in the app from Files, a share
+/// sheet or "Open in"). The Android side is in MainActivity.kt.
+///
+/// Videos are played IN PLACE, never copied: a film can be gigabytes. That
+/// means access to a file outside the sandbox, which iOS grants per launch, so
+/// each video is handed to Dart with a bookmark that `resolve` turns back into
+/// a readable path after a restart. Subtitles and playlists are small and are
+/// copied into Application Support instead.
+///
+/// Lives in this file rather than its own so the Xcode project needs no edit.
+final class LocalMediaBridge: NSObject, UIDocumentPickerDelegate, FlutterSceneLifeCycleDelegate {
+  private let methods: FlutterMethodChannel
+  private let openedChannel: FlutterEventChannel
+  private let openedSink = EventSinkHolder()
+
+  /// Files opened before Dart started listening — the one that launched the
+  /// app, typically.
+  private var pending: [[String: Any]] = []
+
+  private var pickResult: FlutterResult?
+  private var pickKind = "video"
+
+  /// Security-scoped URLs we have started accessing, by path. Held for the
+  /// life of the process: playback reads the file long after it is opened,
+  /// and a film being watched must not lose access halfway through.
+  private var accessing: [String: URL] = [:]
+
+  init(messenger: FlutterBinaryMessenger) {
+    methods = FlutterMethodChannel(name: "dawnplayer/local_media", binaryMessenger: messenger)
+    openedChannel = FlutterEventChannel(
+      name: "dawnplayer/local_media/opened", binaryMessenger: messenger)
+    super.init()
+    openedSink.listened = { [weak self] sink in
+      guard let self = self else { return }
+      for payload in self.pending { sink(payload) }
+      self.pending.removeAll()
+    }
+    openedChannel.setStreamHandler(openedSink)
+    methods.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(nil)
+        return
+      }
+      let args = call.arguments as? [String: Any] ?? [:]
+      switch call.method {
+      case "pick":
+        self.presentPicker(kind: args["kind"] as? String ?? "video", result: result)
+      case "resolve":
+        result(self.resolve(args["ref"] as? String ?? ""))
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  // MARK: Picker
+
+  private static let videoTypes: [UTType] = {
+    var types: [UTType] = [.movie, .video, .audiovisualContent]
+    // Containers iOS does not declare itself. Matroska and WebM are imported in
+    // Info.plist, so these resolve to those declarations.
+    for ext in ["mkv", "webm", "ts", "m2ts", "mts", "avi", "flv", "wmv", "mpg", "mpeg", "m4v"] {
+      if let type = UTType(filenameExtension: ext) { types.append(type) }
+    }
+    return types
+  }()
+
+  private static let subtitleTypes: [UTType] = {
+    var types: [UTType] = []
+    for ext in ["srt", "ass", "ssa", "vtt", "sub"] {
+      if let type = UTType(filenameExtension: ext) { types.append(type) }
+    }
+    return types.isEmpty ? [.plainText] : types
+  }()
+
+  private static let playlistTypes: [UTType] = {
+    var types: [UTType] = []
+    if let m3u = UTType("public.m3u-playlist") { types.append(m3u) }
+    for ext in ["m3u", "m3u8"] {
+      if let type = UTType(filenameExtension: ext) { types.append(type) }
+    }
+    return types
+  }()
+
+  private func presentPicker(kind: String, result: @escaping FlutterResult) {
+    if pickResult != nil {
+      result(FlutterError(code: "busy", message: "A picker is already open", details: nil))
+      return
+    }
+    guard let presenter = topViewController() else {
+      result(FlutterError(code: "no_window", message: nil, details: nil))
+      return
+    }
+    let types: [UTType]
+    switch kind {
+    case "subtitle": types = Self.subtitleTypes
+    case "playlist": types = Self.playlistTypes
+    default: types = Self.videoTypes
+    }
+    // Videos open in place (asCopy: false); copying a film would cost its size
+    // in storage and a long wait. The small files are copied by us below.
+    let picker = UIDocumentPickerViewController(
+      forOpeningContentTypes: types, asCopy: kind != "video")
+    picker.delegate = self
+    picker.allowsMultipleSelection = false
+    pickResult = result
+    pickKind = kind
+    presenter.present(picker, animated: true)
+  }
+
+  func documentPicker(
+    _ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]
+  ) {
+    let result = pickResult
+    pickResult = nil
+    guard let url = urls.first else {
+      result?(nil)
+      return
+    }
+    result?(pickKind == "video" ? videoPayload(url) : copyPayload(url))
+  }
+
+  func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+    pickResult?(nil)
+    pickResult = nil
+  }
+
+  // MARK: Opened from elsewhere
+
+  func scene(
+    _ scene: UIScene, willConnectTo session: UISceneSession,
+    options connectionOptions: UIScene.ConnectionOptions?
+  ) -> Bool {
+    guard let contexts = connectionOptions?.urlContexts, !contexts.isEmpty else { return false }
+    return handleOpened(contexts)
+  }
+
+  func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) -> Bool {
+    handleOpened(URLContexts)
+  }
+
+  private func handleOpened(_ contexts: Set<UIOpenURLContext>) -> Bool {
+    var handled = false
+    for context in contexts where context.url.isFileURL {
+      let url = context.url
+      let ext = url.pathExtension.lowercased()
+      var payload: [String: Any]
+      if ext == "m3u" || ext == "m3u8" {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let copy = copyPayload(url) else { continue }
+        payload = copy
+        payload["kind"] = "playlist"
+      } else {
+        // In place when the source app allows it (Files does); otherwise iOS
+        // has already copied the file into our Inbox, which a bookmark also
+        // covers.
+        payload = videoPayload(url)
+        payload["kind"] = "video"
+      }
+      if let sink = openedSink.sink {
+        sink(payload)
+      } else {
+        pending.append(payload)
+      }
+      handled = true
+    }
+    return handled
+  }
+
+  // MARK: Payloads
+
+  private func startAccessing(_ url: URL) {
+    if accessing[url.path] != nil { return }
+    if url.startAccessingSecurityScopedResource() { accessing[url.path] = url }
+  }
+
+  private func fileSize(_ url: URL) -> Any {
+    if let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize {
+      return NSNumber(value: size)
+    }
+    return NSNull()
+  }
+
+  /// A video, referenced where it is.
+  private func videoPayload(_ url: URL) -> [String: Any] {
+    startAccessing(url)
+    let ref: String
+    if let bookmark = try? url.bookmarkData(
+      options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+    {
+      ref = bookmark.base64EncodedString()
+    } else {
+      ref = "path:" + url.path
+    }
+    return [
+      "ref": ref,
+      "name": url.lastPathComponent,
+      "size": fileSize(url),
+      "path": url.path,
+    ]
+  }
+
+  /// A small file, copied into Application Support/imports so it outlives the
+  /// access we were given to the original.
+  private func copyPayload(_ url: URL) -> [String: Any]? {
+    let fm = FileManager.default
+    guard
+      let support = try? fm.url(
+        for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+    else { return nil }
+    let dir = support.appendingPathComponent("imports", isDirectory: true)
+    try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+    let dest = dir.appendingPathComponent(UUID().uuidString + "-" + url.lastPathComponent)
+    do {
+      try fm.copyItem(at: url, to: dest)
+    } catch {
+      return nil
+    }
+    return [
+      "ref": "path:" + dest.path,
+      "name": url.lastPathComponent,
+      "size": fileSize(dest),
+      "path": dest.path,
+    ]
+  }
+
+  /// A stored ref back to a readable path, or nil when the file is gone.
+  private func resolve(_ ref: String) -> String? {
+    if ref.hasPrefix("path:") {
+      let path = String(ref.dropFirst("path:".count))
+      return FileManager.default.isReadableFile(atPath: path) ? path : nil
+    }
+    guard let data = Data(base64Encoded: ref) else { return nil }
+    var stale = false
+    guard
+      let url = try? URL(
+        resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
+    else { return nil }
+    startAccessing(url)
+    return FileManager.default.isReadableFile(atPath: url.path) ? url.path : nil
+  }
+}
+
+private func topViewController() -> UIViewController? {
+  var top = keyWindow()?.rootViewController
+  while let presented = top?.presentedViewController { top = presented }
+  return top
 }
 
 // MARK: - Helpers

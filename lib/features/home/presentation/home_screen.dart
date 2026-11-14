@@ -19,6 +19,7 @@ import '../../../core/widgets/remote_press.dart';
 import '../../../data/providers.dart';
 import '../../../core/matching/title_label.dart';
 import '../../../domain/models/models.dart';
+import '../../local/local_playback.dart';
 import '../../player/player_request.dart';
 import '../home_providers.dart';
 import 'widgets/media_rail.dart';
@@ -43,8 +44,47 @@ class HomeScreen extends ConsumerWidget {
             title: 'Could not load your catalogue',
             onRetry: () => ref.invalidate(homeDataProvider)),
 
-        data: (data) =>
-            data == null ? const NoPlaylistView() : _HomeContent(data: data),
+        data: (data) => data == null || !data.hasSource
+            ? _NoSourceHome(continueWatching: data?.continueWatching ?? const [])
+            : _HomeContent(data: data),
+      ),
+    );
+  }
+}
+
+/// Home before a playlist or media server is added: the ways in, with any
+/// part-watched files from this device above them.
+class _NoSourceHome extends StatelessWidget {
+  const _NoSourceHome({required this.continueWatching});
+
+  final List<ContinueEntry> continueWatching;
+
+  @override
+  Widget build(BuildContext context) {
+    if (continueWatching.isEmpty) return const NoPlaylistView();
+    return ColoredBox(
+      color: AppColors.background,
+      child: ListView(
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+            child: const Align(
+              alignment: Alignment.centerRight,
+              child: ShellActions(),
+            ),
+          ),
+          MediaRail(
+            title: 'Continue Watching',
+            height: 188,
+            itemCount: continueWatching.length,
+            itemBuilder: (context, i) =>
+                _ContinueCard(entry: continueWatching[i]),
+          ),
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: GetStartedOptions()),
+          ),
+        ],
       ),
     );
   }
@@ -324,6 +364,11 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
   /// player a queue of one, which silently disabled both the Next Episode
   /// button and autoplay-next — they only exist when there is a next item.
   Future<void> _resume(BuildContext context, WidgetRef ref) async {
+    final file = entry.localFile;
+    if (file != null) {
+      await playLocalFile(context, ref, file);
+      return;
+    }
     final request = await _buildRequest(ref);
     if (!context.mounted) return;
     await context.push('/player', extra: request);
@@ -415,14 +460,15 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
                 _resume(context, ref);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('Details'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                context.push(entry.route);
-              },
-            ),
+            if (entry.route case final route?)
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('Details'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.push(route);
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.close),
               title: const Text('Remove from Continue Watching'),

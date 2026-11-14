@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../../domain/models/models.dart';
+import '../local/playlist_files.dart';
 import 'json_values.dart';
 import 'm3u_parser.dart';
 import 'playlist_source.dart';
@@ -93,7 +94,9 @@ class M3uSource implements PlaylistSource {
         );
         text = response.data ?? '';
       } else {
-        text = await File(location).readAsString();
+        final file =
+            isAppFile(location) ? await appFileFor(location) : File(location);
+        text = await file.readAsString();
       }
     } on DioException catch (e) {
       throw SourceException('Could not fetch the playlist: ${e.message}', e);

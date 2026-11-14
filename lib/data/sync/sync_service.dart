@@ -4,6 +4,7 @@ import '../repositories/favorites_repository.dart';
 import '../repositories/preferences_repository.dart';
 import '../repositories/sync_backend.dart';
 import '../db/app_database.dart' show CatalogOverrideRow;
+import '../local/local_files_repository.dart' show kLocalAccountId;
 import '../repositories/catalog_overrides_repository.dart';
 import '../repositories/watch_progress_repository.dart';
 import 'sync_config.dart' show SyncStateStore;
@@ -172,7 +173,19 @@ class SyncService {
   }
 
   Future<int> _pushDirtyProgress() async {
-    final unsynced = await _progressRepo.unsyncedEntries();
+    final all = await _progressRepo.unsyncedEntries();
+    // A file on this device is reachable from this device only, so its
+    // progress stays here. Marked synced anyway, or it would be re-read as
+    // dirty on every run.
+    final deviceOnly = [
+      for (final e in all)
+        if (accountIdOfContentKey(e.contentKey) == kLocalAccountId) e,
+    ];
+    if (deviceOnly.isNotEmpty) await _progressRepo.markSynced(deviceOnly);
+    final unsynced = [
+      for (final e in all)
+        if (accountIdOfContentKey(e.contentKey) != kLocalAccountId) e,
+    ];
     if (unsynced.isEmpty) return 0;
     // Tag episode entries with their series id so the receiving device can
     // fetch the series and resolve the episode. The episode is cached here (it

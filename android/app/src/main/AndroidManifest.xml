@@ -68,6 +68,30 @@
                 <!-- Makes Dawn Player appear on the Android TV / Google TV home. -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
+            <!-- Files on this device: "Open with Dawn Player" from a file manager
+                 and the share sheet. content:// only — that is what the Storage
+                 Access Framework hands out, and its read grant can be persisted
+                 so the file resumes after a restart (LocalMediaBridge.kt). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:mimeType="video/*"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:scheme="content"/>
+                <data android:mimeType="audio/x-mpegurl"/>
+                <data android:mimeType="audio/mpegurl"/>
+                <data android:mimeType="application/x-mpegurl"/>
+                <data android:mimeType="application/vnd.apple.mpegurl"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="video/*"/>
+            </intent-filter>
         </activity>
         <!-- Chromecast: the framework finds its configuration by class name. -->
         <meta-data

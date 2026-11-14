@@ -131,6 +131,23 @@ void main() {
     expect(state.last, now); // watermark advanced
   });
 
+  test('progress on files from this device stays on this device', () async {
+    await progressRepo.savePosition(
+        contentKey: 'acc:movie:A', positionSeconds: 100, durationSeconds: 1000);
+    await progressRepo.savePosition(
+        contentKey: 'local:movie:f1', positionSeconds: 300, durationSeconds: 1000);
+
+    final result = await service().reconcile();
+    expect(result.ok, isTrue);
+    expect(progress.pushed.map((e) => e.contentKey), ['acc:movie:A']);
+    expect(result.pushedProgress, 1);
+    // Not left dirty to be re-read on every run.
+    expect((await progressRepo.unsyncedEntries()).map((e) => e.contentKey),
+        isNot(contains('local:movie:f1')));
+    // And its resume point is untouched.
+    expect((await progressRepo.get('local:movie:f1'))!.positionSeconds, 300);
+  });
+
   test('preferences: local pushed with its changed-at; server winner applied',
       () async {
     await prefsRepo.save(const Preferences(preferredAudioLang: 'eng'));

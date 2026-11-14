@@ -2,6 +2,7 @@ package com.example.aurora
 
 import android.app.UiModeManager
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -9,6 +10,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private var cast: CastBridge? = null
+    private var localMedia: LocalMediaBridge? = null
 
     /**
      * Reports whether we are running on a television, so the Flutter layer can
@@ -31,6 +33,23 @@ class MainActivity : FlutterActivity() {
             }
         }
         cast = CastBridge(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
+        localMedia = LocalMediaBridge(this, flutterEngine.dartExecutor.binaryMessenger).also {
+            // The file that launched the app, if one did.
+            it.handleIntent(intent)
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        localMedia?.handleIntent(intent)
+    }
+
+    @Deprecated("Paired with startActivityForResult in LocalMediaBridge.")
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (localMedia?.onActivityResult(requestCode, resultCode, data) == true) return
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     override fun onDestroy() {

@@ -32,7 +32,8 @@ import '../../features/settings/presentation/favorites_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/settings/presentation/source_probe_screen.dart';
 import '../../features/settings/presentation/sync_settings_screen.dart';
-import '../../domain/models/models.dart' show CategoryType, Channel;
+import '../../domain/models/models.dart'
+    show AccountType, CategoryType, Channel;
 import 'app_shell.dart';
 
 /// Provider-wrapped so later tasks can add guards that watch app state.
@@ -243,7 +244,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/accounts/add',
         name: 'addAccount',
-        builder: (context, state) => const AddAccountScreen(),
+        // `?kind=server` opens on the media-server form; anything else on the
+        // playlist one. `extra` can carry a playlist already imported (a file
+        // opened in the app from elsewhere).
+        builder: (context, state) => AddAccountScreen(
+          initialType: state.uri.queryParameters['kind'] == 'server'
+              ? AccountType.xtream
+              : AccountType.m3u,
+          initialPlaylist: state.extra is String ? state.extra! as String : null,
+        ),
       ),
       GoRoute(
         path: '/accounts/:id/network',

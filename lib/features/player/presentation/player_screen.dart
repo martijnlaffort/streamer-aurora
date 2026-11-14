@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Directory, Platform;
+import 'dart:io' show Directory, File, Platform;
 
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +19,7 @@ import '../../../core/utils/duration_format.dart';
 import '../../../core/widgets/focus_highlight.dart';
 import '../../../data/cast/cast_service.dart';
 import '../../../data/cast/cast_url.dart';
+import '../../../data/local/local_files_repository.dart';
 import '../../../data/providers.dart';
 import '../../../data/repositories/watch_progress_repository.dart';
 import '../../../data/sync/playback_activity.dart';
@@ -940,6 +941,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       if (match != null) _player.setAudioTrack(match);
     }
 
+    // A subtitle file the viewer attached outranks the language preference:
+    // they picked that exact file for this video.
+    if (_externalSubtitle != null) return;
     final wantSubs = _prefs.preferredSubtitleLang;
     if (wantSubs == Preferences.subsOff) {
       _player.setSubtitleTrack(SubtitleTrack.no());
@@ -1016,6 +1020,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     });
     _upNextTimer?.cancel();
     _liveEpgTimer?.cancel();
+    _externalSubtitle = null;
+    if (isLocalStream(_current.streamRef)) {
+      try {
+        await _openLocal(resumeFrom: resumeFrom);
+      } on Exception catch (e) {
+        _onStreamError('$e');
+      }
+      return;
+    }
     try {
       final account = await ref.read(activeAccountProvider.future);
       // Back-out during any of these awaits disposes the widget (and the
@@ -1112,6 +1125,82 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
       // transient reasons too, and a reconnect in progress should keep trying.
       _onStreamError('$e');
     }
+  }
+
+  /// The subtitle file attached to the current item, if any. Set after open,
+  /// cleared at the start of every open.
+  SubtitleTrack? _externalSubtitle;
+
+  /// Shown, via [_friendlyError], when a remembered file cannot be reached.
+  static const _localFileGone = 'local file unavailable';
+
+  /// Opens a file on this device. No account, no feeds, no hosts: just the
+  /// path the platform resolves from the remembered bookmark or URI.
+  Future<void> _openLocal({int? resumeFrom}) async {
+    _candidates = const [];
+    _autoTracksApplied = false;
+    final file = await ref
+        .read(localFilesRepositoryProvider)
+        .byId(_current.streamRef.streamId);
+    final path = file == null
+        ? null
+        : await ref.read(localMediaPlatformProvider).resolve(file.ref);
+    if (!mounted) return;
+    if (file == null || path == null) {
+      setState(() => _error = _localFileGone);
+      return;
+    }
+    _stats.mark('file');
+    if (resumeFrom == null) {
+      final progress = await _progressRepo.get(_current.contentKey);
+      if (_progressRepo.shouldOfferResume(progress)) {
+        _setResumeTarget(progress!.positionSeconds);
+      }
+    }
+    if (!mounted) return;
+    final platform = _player.platform;
+    if (platform is NativePlayer) {
+      await _useAccurateAudioOutput(platform);
+      try {
+        await platform.setProperty(
+            'audio-delay', _audioDelaySeconds().toStringAsFixed(3));
+      } on Object {
+        // An older libmpv without the property: no compensation, not no
+        // playback.
+      }
+      await _configureCache(platform, live: false);
+    }
+    await _player.open(Media(path));
+    if (!mounted) return;
+    _stats.mark('open');
+    final subtitle = file.subtitlePath;
+    if (subtitle != null && await File(subtitle).exists()) {
+      await _useSubtitleFile(subtitle, file.subtitleName);
+    }
+    _armWatchdog();
+    _scheduleHide();
+  }
+
+  Future<void> _useSubtitleFile(String path, String? name) async {
+    final track = SubtitleTrack.uri(path, title: name ?? 'Subtitles');
+    _externalSubtitle = track;
+    await _player.setSubtitleTrack(track);
+  }
+
+  /// "Load subtitle file…": the document picker, then straight onto the
+  /// video. For a file on this device the choice is remembered, so it loads
+  /// with the video every time after.
+  Future<void> _loadSubtitleFile() async {
+    final pick = await ref.read(localMediaPlatformProvider).pickSubtitle();
+    if (pick == null || !mounted) return;
+    await _useSubtitleFile(pick.path, pick.name);
+    if (isLocalStream(_current.streamRef)) {
+      await ref.read(localFilesRepositoryProvider).setSubtitle(
+          _current.streamRef.streamId,
+          path: pick.path,
+          name: pick.name);
+    }
+    if (mounted) setState(() {});
   }
 
   /// How long a candidate gets to actually start playing before it is written
@@ -2275,6 +2364,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   /// Hand the current stream to a Chromecast (Android) or AirPlay (iPhone).
   Future<void> _startCasting() async {
+    // A path on this device means nothing to a TV, which would have to fetch
+    // the video itself.
+    if (isLocalStream(_current.streamRef)) {
+      _toast('Files on this device can’t be played on a TV yet.');
+      return;
+    }
     final account = await ref.read(activeAccountProvider.future);
     if (!mounted || account == null) return;
 
@@ -2460,6 +2555,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
   Future<void> _selectSubtitleTrack(SubtitleTrack track) async {
     await _player.setSubtitleTrack(track);
+    // Switching away from an attached subtitle file means it is not wanted:
+    // stop loading it with this video.
+    final attached = _externalSubtitle;
+    if (attached != null && track.title != attached.title) {
+      _externalSubtitle = null;
+      if (isLocalStream(_current.streamRef)) {
+        await ref
+            .read(localFilesRepositoryProvider)
+            .setSubtitle(_current.streamRef.streamId);
+      }
+    }
     if (track.id == 'no') {
       await _savePreferences(
           _prefs.copyWith(preferredSubtitleLang: Preferences.subsOff));
@@ -2498,6 +2604,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             subtitleOptions.firstWhere((t) => t.id == id)),
         audioDelayMs: _prefs.audioDelayMs,
         onAudioDelay: _setAudioDelay,
+        // A document picker is a touch screen's tool; a TV has no files to
+        // pick from.
+        onLoadSubtitleFile:
+            !_tv && ref.read(localMediaPlatformProvider).isSupported
+                ? _loadSubtitleFile
+                : null,
       ),
     ).then((_) async {
       _scheduleHide();
@@ -2822,11 +2934,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     final blob = '${_error ?? ''}\n${_diagLog.join('\n')}'.toLowerCase();
     bool has(List<String> needles) => needles.any(blob.contains);
 
+    if (isLocalStream(_current.streamRef)) {
+      if (_error == _localFileGone) {
+        return (
+          title: 'This file is no longer available',
+          hint: 'It may have been moved, renamed or deleted. Open it again '
+              'to keep watching: your place is remembered.',
+        );
+      }
+      return (
+        title: 'Couldn’t play this file',
+        hint: 'It may be damaged, or not finished downloading.',
+      );
+    }
     if (has(['456', 'max connection', 'connection limit'])) {
       return (
-        title: 'The server refused this connection',
-        hint: "This usually means the account's connection limit is already "
-            'in use. Stop the stream on your other devices, then Retry.',
+        title: 'Too many streams at once',
+        hint: 'This server only allows a limited number of simultaneous '
+            'streams. Stop playback on another device and try again.',
       );
     }
     if (has([' 401', ' 403', 'unauthor', 'forbidden', 'denied'])) {

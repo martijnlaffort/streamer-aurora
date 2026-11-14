@@ -53,9 +53,101 @@
 		<string>audio</string>
 	</array>
 
-	<!-- App Transport Security: many media servers (home servers especially)
-	     serve plain HTTP, which iOS blocks by default. Without this the stream
-	     fails silently. Justified to App Review in docs/store-listing.md §4.3. -->
+	<!-- Files on this device. Videos open IN PLACE (no copy of a film the size
+	     of the disk), which is what LSSupportsOpeningDocumentsInPlace allows;
+	     LocalMediaBridge in AppDelegate.swift keeps a bookmark so the file can be
+	     resumed after a restart. "Alternate": we never claim to be the default
+	     app for these types. -->
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Video</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.movie</string>
+				<string>public.mpeg-4</string>
+				<string>com.apple.quicktime-movie</string>
+				<string>com.apple.m4v-video</string>
+				<string>public.avi</string>
+				<string>public.mpeg</string>
+				<string>public.mpeg-2-video</string>
+				<string>public.mpeg-2-transport-stream</string>
+				<string>public.avchd-mpeg-2-transport-stream</string>
+				<string>org.matroska.mkv</string>
+				<string>org.webmproject.webm</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Playlist</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.m3u-playlist</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Containers iOS does not declare itself. Imported, not exported: we do
+	     not own these formats, we only open them. -->
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.matroska.mkv</string>
+			<key>UTTypeDescription</key>
+			<string>Matroska video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mkv</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>video/x-matroska</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.webmproject.webm</string>
+			<key>UTTypeDescription</key>
+			<string>WebM video</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>webm</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>video/webm</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<!-- UIFileSharingEnabled is deliberately NOT set: it would publish the
+	     app's Documents folder in Files and Finder, and that is where drift
+	     keeps the database. -->
+
 	<!-- Export compliance: Dawn Player adds no encryption of its own; it
 	     only uses HTTPS/TLS from the OS. Declaring this here answers the
 	     export-compliance question once, instead of on every upload. -->

@@ -1,0 +1,28 @@
+Dawn Player plays the videos on your iPhone and the streams you already have, and it remembers how you like to watch them.
+
+OPEN YOUR OWN FILES
+Open a video straight from the Files app, from another app's share sheet, or with "Open a video file" inside Dawn Player. Videos opened from Files play where they are: nothing is copied and nothing is uploaded.
+
+PICKS UP WHERE YOU STOPPED
+Stop halfway through a film and it resumes to the second, even after you close the app or restart your phone. Everything you are part-way through, files and streams alike, waits in Continue Watching.
+
+REMEMBERS YOUR LANGUAGE
+Choose an audio language or a subtitle language once, and Dawn Player selects it automatically on every video that has it. Turn subtitles off and they stay off. Load your own .srt or .ass subtitle file for a video and it loads with that video every time you open it.
+
+PLAYS ALMOST ANYTHING
+Built on libmpv, the open-source playback engine behind some of the most capable desktop players. MKV, MP4, MOV, AVI, WebM and MPEG-TS; H.264, HEVC and more; HLS streams with multiple audio tracks and subtitle tracks. If a video's sound runs ahead of the picture, Audio sync fixes it in steps of 10 ms.
+
+YOUR PLAYLISTS AND SERVERS
+Add a playlist link or an .m3u / .m3u8 file, or sign in to a media server you already use. Dawn Player organises it into films and series, with artwork when the playlist provides it, a fast search, and a list of what you have saved for later.
+
+MADE FOR WATCHING
+Full-screen playback with gestures: double-tap to skip, swipe to seek, and swipe for brightness and volume. Audio can keep playing in the background. Send what you are watching to an Apple TV or another AirPlay device.
+
+PRIVATE BY DESIGN
+No account. No sign-up. No analytics, no advertising, no tracking. Your history, resume points and settings stay on your device, unless you choose to sync them through a server of your own.
+
+INCLUDES NO CONTENT
+Dawn Player is a media player. It does not include, sell or provide any videos, channels, playlists or subscriptions, and it does not help you find any. It plays only files on your device and sources you add yourself. Only add sources you have the right to access.
+
+Terms: https://dawnplayer.com/terms.html
+Privacy: https://dawnplayer.com/privacy.html

@@ -1,0 +1,1 @@
+video player,mkv,mp4,subtitles,audio track,files,home media,hls,playlist,resume,hevc,offline

@@ -28,6 +28,13 @@ stores, and renaming it would churn the Cast provider class path for nothing.
 
 ## 2. The reviewer demo problem, and its solution
 
+> **Apple, from 1.0.1 on:** App Store Connect rejected 1.0.0 under 4.3(a). The App Store demo is now
+> a login-free playlist, `demo/demo.m3u` (served at `https://dawnplayer.com/demo/demo.m3u`), listing
+> only Big Buck Bunny, Sintel and Apple's HLS sample, all hosted on dawnplayer.com. The mock panel
+> below (with its third-party broadcaster streams) is no longer given to Apple. The current App Store
+> description, keywords, promotional text, review notes and reply live in `store/apple/`; they
+> supersede §4.1 and §4.3 for iOS.
+
 Both stores require working credentials for anything behind a login. For a player of user-supplied
 media that is a trap: handing a reviewer a real subscription puts copyrighted third-party channels in front of
 App Review, which is precisely what triggers **guideline 5.2.3** (proof of rights to content).
@@ -243,6 +250,8 @@ exercises the TV shell on a handheld emulator without downloading a TV system im
 
 ### 4.1 Listing
 
+> Superseded for iOS by `store/apple/` (description, keywords, promotional text). Kept for history.
+
 **App name** (30 max):
 
 ```
@@ -287,7 +296,10 @@ set in `ios/Runner/Info.plist`, so uploads no longer stop to ask.
 Select **Data Not Collected**. This mirrors `NSPrivacyCollectedDataTypes` being an empty array in
 `ios/Runner/PrivacyInfo.xcprivacy`, and both must stay in agreement.
 
-### 4.3 App Review notes — paste verbatim
+### 4.3 App Review notes
+
+> Superseded: paste `store/apple/review_notes.txt` instead. The text below describes the 1.0.0
+> submission (login demo, NSAllowsArbitraryLoads) and is kept for history only.
 
 This is the single most important field on the submission. It pre-empts 5.2.3 instead of waiting to
 be accused, and it explains the ATS exception before a reviewer finds it and assumes the worst.

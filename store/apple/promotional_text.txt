@@ -1,0 +1,1 @@
+Open a video from Files and Dawn Player resumes it to the second, picks your audio and subtitle language for you, and plays MKV, HEVC and HLS with ease.

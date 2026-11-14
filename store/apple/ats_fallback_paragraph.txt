@@ -1,0 +1,5 @@
+Use this paragraph in review_notes.txt (in place of the APP TRANSPORT SECURITY section) ONLY if on-device testing shows that the narrowed ATS setting breaks playback and NSAllowsArbitraryLoads has to be restored.
+
+APP TRANSPORT SECURITY
+
+Info.plist sets NSAllowsArbitraryLoads. Dawn Player plays media from addresses the user types in, and many media servers, home servers on a local network in particular, serve over plain HTTP. We tested the narrower NSAllowsLocalNetworking and NSAllowsArbitraryLoadsForMedia keys, but [describe what failed, e.g. "AirPlay of an http:// stream on a public host failed"], so without the broader exception these sources cannot play. We do not control any of these hosts, so a domain allowlist is not possible. The app uses HTTPS whenever the user's source offers it, and no data of ours travels over these connections.

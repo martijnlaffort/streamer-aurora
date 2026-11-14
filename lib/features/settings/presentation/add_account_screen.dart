@@ -428,8 +428,11 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
         style: TextStyle(color: AppColors.textSecondary),
       ),
       const SizedBox(height: 16),
+      // A kind the source turned out not to have is left out rather than
+      // listed as "0 found": a playlist of films has no live streams, and
+      // saying so reads as something missing.
       for (final p in _progress)
-        ListTile(
+        if (!(p.status == _KindStatus.done && p.count == 0)) ListTile(
           contentPadding: EdgeInsets.zero,
           leading: switch (p.status) {
             _KindStatus.pending => Icon(Icons.circle_outlined,

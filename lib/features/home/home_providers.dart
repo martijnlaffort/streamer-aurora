@@ -21,6 +21,7 @@ class ContinueEntry {
     this.subtitle,
     this.imageUrl,
     this.localFile,
+    this.available = true,
   });
 
   final WatchProgress progress;
@@ -36,6 +37,11 @@ class ContinueEntry {
 
   /// Set when this is a file on this device rather than a catalogue title.
   final LocalFile? localFile;
+
+  /// False for a file that can no longer be opened from here: one another app
+  /// shared for a single session, or one that was moved or deleted. Its card
+  /// says to open it again rather than failing when tapped.
+  final bool available;
 
   /// Everything needed to start playing without a detour via the detail page.
   /// Tapping this row should resume — two extra taps to get back into
@@ -66,21 +72,27 @@ class HomeData {
   final bool hasSource;
 }
 
+/// What a file that can no longer be opened from Continue Watching says.
+const kOpenFileAgain = 'Open the file again to continue';
+
 /// Part-watched files on this device, as Continue Watching cards.
 Future<List<ContinueEntry>> _localContinueEntries(Ref ref) async {
   final files = await ref.watch(localFilesProvider.future);
   final progressRepo = ref.watch(watchProgressRepositoryProvider);
+  final platform = ref.watch(localMediaPlatformProvider);
   final entries = <ContinueEntry>[];
   for (final file in files) {
     final p = await progressRepo.get(file.contentKey);
     if (p == null || p.completed || p.positionSeconds <= 0) continue;
+    final available = await platform.isAvailable(file.ref);
     entries.add(ContinueEntry(
       progress: p,
       title: file.title,
-      subtitle: 'On this device',
+      subtitle: available ? 'On this device' : kOpenFileAgain,
       route: null,
       streamRef: file.streamRef,
       localFile: file,
+      available: available,
     ));
   }
   return entries;

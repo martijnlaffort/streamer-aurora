@@ -82,9 +82,19 @@ abstract class LocalMediaPlatform {
   /// the app's own storage (the playlist is re-read on every refresh).
   Future<LocalMediaPick?> pickPlaylist();
 
-  /// Turns a stored [LocalMediaPick.ref] back into a playable path or URI, or
-  /// null when the file is gone or access was revoked.
+  /// Turns a stored [LocalMediaPick.ref] back into something to hand the
+  /// player right now, or null when the file is gone or access was revoked.
+  ///
+  /// iOS: a path, after a coordinated read, which makes iCloud Drive or a
+  /// network share in Files download the file first (this can take a while).
+  /// Android: an `fdclose://` URL for a freshly opened descriptor, which mpv
+  /// closes when it is done — so call this once per playback, not to check.
   Future<String?> resolve(String ref);
+
+  /// Whether [ref] can still be played, without opening or downloading it.
+  /// False for a file shared with the app for one session only, once that
+  /// session is over.
+  Future<bool> isAvailable(String ref);
 
   /// Files opened in Dawn Player from outside, including the one that
   /// launched it.
@@ -128,6 +138,17 @@ class MethodChannelLocalMedia implements LocalMediaPlatform {
     } on PlatformException catch (e) {
       debugPrint('[dawn] could not reopen a local file: ${e.code}');
       return null;
+    }
+  }
+
+  @override
+  Future<bool> isAvailable(String ref) async {
+    if (!isSupported) return false;
+    try {
+      return await _methods.invokeMethod<bool>('isAvailable', {'ref': ref}) ??
+          false;
+    } on PlatformException {
+      return false;
     }
   }
 

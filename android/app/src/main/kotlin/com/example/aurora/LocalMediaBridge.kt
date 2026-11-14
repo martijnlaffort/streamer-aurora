@@ -18,10 +18,12 @@ import java.util.UUID
  * a share sheet or "Open with"). The iOS side is LocalMediaBridge in
  * AppDelegate.swift; both speak the same payloads.
  *
- * Videos are played where they are, through their `content://` URI — never
- * copied, since a film can be gigabytes. The read permission is persisted
- * (Storage Access Framework), so the same URI still opens after a restart and
- * resume works. Subtitles and playlists are small and are copied into the
+ * Videos are played where they are, through a descriptor opened from their
+ * `content://` URI (see [resolve]) — never copied, since a film can be
+ * gigabytes. Files picked inside the app come from ACTION_OPEN_DOCUMENT, whose
+ * read permission is persisted, so they still open after a restart and resume
+ * works. A file another app shared for one session only cannot be reopened
+ * later; [isAvailable] lets Continue Watching say so instead of failing. Subtitles and playlists are small and are copied into the
  * app's own storage instead.
  */
 class LocalMediaBridge(private val activity: Activity, messenger: BinaryMessenger) {
@@ -38,6 +40,7 @@ class LocalMediaBridge(private val activity: Activity, messenger: BinaryMessenge
             when (call.method) {
                 "pick" -> pick(call.argument<String>("kind") ?: "video", result)
                 "resolve" -> result.success(resolve(call.argument<String>("ref") ?: ""))
+                "isAvailable" -> result.success(isAvailable(call.argument<String>("ref") ?: ""))
                 else -> result.notImplemented()
             }
         }
@@ -185,16 +188,39 @@ class LocalMediaBridge(private val activity: Activity, messenger: BinaryMessenge
         }
     }
 
-    /** A stored ref back to something playable, or null when it is gone. */
+    /**
+     * A stored ref back to something playable, or null when it is gone.
+     *
+     * A `content://` file is opened here and handed to mpv as `fdclose://<fd>`:
+     * mpv reads the descriptor and closes it when playback ends. That works
+     * whether or not the bundled FFmpeg was built with Android content-URI
+     * support. Called once per open, right before playback, so every
+     * descriptor handed out is consumed.
+     */
     private fun resolve(ref: String): String? {
         if (ref.startsWith("path:")) {
             val path = ref.removePrefix("path:")
             return if (File(path).canRead()) path else null
         }
         return try {
-            activity.contentResolver.openFileDescriptor(Uri.parse(ref), "r")?.use { ref }
+            val descriptor = activity.contentResolver.openFileDescriptor(Uri.parse(ref), "r")
+                ?: return null
+            "fdclose://${descriptor.detachFd()}"
         } catch (e: Exception) {
             null
+        }
+    }
+
+    /**
+     * Whether a stored ref can still be opened. False for a file shared with
+     * this app for one session only, once that session is over.
+     */
+    private fun isAvailable(ref: String): Boolean {
+        if (ref.startsWith("path:")) return File(ref.removePrefix("path:")).canRead()
+        return try {
+            activity.contentResolver.openFileDescriptor(Uri.parse(ref), "r")?.use { true } ?: false
+        } catch (e: Exception) {
+            false
         }
     }
 

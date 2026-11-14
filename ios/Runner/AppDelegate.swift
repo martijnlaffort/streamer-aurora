@@ -686,7 +686,9 @@ final class LocalMediaBridge: NSObject, UIDocumentPickerDelegate, FlutterSceneLi
       case "pick":
         self.presentPicker(kind: args["kind"] as? String ?? "video", result: result)
       case "resolve":
-        result(self.resolve(args["ref"] as? String ?? ""))
+        self.resolve(args["ref"] as? String ?? "", result: result)
+      case "isAvailable":
+        result(self.isAvailable(args["ref"] as? String ?? ""))
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -865,11 +867,11 @@ final class LocalMediaBridge: NSObject, UIDocumentPickerDelegate, FlutterSceneLi
     ]
   }
 
-  /// A stored ref back to a readable path, or nil when the file is gone.
-  private func resolve(_ ref: String) -> String? {
+  /// The file a stored ref points at, with access started. Nil when the
+  /// bookmark no longer resolves (the file was deleted, or its provider gone).
+  private func url(for ref: String) -> URL? {
     if ref.hasPrefix("path:") {
-      let path = String(ref.dropFirst("path:".count))
-      return FileManager.default.isReadableFile(atPath: path) ? path : nil
+      return URL(fileURLWithPath: String(ref.dropFirst("path:".count)))
     }
     guard let data = Data(base64Encoded: ref) else { return nil }
     var stale = false
@@ -878,7 +880,48 @@ final class LocalMediaBridge: NSObject, UIDocumentPickerDelegate, FlutterSceneLi
         resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &stale)
     else { return nil }
     startAccessing(url)
-    return FileManager.default.isReadableFile(atPath: url.path) ? url.path : nil
+    return url
+  }
+
+  private static func isUbiquitous(_ url: URL) -> Bool {
+    (try? url.resourceValues(forKeys: [.isUbiquitousItemKey]))?.isUbiquitousItem == true
+  }
+
+  /// Whether a stored ref can still be played, without waiting for anything.
+  /// A file in iCloud Drive that is not downloaded yet counts: it can be.
+  private func isAvailable(_ ref: String) -> Bool {
+    guard let url = url(for: ref) else { return false }
+    return FileManager.default.fileExists(atPath: url.path) || Self.isUbiquitous(url)
+  }
+
+  /// A stored ref back to a readable path, or nil when the file is gone.
+  ///
+  /// The read is coordinated, which is what makes a file provider (iCloud
+  /// Drive, an SMB share in Files) download the file first if it is not on
+  /// the device yet; read uncoordinated, the player would just see a missing
+  /// file. That can take a while, so it runs off the main thread.
+  private func resolve(_ ref: String, result: @escaping FlutterResult) {
+    guard let url = url(for: ref) else {
+      result(nil)
+      return
+    }
+    DispatchQueue.global(qos: .userInitiated).async {
+      let path = Self.coordinatedReadablePath(url)
+      DispatchQueue.main.async { result(path) }
+    }
+  }
+
+  private static func coordinatedReadablePath(_ url: URL) -> String? {
+    let fm = FileManager.default
+    if isUbiquitous(url) { try? fm.startDownloadingUbiquitousItem(at: url) }
+    var coordinationError: NSError?
+    var readable: String?
+    NSFileCoordinator(filePresenter: nil).coordinate(
+      readingItemAt: url, options: [], error: &coordinationError
+    ) { coordinated in
+      if fm.isReadableFile(atPath: coordinated.path) { readable = coordinated.path }
+    }
+    return readable
   }
 }
 

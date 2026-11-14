@@ -366,6 +366,14 @@ class _ContinueCardState extends ConsumerState<_ContinueCard> {
   Future<void> _resume(BuildContext context, WidgetRef ref) async {
     final file = entry.localFile;
     if (file != null) {
+      if (!entry.available) {
+        // Opening it from Files or the share sheet again restores access,
+        // and the resume point is still here when it is.
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text(kOpenFileAgain)));
+        return;
+      }
       await playLocalFile(context, ref, file);
       return;
     }

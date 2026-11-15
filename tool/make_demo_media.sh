@@ -11,7 +11,9 @@
 #   tool/make_demo_media.sh <big_buck_bunny video> <sintel video> <subtitle dir> [out dir]
 #
 #   <subtitle dir> holds Sintel's subtitle files named sintel_<code>.srt, e.g.
-#   sintel_en.srt, sintel_fr.srt, sintel_de.srt (UTF-8). They are published
+#   sintel_fr.srt, sintel_nl.srt, sintel_jp.srt, as published at
+#   https://download.blender.org/durian/subs/ (there is no English file; the
+#   film is in English). They are published
 #   with the film by the Blender Foundation under the same CC BY licence.
 #   [out dir] defaults to build/demo. Upload its contents to
 #   https://dawnplayer.com/demo/ as they are.
@@ -21,7 +23,7 @@
 set -euo pipefail
 
 if [ $# -lt 3 ]; then
-  sed -n '2,20p' "$0"
+  sed -n '2,22p' "$0"
   exit 1
 fi
 
@@ -37,7 +39,7 @@ echo "==> Big Buck Bunny -> HLS"
 # Keyframes forced every 6 s so every segment starts on one and both
 # renditions cut at the same points (clean switching between them).
 ffmpeg -hide_banner -loglevel warning -stats -y -i "$BBB" \
-  -filter_complex "[0:v]fps=24,split=2[a][b];[a]scale=-2:720[v720];[b]scale=-2:360[v360]" \
+  -filter_complex "[0:v]split=2[a][b];[a]scale=-2:720[v720];[b]scale=-2:360[v360]" \
   -map "[v720]" -map "[v360]" -map 0:a:0 -map 0:a:0 \
   -c:v libx264 -preset slow -profile:v main -pix_fmt yuv420p \
   -force_key_frames "expr:gte(t,n_forced*6)" \
@@ -53,14 +55,18 @@ ffmpeg -hide_banner -loglevel warning -stats -y -i "$BBB" \
 echo "==> Sintel -> MKV with subtitle tracks"
 # ISO 639-2 codes, which is what Matroska stores and mpv reports, plus each
 # language's own name as the track title (what the subtitle menu shows).
+# The codes are the ones Blender's subs folder actually uses, several of which
+# are not ISO codes (jp, gr, cz, swe). An unknown code is skipped, not guessed.
 lang3() {
   case "$1" in
-    en) echo "eng English" ;;     fr) echo "fre Français" ;;
-    de) echo "ger Deutsch" ;;     es) echo "spa Español" ;;
-    it) echo "ita Italiano" ;;    nl) echo "dut Nederlands" ;;
-    pt) echo "por Português" ;;   pl) echo "pol Polski" ;;
-    ru) echo "rus Русский" ;;
-    *) echo "und $1" ;;
+    fr) echo "fre Français" ;;     nl) echo "dut Nederlands" ;;
+    pl) echo "pol Polski" ;;       ru) echo "rus Русский" ;;
+    jp) echo "jpn 日本語" ;;        gr) echo "gre Ελληνικά" ;;
+    cz) echo "cze Čeština" ;;      swe) echo "swe Svenska" ;;
+    da) echo "dan Dansk" ;;        hu) echo "hun Magyar" ;;
+    tr) echo "tur Türkçe" ;;       ko) echo "kor 한국어" ;;
+    ro) echo "rum Română" ;;       sk) echo "slo Slovenčina" ;;
+    *) return 1 ;;
   esac
 }
 
@@ -72,8 +78,23 @@ shopt -s nullglob
 for srt in "$SUBS"/sintel_*.srt; do
   code="$(basename "$srt" .srt)"
   code="${code#sintel_}"
-  read -r iso title <<<"$(lang3 "$code")"
-  inputs+=(-sub_charenc UTF-8 -i "$srt")
+  if ! pair="$(lang3 "$code")"; then
+    echo "    skipping $srt: no mapping for '$code'"
+    continue
+  fi
+  read -r iso title <<<"$pair"
+  # Files from 2011 are not all UTF-8. Pass ffmpeg the real encoding when
+  # `file` can name it; skip one it cannot, rather than burn in mojibake.
+  charset="$(file -b --mime-encoding "$srt" 2>/dev/null || echo unknown)"
+  case "$charset" in
+    utf-8 | us-ascii) charset=UTF-8 ;;
+    iso-8859-* | windows-*) ;;
+    *)
+      echo "    skipping $srt: unrecognised encoding '$charset'"
+      continue
+      ;;
+  esac
+  inputs+=(-sub_charenc "$charset" -i "$srt")
   maps+=(-map "$((n + 1)):0")
   meta+=(-metadata:s:s:$n "language=$iso" -metadata:s:s:$n "title=$title")
   n=$((n + 1))

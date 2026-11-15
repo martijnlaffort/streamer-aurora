@@ -128,6 +128,7 @@ ffmpeg -hide_banner -loglevel warning -stats -y -i "$SINTEL" "${inputs[@]}" \
   -c:v libx264 -preset slow -pix_fmt yuv420p -vf scale=-2:480 \
   -crf 24 -maxrate 600k -bufsize 1200k \
   -c:a aac -b:a 96k -ac 2 -metadata:s:a:0 language=eng \
+  -metadata:s:a:0 title=English \
   -c:s srt "${meta[@]}" \
   -disposition:s 0 \
   "$OUT/sintel.mkv"

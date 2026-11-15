@@ -21,3 +21,26 @@ jobs:
 
       # Global rule: the analyzer stays clean after every task.
       - run: flutter analyze --fatal-infos
+
+  # Compiles the Android side (Kotlin bridges, manifest) on every push, so a
+  # break there shows up here rather than at the next Play release. Debug
+  # only: no signing, no upload.
+  android-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.8'
+          cache: true
+
+      - run: flutter pub get
+
+      - run: flutter build apk --debug

@@ -109,7 +109,9 @@ for srt in "$SUBS"/sintel_*.srt; do
       continue
       ;;
   esac
-  inputs+=(-sub_charenc "$charset" -i "$srt")
+  # -f srt: sintel_fr.srt opens with a blank line and then a BOM, which
+  # defeats ffmpeg's format probe ("Invalid data found").
+  inputs+=(-f srt -sub_charenc "$charset" -i "$srt")
   maps+=(-map "$((n + 1)):0")
   meta+=(-metadata:s:s:$n "language=$iso" -metadata:s:s:$n "title=$title")
   n=$((n + 1))

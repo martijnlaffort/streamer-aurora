@@ -138,10 +138,9 @@ class LocalFile {
 /// progress table as everything else, under [LocalFile.contentKey].
 class LocalFilesRepository {
   LocalFilesRepository({
-    required Future<Directory> Function() directory,
+    required this._directory,
     DateTime Function()? clock,
-  })  : _directory = directory,
-        _clock = clock ?? (() => DateTime.now().toUtc());
+  }) : _clock = clock ?? (() => DateTime.now().toUtc());
 
   final Future<Directory> Function() _directory;
   final DateTime Function() _clock;
@@ -215,18 +214,16 @@ class LocalFilesRepository {
   /// Remembers [path] as [id]'s subtitle file, so it loads with the video
   /// every time. Null clears it.
   Future<void> setSubtitle(String id, {String? path, String? name}) =>
-      _mutate((entries) {
+      _mutate<void>((entries) {
         final at = entries.indexWhere((f) => f.id == id);
-        if (at == -1) return null;
+        if (at == -1) return;
         entries[at] = path == null
             ? entries[at].copyWith(clearSubtitle: true)
             : entries[at].copyWith(subtitlePath: path, subtitleName: name);
-        return null;
       });
 
-  Future<void> remove(String id) => _mutate((entries) {
+  Future<void> remove(String id) => _mutate<void>((entries) {
         entries.removeWhere((f) => f.id == id);
-        return null;
       });
 
   Future<T> _mutate<T>(T Function(List<LocalFile> entries) change) {

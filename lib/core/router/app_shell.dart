@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/providers.dart'
-    show activeAccountProvider, activeHasLiveProvider;
+    show activeAccountProvider, activeHasLiveProvider, activeHasSeriesProvider;
 import '../../features/player/presentation/cast_controls.dart';
 import '../platform/television.dart';
 import '../theme/app_colors.dart';
@@ -294,10 +294,11 @@ class _AppShellState extends ConsumerState<AppShell> {
   ///
   /// The television keeps all seven. A vertical rail has the room, and a
   /// top-right icon is a long walk with a D-pad.
-  List<int> _phoneBarBranches({required bool live}) => [
+  List<int> _phoneBarBranches({required bool live, required bool series}) => [
         0,
         if (live) _liveBranch,
-        2, 3,
+        2,
+        if (series) _seriesBranch,
         if (_showServices) _servicesBranch,
       ];
 
@@ -305,6 +306,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// streams (see [activeHasLiveProvider]). A library of films and files has
   /// nothing to put there.
   static const _liveBranch = 1;
+
+  /// The Series tab, likewise only while the active source has series (see
+  /// [activeHasSeriesProvider]).
+  static const _seriesBranch = 3;
 
   /// The Services tab: shelves named after Netflix, Disney+ and the rest,
   /// built from playlist group names. Store review reads other companies'
@@ -317,12 +322,13 @@ class _AppShellState extends ConsumerState<AppShell> {
   static const _sideload = bool.fromEnvironment('DAWN_SIDELOAD');
   static bool get _showServices => _sideload && !Platform.isIOS;
 
-  /// Which branches the TV rail carries: all of them, Live and Services
-  /// permitting.
-  List<int> _railBranches({required bool live}) => [
+  /// Which branches the TV rail carries: all of them, Live, Series and
+  /// Services permitting.
+  List<int> _railBranches({required bool live, required bool series}) => [
         0,
         if (live) _liveBranch,
-        2, 3,
+        2,
+        if (series) _seriesBranch,
         if (_showServices) _servicesBranch,
         5, 6,
       ];
@@ -331,12 +337,17 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// the bar does not flicker on every account refresh.
   bool _hasLive() => ref.watch(activeHasLiveProvider).value ?? false;
 
-  /// Leaves a tab that has just disappeared (Live, after switching to a source
-  /// without live streams) rather than stranding the viewer on it.
-  void _leaveHiddenTab(bool live) {
-    if (live || shell.currentIndex != _liveBranch) return;
+  /// Whether the Series tab is shown, on the same terms as [_hasLive].
+  bool _hasSeries() => ref.watch(activeHasSeriesProvider).value ?? false;
+
+  /// Leaves a tab that has just disappeared (Live or Series, after switching
+  /// to a source without them) rather than stranding the viewer on it.
+  void _leaveHiddenTab({required bool live, required bool series}) {
+    bool hidden(int index) =>
+        (index == _liveBranch && !live) || (index == _seriesBranch && !series);
+    if (!hidden(shell.currentIndex)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && shell.currentIndex == _liveBranch) _go(0);
+      if (mounted && hidden(shell.currentIndex)) _go(0);
     });
   }
 
@@ -418,9 +429,10 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     final live = _hasLive();
-    _leaveHiddenTab(live);
-    if (isTelevisionOf(ref)) return _tvShell(live: live);
-    final phoneBarBranches = _phoneBarBranches(live: live);
+    final series = _hasSeries();
+    _leaveHiddenTab(live: live, series: series);
+    if (isTelevisionOf(ref)) return _tvShell(live: live, series: series);
+    final phoneBarBranches = _phoneBarBranches(live: live, series: series);
     return Scaffold(
       body: _content(),
       // The cast mini bar rides directly above the navigation while something is
@@ -456,7 +468,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  Widget _tvShell({required bool live}) {
+  Widget _tvShell({required bool live, required bool series}) {
     // Only consulted when no page inside can pop: a pushed detail screen
     // still closes with BACK as before.
     return PopScope(
@@ -464,11 +476,11 @@ class _AppShellState extends ConsumerState<AppShell> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _onTvBack();
       },
-      child: _tvShellBody(live: live),
+      child: _tvShellBody(live: live, series: series),
     );
   }
 
-  Widget _tvShellBody({required bool live}) {
+  Widget _tvShellBody({required bool live, required bool series}) {
     return Scaffold(
       body: Focus(
         focusNode: _shellFocus,
@@ -511,7 +523,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 bottom: 0,
                 child: _TvRail(
                   destinations: _destinations,
-                  branches: _railBranches(live: live),
+                  branches: _railBranches(live: live, series: series),
                   selectedIndex: shell.currentIndex,
                   onSelected: _go,
                   itemFocus: _railItemFocus,

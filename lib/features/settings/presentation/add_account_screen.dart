@@ -225,8 +225,10 @@ class _AddAccountScreenState extends ConsumerState<AddAccountScreen> {
       }
     }
     if (!mounted) return;
-    // The Live tab exists only for a source with live streams; now we know.
+    // The Live and Series tabs exist only for a source that has them; now we
+    // know.
     ref.invalidate(activeHasLiveProvider);
+    ref.invalidate(activeHasSeriesProvider);
     setState(() => _flow = _Flow.done);
   }
 

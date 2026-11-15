@@ -136,6 +136,7 @@ Future<Account> _seed(ProviderContainer container) async {
     }
   }
   container.invalidate(activeHasLiveProvider);
+  container.invalidate(activeHasSeriesProvider);
 
   final progress = container.read(watchProgressRepositoryProvider);
   final films = await catalog.movies(account, limit: 10);
@@ -154,6 +155,13 @@ Future<Account> _seed(ProviderContainer container) async {
   }
   container.invalidate(homeDataProvider);
   _log('${films.length} films left part-watched');
+
+  // A viewer who once picked French subtitles: Sintel then opens with them
+  // on, which is the language memory the languages shot is there to show.
+  final preferences = container.read(preferencesRepositoryProvider);
+  await preferences.save(
+      (await preferences.get()).copyWith(preferredSubtitleLang: 'fre'));
+  container.invalidate(preferencesProvider);
 
   return account;
 }

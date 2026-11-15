@@ -201,6 +201,21 @@ final activeHasLiveProvider = FutureProvider<bool>((ref) async {
   }
 });
 
+/// Whether the active source carries series at all — the Series tab's
+/// counterpart to [activeHasLiveProvider]. A playlist of films has no
+/// episodes, and a Series tab that is always empty is a dead end.
+final activeHasSeriesProvider = FutureProvider<bool>((ref) async {
+  final account = await ref.watch(activeAccountProvider.future);
+  if (account == null) return false;
+  final catalog = ref.watch(catalogRepositoryProvider);
+  try {
+    if ((await catalog.cacheStats(account)).series > 0) return true;
+    return (await catalog.categories(account, CategoryType.series)).isNotEmpty;
+  } on Object {
+    return false;
+  }
+});
+
 final preferencesRepositoryProvider = Provider<PreferencesRepository>(
     (ref) => PreferencesRepository(db: ref.watch(appDatabaseProvider)));
 

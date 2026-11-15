@@ -4,3 +4,6 @@
 *.yml  text eol=lf
 *.yaml text eol=lf
 Podfile text eol=lf
+
+# Demo media: byte-exact, never line-ending converted.
+site/demo/** -text

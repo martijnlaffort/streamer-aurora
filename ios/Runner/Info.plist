@@ -45,6 +45,31 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- UIScene lifecycle (Flutter's UISceneDelegate migration). Without this
+	     manifest iOS keeps the old app lifecycle, SceneDelegate is never used and
+	     files opened via "Open in" / Share never reach LocalMediaBridge, which
+	     listens for scene events. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneConfigurationName</key>
+					<string>flutter</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 
 	<!-- Allow audio to keep playing when the app is backgrounded, gated by
 	     the in-app "Continue audio in background" setting (Task 2.3). -->

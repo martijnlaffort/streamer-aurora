@@ -326,6 +326,16 @@ class _AudioSubtitlePanelState extends State<AudioSubtitlePanel> {
             canRequestFocus: false,
             skipTraversal: true,
             onKeyEvent: (_, event) => _stepInColumn(nodes, event),
+            // Fades the list out at its foot, so a row that runs under the
+            // edge reads as "more below" rather than as a layout cut in half.
+            child: ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (bounds) => const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.white, Colors.white, Colors.transparent],
+              stops: [0, 0.8, 1],
+            ).createShader(bounds),
             child: ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
@@ -362,6 +372,7 @@ class _AudioSubtitlePanelState extends State<AudioSubtitlePanel> {
                 ),
               ?footer,
             ],
+          ),
           ),
           ),
         ),

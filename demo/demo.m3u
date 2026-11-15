@@ -6,7 +6,7 @@
 #
 # The #EXTINF length (seconds) is what makes Dawn Player treat the HLS entry as
 # a film rather than a live stream: .m3u8 alone does not say which it is.
-#EXTINF:596 tvg-logo="https://dawnplayer.com/demo/big_buck_bunny.jpg" group-title="Open movies",Big Buck Bunny (2008)
+#EXTINF:634 tvg-logo="https://dawnplayer.com/demo/big_buck_bunny.jpg" group-title="Open movies",Big Buck Bunny (2008)
 https://dawnplayer.com/demo/big_buck_bunny/master.m3u8
 #EXTINF:888 tvg-logo="https://dawnplayer.com/demo/sintel.jpg" group-title="Open movies",Sintel (2010)
 https://dawnplayer.com/demo/sintel.mkv

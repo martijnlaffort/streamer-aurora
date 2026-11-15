@@ -27,20 +27,37 @@ flutter_secure_storage only; repositories are local-first with a sync seam (PRD 
 
 ## Development (Windows)
 
-Toolchain lives on D:. Flutter is pinned to **3.44.8** (match CI when bumping):
+Flutter is pinned to **3.44.8**; CI uses the same version, so bump both together.
 
-- Flutter SDK: `D:\dev\flutter` (`PUB_CACHE=D:\dev\pub-cache`)
-- VS 2022 Build Tools (C++ workload, incl. ATL): `D:\dev\VS\BuildTools`
-- JDK: Temurin 17, `D:\dev\jdk\temurin-17` (`JAVA_HOME`)
-- Android SDK: `D:\Android\sdk` (`ANDROID_HOME`), AVDs in `D:\Android\avd`
+- Flutter SDK: `C:\src\flutter`, cloned at tag `3.44.8`, with `C:\src\flutter\bin` on `PATH`.
+- Android Studio: provides the Android SDK (`%LOCALAPPDATA%\Android\Sdk`), the emulator and the
+  JDK that Gradle uses (bundled, no separate install).
+- Optional, only for `flutter run -d windows`: Visual Studio 2022 Build Tools with the
+  "Desktop development with C++" workload.
+
+First-time setup:
+
+```powershell
+git clone -b 3.44.8 https://github.com/flutter/flutter.git C:\src\flutter
+# Add C:\src\flutter\bin to the user PATH, then open a new terminal.
+flutter --version                  # must say 3.44.8
+flutter config --android-sdk "$env:LOCALAPPDATA\Android\Sdk"   # after Android Studio's setup wizard
+flutter doctor --android-licenses
+flutter doctor
+```
+
+Daily use:
 
 ```sh
 flutter pub get
-flutter run -d windows            # fast dev loop
-flutter emulators --launch aurora_api36   # AVD name predates the rename
-flutter run -d emulator-5554      # Android
-flutter analyze                   # must stay clean (global rule)
+flutter analyze --fatal-infos     # must stay clean (CI runs exactly this)
+flutter test
+flutter build apk --debug
+flutter run -d emulator-5554      # Android emulator, or a phone with USB debugging
 ```
+
+iOS builds need macOS. Without a Mac, `ios-unsigned.yml` (Actions → iOS Unsigned Build → Run
+workflow) builds the app on a GitHub macOS runner.
 
 ## iOS
 

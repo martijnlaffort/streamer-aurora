@@ -84,11 +84,26 @@ for srt in "$SUBS"/sintel_*.srt; do
   fi
   read -r iso title <<<"$pair"
   # Files from 2011 are not all UTF-8. Pass ffmpeg the real encoding when
-  # `file` can name it; skip one it cannot, rather than burn in mojibake.
+  # `file` can name it. A bare 8-bit file `file` cannot name (sintel_pl.srt
+  # is one) is taken to be its language's Windows code page, which is what
+  # these were written in; anything else is skipped rather than turned into
+  # mojibake.
   charset="$(file -b --mime-encoding "$srt" 2>/dev/null || echo unknown)"
   case "$charset" in
     utf-8 | us-ascii) charset=UTF-8 ;;
     iso-8859-* | windows-*) ;;
+    unknown-8bit)
+      case "$code" in
+        pl | cz | sk | hu | ro) charset=windows-1250 ;;
+        ru) charset=windows-1251 ;;
+        gr) charset=windows-1253 ;;
+        tr) charset=windows-1254 ;;
+        *)
+          echo "    skipping $srt: 8-bit file with no known code page for '$code'"
+          continue
+          ;;
+      esac
+      ;;
     *)
       echo "    skipping $srt: unrecognised encoding '$charset'"
       continue

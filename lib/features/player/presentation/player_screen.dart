@@ -32,7 +32,8 @@ import '../../../domain/models/models.dart'
         StreamType,
         WatchProgress,
         contentKeyFor;
-import '../../../tour/screenshot_tour.dart' show screenshotTourEnabled;
+import '../../../tour/screenshot_tour.dart'
+    show screenshotTourEnabled, tourOpenLanguages;
 import '../player_request.dart';
 import 'cast_controls.dart';
 import 'cast_picker.dart';
@@ -431,6 +432,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Nothing taps the screenshot simulator, so the tour opens this panel
+    // itself. Compiled out of every other build.
+    if (screenshotTourEnabled) tourOpenLanguages = _showLanguages;
     // Keep background catalogue catch-up off the connection while we stream —
     // it is a big enough fetch to show up as buffering.
     _playbackActivity.enter();
@@ -636,6 +640,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
     // First, so nothing that throws below can leave the app stuck sideways.
     // Usually a no-op: the pop already released it.
     _landscape?.release();
+    if (screenshotTourEnabled && tourOpenLanguages == _showLanguages) {
+      tourOpenLanguages = null;
+    }
     _castSub?.cancel();
     _playbackActivity.leave();
     WidgetsBinding.instance.removeObserver(this);

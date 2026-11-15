@@ -422,7 +422,7 @@ async function push() {
 
 // The order they appear in on the product page. Anything else in the directory
 // follows, alphabetically.
-const SHOT_ORDER = ['home', 'live', 'guide', 'movies', 'series', 'player'];
+const SHOT_ORDER = ['welcome', 'continue', 'languages', 'movies'];
 
 async function shots(dir) {
   if (!dir) die('Usage: node tool/asc.mjs shots <directory of 1320x2868 pngs>');

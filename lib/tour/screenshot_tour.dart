@@ -4,8 +4,8 @@
 /// an iPhone Pro Max simulator that is exactly that size — which means something
 /// has to drive the app, because there is no Mac to drive it by hand.
 ///
-/// This is that driver. Enabled only by `--dart-define=DAWN_TOUR=true`, it seeds
-/// the demo account, walks the screens worth showing, and prints a marker line
+/// This is that driver. Enabled only by `--dart-define=DAWN_TOUR=true`, it adds
+/// the review demo playlist, walks the screens worth showing, and prints a marker line
 /// at each stop. `.github/workflows/ios-screenshots.yml` watches stdout for
 /// those markers and runs `xcrun simctl io … screenshot` when it sees one —
 /// which captures the composited screen, video surface and all, where a
@@ -33,13 +33,17 @@ import '../features/player/player_request.dart';
 /// the tour out entirely.
 const bool screenshotTourEnabled = bool.fromEnvironment('DAWN_TOUR');
 
-/// The mock panel. The workflow runs `tool/mock_xtream.php` on the runner
-/// itself — the simulator shares the host's loopback — so no screenshot depends
-/// on demo.dawnplayer.com being up, and none of them can show a real provider.
-const String _server = String.fromEnvironment(
-  'DAWN_TOUR_SERVER',
-  defaultValue: 'http://127.0.0.1:8082',
+/// The demo playlist: the same one App Review is given, so every screenshot
+/// shows exactly what a reviewer will see — two Blender films, both CC BY and
+/// hosted on dawnplayer.com, and nothing anybody else owns.
+const String _playlist = String.fromEnvironment(
+  'DAWN_TOUR_PLAYLIST',
+  defaultValue: 'https://dawnplayer.com/demo/demo.m3u',
 );
+
+/// Set by the player while it is on screen: opens its Audio & subtitles panel.
+/// Nothing taps the simulator, so this is how the tour gets the panel open.
+void Function()? tourOpenLanguages;
 
 /// How long a screen gets to settle (network, artwork, first paint) before its
 /// marker is printed.
@@ -72,10 +76,22 @@ Future<void> _capture(String name, {bool landscape = false, Duration? hold}) asy
 /// to capture — which is the watcher's signal to stop and the job's to finish.
 Future<void> runScreenshotTour(ProviderContainer container) async {
   try {
-    // Let the first frame land before touching providers that build a database.
-    await Future<void>.delayed(const Duration(seconds: 2));
+    final router = container.read(appRouterProvider);
+    // A debug build can take longer than the tour to rasterise its first
+    // frame — one run photographed the launch screen and called it home.
+    // Waiting on a completed frame is the honest signal; the cushion covers
+    // fonts after it.
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(const Duration(seconds: 4));
+
+    // First, before anything is added: the getting-started screen with its
+    // three ways in, files first.
+    await _stop(router, '/', 'welcome');
+
     final account = await _seed(container);
-    await _walk(container, account);
+    await _stop(router, '/movies', 'movies');
+    await _stop(router, '/', 'continue');
+    await _languages(router, container, account);
   } catch (error) {
     _log('FAILED $error');
   } finally {
@@ -84,21 +100,21 @@ Future<void> runScreenshotTour(ProviderContainer container) async {
   }
 }
 
-/// Adds the demo account the way the Add account screen would, then fills the
-/// cache: catalogue, guide, and enough watch progress that Continue Watching is
-/// not an empty row in the one screenshot everybody looks at.
+/// Adds the demo playlist the way the add screen would, then leaves both films
+/// part-watched, inside the §8.9 resume window, so Continue Watching has
+/// something in it.
 Future<Account> _seed(ProviderContainer container) async {
   final account = Account(
     id: stableAccountId(
-      type: AccountType.xtream,
-      serverUrl: _server,
-      username: 'aurora',
+      type: AccountType.m3u,
+      serverUrl: _playlist,
+      username: '',
     ),
-    type: AccountType.xtream,
-    name: 'Demo line',
-    serverUrl: _server,
-    username: 'aurora',
-    password: 'test',
+    type: AccountType.m3u,
+    name: 'Demo',
+    serverUrl: _playlist,
+    username: '',
+    password: '',
     createdAt: DateTime.now().toUtc(),
   );
 
@@ -107,73 +123,39 @@ Future<Account> _seed(ProviderContainer container) async {
   await accounts.setActiveAccount(account.id);
   container.invalidate(accountsProvider);
   container.invalidate(activeAccountProvider);
-  _log('account seeded against $_server');
+  _log('playlist seeded from $_playlist');
 
   final catalog = container.read(catalogRepositoryProvider);
   for (final kind in CatalogKind.values) {
-    await catalog.prepareSlice(account, kind);
-    _log('cached ${kind.name}');
+    try {
+      await catalog.prepareSlice(account, kind);
+      _log('cached ${kind.name}');
+    } catch (error) {
+      // A playlist has no series, and this one no live streams.
+      _log('nothing for ${kind.name}: $error');
+    }
   }
+  container.invalidate(activeHasLiveProvider);
 
-  try {
-    await container.read(epgRepositoryProvider).refreshGuide(account, force: true);
-    _log('guide ingested');
-  } catch (error) {
-    _log('guide failed: $error');
-  }
-
-  // Part-watched films, at positions inside the §8.9 resume window (5%–95%),
-  // because outside it the app is right to offer nothing. Six rather than
-  // three: the discovery rails below need real award-winning titles to resolve
-  // against, and the demo panel deliberately has none, so Continue Watching is
-  // the whole of the home screenshot and a half-empty row would show it.
   final progress = container.read(watchProgressRepositoryProvider);
-  final films = await catalog.movies(account, limit: 6);
-  for (final (index, film) in films.indexed) {
+  final films = await catalog.movies(account, limit: 10);
+  for (final film in films) {
+    final sintel = film.name.toLowerCase().contains('sintel');
     await progress.savePosition(
       contentKey: contentKeyFor(
         accountId: account.id,
         type: StreamType.movie,
         id: film.id,
       ),
-      positionSeconds: 900 + index * 600,
-      durationSeconds: 5400,
+      // Real running times, so the progress bars are honest.
+      positionSeconds: sintel ? 300 : 230,
+      durationSeconds: sintel ? 888 : 634,
     );
   }
   container.invalidate(homeDataProvider);
   _log('${films.length} films left part-watched');
 
   return account;
-}
-
-Future<void> _walk(ProviderContainer container, Account account) async {
-  final router = container.read(appRouterProvider);
-  final catalog = container.read(catalogRepositoryProvider);
-
-  // Seeding can finish inside a second when the panel is on the same machine,
-  // which is sooner than a debug build rasterises its first frame — one run
-  // photographed the launch screen and called it the home screen. Waiting on an
-  // actual completed frame is the only honest signal that there is something on
-  // screen to photograph; the cushion covers the fonts and posters after it.
-  await WidgetsBinding.instance.endOfFrame;
-  await Future<void>.delayed(const Duration(seconds: 4));
-
-  // Home gets longer than the rest: Continue Watching paints immediately, but
-  // the Award Winners rails are matched against the catalogue after it, and a
-  // run that photographed home too early got a screen with one row on it.
-  await _stop(router, '/', 'home', settle: const Duration(seconds: 12));
-  await _stop(router, '/live', 'live');
-  await _stop(router, '/guide', 'guide');
-  await _stop(router, '/movies', 'movies');
-
-  final series = await catalog.series(account, limit: 1);
-  if (series.isNotEmpty) {
-    await _stop(router, '/series/${series.first.id}', 'series');
-  } else {
-    _log('no series cached — skipping the series shot');
-  }
-
-  await _player(router, container, account);
 }
 
 Future<void> _stop(
@@ -191,29 +173,24 @@ Future<void> _stop(
   }
 }
 
-/// The player, on a film rather than a live channel: Big Buck Bunny is Creative
-/// Commons, so the one screenshot showing video shows nothing anybody else owns
-/// — and a film also gets the seek bar into the frame, which live playback hides.
-Future<void> _player(
+/// Sintel playing, with the Audio & subtitles panel open on its subtitle
+/// languages: the language memory the listing leads with, on a CC BY film.
+Future<void> _languages(
   GoRouter router,
   ProviderContainer container,
   Account account,
 ) async {
   try {
-    // Lowest id, not first alphabetically: the panel gives its first film the
-    // ten-minute one and alternates from there, and a 52-second trailer can run
-    // out from under a capture that arrives late.
     final films = await container
         .read(catalogRepositoryProvider)
-        .movies(account, limit: 50);
-    if (films.isEmpty) {
-      _log('no films cached — skipping the player shot');
+        .movies(account, limit: 10);
+    final sintel = films
+        .where((f) => f.name.toLowerCase().contains('sintel'))
+        .firstOrNull;
+    if (sintel == null) {
+      _log('Sintel is not in the playlist — skipping the languages shot');
       return;
     }
-    final film = films.reduce((a, b) =>
-        (int.tryParse(a.id) ?? 1 << 30) <= (int.tryParse(b.id) ?? 1 << 30)
-            ? a
-            : b);
     router.push(
       '/player',
       extra: PlayerRequest(
@@ -222,37 +199,37 @@ Future<void> _player(
             streamRef: StreamRef(
               accountId: account.id,
               type: StreamType.movie,
-              streamId: film.id,
-              containerExt: film.containerExt,
+              streamId: sintel.id,
+              containerExt: sintel.containerExt,
             ),
-            title: film.name,
+            title: sintel.name,
             contentKey: contentKeyFor(
               accountId: account.id,
               type: StreamType.movie,
-              id: film.id,
+              id: sintel.id,
             ),
           ),
         ],
-        // Films open on production logos over black. Starting forty seconds in
-        // lands on actual footage, and exercises resume — the thing the listing
-        // leads with — in the same frame.
-        resumeFromSeconds: 40,
+        // Past the opening titles, onto footage behind the panel.
+        resumeFromSeconds: 300,
       ),
     );
-    // The device rotates, the stream opens, and mpv decodes a frame — in
-    // software on a simulator, since videotoolbox has no hardware to hand.
-    // Measured at about five and a half seconds. Waiting much longer than that
-    // is not free: the demo clip runs ten seconds, and a screenshot taken at
-    // 0:09 of 0:10 shows a play button over a stopped film.
-    await Future<void>.delayed(const Duration(seconds: 11));
-    // The longest hold of the run. Grabbing the framebuffer while a video is
-    // compositing is markedly slower than grabbing a static screen — the
-    // player capture arrived seventeen seconds after its marker, by which time
-    // a twelve-second hold had already popped back to the series page and
-    // photographed that instead.
-    await _capture('player', landscape: true, hold: const Duration(seconds: 30));
-    router.pop();
+    // Rotate, open the stream, decode a frame (in software on a simulator)
+    // and report the tracks: the panel lists only what mpv has found.
+    await Future<void>.delayed(const Duration(seconds: 14));
+    final open = tourOpenLanguages;
+    if (open == null) {
+      _log('player not on screen — skipping the languages shot');
+      return;
+    }
+    open();
+    await Future<void>.delayed(const Duration(seconds: 2));
+    // Grabbing the framebuffer while video composites is slow: hold long.
+    await _capture('languages',
+        landscape: true, hold: const Duration(seconds: 30));
+    router.pop(); // the panel
+    router.pop(); // the player
   } catch (error) {
-    _log('player stop failed: $error');
+    _log('languages stop failed: $error');
   }
 }

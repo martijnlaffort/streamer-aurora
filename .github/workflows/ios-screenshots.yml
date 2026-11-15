@@ -4,14 +4,15 @@
 # would mean redoing that artwork by hand on every release.
 #
 # The app drives itself: `--dart-define=DAWN_TOUR=true` turns on
-# lib/tour/screenshot_tour.dart, which seeds the demo account against a mock
-# panel running on this runner, walks the screens, and prints a marker line at
-# each stop. The capture happens out here via `simctl`, not inside Flutter,
-# because a Flutter-side screenshot renders only the Flutter layer — the player
-# would come out as a black rectangle where the video is.
+# lib/tour/screenshot_tour.dart, which photographs the first-run screen, adds
+# the App Review demo playlist (two CC BY Blender films on dawnplayer.com),
+# walks the screens, and prints a marker line at each stop. The capture happens
+# out here via `simctl`, not inside Flutter, because a Flutter-side screenshot
+# renders only the Flutter layer — the player would come out as a black
+# rectangle where the video is.
 #
-# Nothing here touches demo.dawnplayer.com, and nothing can reach a real
-# provider, so no screenshot can ever show someone else's channel list.
+# The screenshots show exactly what a reviewer sees, and nothing anybody else
+# owns. The demo media must already be uploaded (tool/make_demo_media.sh).
 
 name: iOS Screenshots
 
@@ -21,6 +22,10 @@ on:
       device:
         description: 'Simulator to shoot on — must be a Pro Max for the 6.9" slot'
         default: 'iPhone 16 Pro Max'
+        required: false
+      playlist:
+        description: 'Demo playlist the tour adds'
+        default: 'https://dawnplayer.com/demo/demo.m3u'
         required: false
 
 jobs:
@@ -43,44 +48,6 @@ jobs:
         run: bash tool/patch_ios.sh
 
       - run: flutter pub get
-
-      # The simulator shares the host's network stack, so 127.0.0.1 here is
-      # 127.0.0.1 in the app. ATS already allows plain HTTP.
-      - name: Serve the mock panel on the runner
-        run: |
-          # The macOS runner images stopped shipping PHP. Installing it costs a
-          # couple of minutes and is still cheaper than porting the panel to a
-          # second language and keeping the two in step.
-          if ! command -v php > /dev/null; then
-            echo "no php on this image — installing"
-            brew install php
-          fi
-          php -v | head -n 1
-
-          # A catalogue that looks like a real line rather than a test fixture.
-          # Live channels past the first three reuse those three real streams
-          # round-robin, so every row in the list still plays.
-          export MOCK_LCOUNT=60 MOCK_COUNT=200 MOCK_SCOUNT=24
-
-          # Deliberate divergence from demo.dawnplayer.com, which forces this
-          # OFF: real award-winning titles here so the store screenshots show
-          # the discovery rails, which have nothing to resolve against
-          # otherwise. Martijn's call, made knowing that screenshots are the
-          # more public of the two artefacts and that a reviewer compares them
-          # against the app. The film the player shot plays is id 1001, which is
-          # genuinely Big Buck Bunny either way — the hero shot stays honest.
-          export MOCK_CANON=1
-          nohup php -S 127.0.0.1:8082 tool/mock_xtream.php > mock.log 2>&1 &
-          for _ in $(seq 1 20); do
-            if curl -sf "http://127.0.0.1:8082/player_api.php?username=aurora&password=test" | grep -q '"auth":1'; then
-              echo "mock panel up"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "mock panel never came up"
-          cat mock.log
-          exit 1
 
       - name: Boot the simulator
         id: sim
@@ -168,7 +135,7 @@ jobs:
             echo "=== attempt ${attempt} ==="
             nohup flutter run -d "$udid" \
               --dart-define=DAWN_TOUR=true \
-              --dart-define=DAWN_TOUR_SERVER=http://127.0.0.1:8082 \
+              --dart-define=DAWN_TOUR_PLAYLIST="${{ inputs.playlist || 'https://dawnplayer.com/demo/demo.m3u' }}" \
               > run.log 2>&1 &
             run_pid=$!
             echo "flutter run is pid ${run_pid} — building, this takes a few minutes"
@@ -212,7 +179,7 @@ jobs:
               fail=1
             fi
           done
-          for want in home live guide movies series player; do
+          for want in welcome continue languages movies; do
             [ -f "screenshots/${want}.png" ] || { echo "missing: ${want}.png"; fail=1; }
           done
           exit $fail
@@ -230,7 +197,5 @@ jobs:
         if: always()
         with:
           name: screenshot-run-log
-          path: |
-            run.log
-            mock.log
+          path: run.log
           if-no-files-found: warn
